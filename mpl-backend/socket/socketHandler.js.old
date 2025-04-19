@@ -1,0 +1,223 @@
+// mpl-project/mpl-backend/socket/socketHandler.js
+const pool = require('../config/db');
+
+// WARNING: In-memory store is simple for development but NOT suitable for production.
+// It doesn't persist across server restarts and won't work with multiple server instances (scaling).
+// Consider using Redis or another external store for managing live match states in production.
+let liveMatchesState = {};
+// Structure Example:
+// liveMatchesState = {
+//   "match_123": {
+//     matchId: 123, seasonId: 1, status: 'Live', innings: 1, score: 50, wickets: 1, overs: 4, balls: 2,
+//     battingTeamId: 10, bowlingTeamId: 11, superOver: 3, target: null,
+//     playersBattingTeam: [{player_id: 1, name: 'Player A'}, ...],
+//     playersBowlingTeam: [{player_id: 5, name: 'Player X'}, ...],
+//     batsmanStrike: { id: 1, name: 'Player A', runs: 25, balls: 15 },
+//     batsmanNonStrike: { id: 2, name: 'Player B', runs: 10, balls: 8 }, // If applicable
+//     bowler: { id: 5, name: 'Player X', oversDecimal: 1.2, runs: 15, wickets: 1, ballsBowledInOver: 2 },
+//     lastEvent: "Ball 4.2: 4 runs! Super Over active.",
+//     // Add more details as needed: recent balls, partnership, required run rate etc.
+//   },
+//   ...
+// }
+
+
+function initializeSocket(io) {
+    console.log('Socket.IO Handler Initialized and Ready.');
+
+    io.on('connection', (socket) => {
+        console.log(`[Socket Connect] ID: ${socket.id}`);
+
+        // --- Room Management ---
+        socket.on('joinMatchRoom', (matchId) => {
+            if (!matchId) {
+                console.warn(`[Socket Join] Invalid matchId received from ${socket.id}`);
+                return;
+            }
+            const roomName = `match_${matchId}`;
+            socket.join(roomName);
+            console.log(`[Socket Join] ${socket.id} joined room: ${roomName}`);
+
+            // Send the current state of the match *to the user who just joined*
+            if (liveMatchesState[matchId]) {
+                socket.emit('updateScore', liveMatchesState[matchId]);
+                console.log(`[Socket State] Sent current state of match ${matchId} to ${socket.id}`);
+            } else {
+                 console.log(`[Socket State] No live state found for match ${matchId} to send on join.`);
+                 // Optionally, inform the client that the match isn't live or state is unavailable
+                 // socket.emit('matchStateUnavailable', { matchId: matchId, message: "Match is not currently live or state unavailable." });
+            }
+        });
+
+        socket.on('leaveMatchRoom', (matchId) => {
+             if (!matchId) {
+                 console.warn(`[Socket Leave] Invalid matchId received from ${socket.id}`);
+                 return;
+             }
+            const roomName = `match_${matchId}`;
+            socket.leave(roomName);
+            console.log(`[Socket Leave] ${socket.id} left room: ${roomName}`);
+        });
+
+
+        // --- Scoring Actions ---
+
+        // Event triggered by admin scorer when Match Setup is confirmed and scoring should begin
+        socket.on('startMatchScoring', (matchId, initialState) => {
+            if (!matchId || !initialState) {
+                console.error(`[Socket Start] Invalid startMatchScoring event data received from ${socket.id}`);
+                // Optionally notify the sender: socket.emit('scoringError', { message: 'Invalid data for starting match.' });
+                return;
+            }
+            console.log(`[Socket Start] Starting scoring for Match ${matchId} requested by ${socket.id}`);
+
+            // Initialize or update the live state
+            liveMatchesState[matchId] = {
+                ...initialState, // Contains teams, players, superOver etc. from setup
+                status: 'Live', // Explicitly set status to Live
+                score: 0,
+                wickets: 0,
+                overs: 0, // Use whole number for completed overs
+                balls: 0, // Balls in the current over
+                innings: 1, // Assume starting first innings
+                target: null, // Target will be set after first innings
+                batsmanStrike: null, // Needs assignment (e.g., select opening pair)
+                batsmanNonStrike: null,
+                bowler: null, // Needs assignment (e.g., select opening bowler)
+                lastEvent: 'Match scoring started!',
+                // Add any other necessary initial state fields
+            };
+
+            // Broadcast to everyone in the room that the match is now live
+            const roomName = `match_${matchId}`;
+            io.to(roomName).emit('matchLive', liveMatchesState[matchId]);
+            io.to(roomName).emit('updateScore', liveMatchesState[matchId]); // Send initial live state
+            console.log(`[Socket Start] Match ${matchId} is now Live. State broadcasted.`);
+        });
+
+
+        // Event triggered by admin scorer for each ball bowled
+        socket.on('scoreBall', async (data) => {
+            // Expected data structure:
+            // { matchId: number, runs: number, isWicket: boolean, wicketType?: string, isExtra: boolean, extraType?: 'Wide'|'NoBall', /* TODO: batsmanId?: number, bowlerId?: number */ }
+            const { matchId, runs, isWicket, wicketType, isExtra, extraType } = data;
+
+            if (!matchId || !liveMatchesState[matchId]) {
+                console.warn(`[Score Ball] Event received for unknown or non-live match ${matchId} from ${socket.id}`);
+                socket.emit('scoringError', { message: `Match ${matchId} state not found.` });
+                return;
+            }
+
+            let currentState = liveMatchesState[matchId];
+
+            // Prevent scoring if match isn't live
+            if (currentState.status !== 'Live') {
+                console.warn(`[Score Ball] Attempted to score non-live match ${matchId} (Status: ${currentState.status})`);
+                socket.emit('scoringError', { message: `Match is not live (Status: ${currentState.status}). Cannot score.` });
+                return;
+            }
+
+             // --- !!! TODO: Implement Full State Update Logic Here !!! ---
+             // This is the core game logic and needs careful implementation based on your specific rules.
+             // Steps:
+             // 1. Identify current batsman and bowler (if not passed in event, get from currentState).
+             // 2. Calculate actual runs (handle Super Over).
+             // 3. Update score, batsman runs, bowler runs conceded.
+             // 4. Handle extras (don't count ball, add penalty run).
+             // 5. Handle wickets (increment wickets, update batsman status, bowler wickets). Check for end of innings (1 wicket).
+             // 6. If not an extra, increment balls faced (batsman) and balls bowled (bowler). Increment balls in over.
+             // 7. Check for end of over (6 legal deliveries). If ended: increment overs, reset balls, check for maiden, trigger bowler change.
+             // 8. Check for end of innings (wickets >= 1 or overs >= 5). If ended: set status, calculate target (if 1st innings), trigger innings break/match end.
+             // 9. Update `lastEvent` string for commentary.
+             // 10. Update the `liveMatchesState[matchId]` object.
+             // --- End of TODO ---
+
+            // --- Placeholder Logic (Very Simplified) ---
+             let commentary = '';
+             let ballCounted = false;
+             let runsToAdd = runs;
+
+            if (isExtra) {
+                currentState.score += 1; // Penalty
+                commentary = `${extraType}! +1 run. `;
+                if (extraType === 'NoBall') {
+                     currentState.score += runs; // Runs off NB
+                     commentary += ` (+${runs} scored).`;
+                }
+            } else {
+                ballCounted = true;
+                let isSuperOverBall = currentState.overs + 1 === currentState.superOver; // Check *next* over number
+                if (isSuperOverBall) {
+                    runsToAdd = runs * 2;
+                    commentary = `${runs} runs (DOUBLED to ${runsToAdd}!). `;
+                } else {
+                    runsToAdd = runs;
+                    commentary = `${runs} runs. `;
+                }
+                currentState.score += runsToAdd;
+            }
+
+            if (isWicket) {
+                currentState.wickets += 1;
+                commentary += `WICKET (${wicketType || ''})! `;
+                 // Check End of Innings (Rule: 1 wicket)
+                if (currentState.wickets >= 1) {
+                     currentState.status = currentState.innings === 1 ? 'InningsBreak' : 'Completed';
+                     commentary += `Innings End.`;
+                     // TODO: Add target calculation etc.
+                }
+            }
+
+            if (ballCounted) {
+                currentState.balls += 1;
+                if (currentState.balls >= 6) {
+                    currentState.overs += 1;
+                    currentState.balls = 0;
+                    commentary += `End of Over ${currentState.overs}. `;
+                    // Check End of Innings (Rule: 5 overs)
+                    if (currentState.overs >= 5 && currentState.status === 'Live') { // Prevent double end
+                         currentState.status = currentState.innings === 1 ? 'InningsBreak' : 'Completed';
+                         commentary += `Innings End (Overs).`;
+                          // TODO: Add target calculation etc.
+                    }
+                }
+            }
+             currentState.lastEvent = commentary.trim();
+             // --- End of Placeholder Logic ---
+
+
+            // --- Broadcast Updated State ---
+            const roomName = `match_${matchId}`;
+            io.to(roomName).emit('updateScore', currentState);
+            console.log(`[Score Ball] Match ${matchId} updated. Score: ${currentState.score}/${currentState.wickets}, Overs: ${currentState.overs}.${currentState.balls}. Event: ${currentState.lastEvent}`);
+
+            // Handle end of match/innings conditions
+            if (currentState.status === 'InningsBreak' || currentState.status === 'Completed') {
+                console.log(`[State Change] Match ${matchId} status is now: ${currentState.status}`);
+                // Optional: Emit specific event for state change
+                // io.to(roomName).emit('matchStatusUpdate', { status: currentState.status, summary: '...' });
+
+                // TODO: Trigger final saving of stats to DB here or via separate finalize step.
+                // Consider removing from live state once fully completed and saved?
+                // delete liveMatchesState[matchId];
+            }
+
+        }); // End of 'scoreBall' handler
+
+
+        // --- Disconnect Handling ---
+        socket.on('disconnect', (reason) => {
+            console.log(`[Socket Disconnect] ID: ${socket.id}, Reason: ${reason}`);
+            // Clean up user-specific things if necessary, e.g., if tracking scorers individually.
+            // Rooms are left automatically.
+        });
+
+        // --- Connection Error Handling ---
+        socket.on('connect_error', (err) => {
+            console.error(`[Socket Connect Error] ID: ${socket.id}, Error: ${err.message}`);
+        });
+
+    }); // End of io.on('connection')
+}
+
+module.exports = initializeSocket;
