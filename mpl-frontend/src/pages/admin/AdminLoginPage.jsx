@@ -63,6 +63,7 @@ function AdminLoginPage() {
                 <div>
                     <label htmlFor="username">Username:</label>
                     <input
+                    style={{backgroundColor:'white'}}
                         type="text"
                         id="username"
                         value={username}
@@ -74,6 +75,8 @@ function AdminLoginPage() {
                 <div>
                     <label htmlFor="password">Password:</label>
                     <input
+                                        style={{backgroundColor:'white'}}
+
                         type="password"
                         id="password"
                         value={password}

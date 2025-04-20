@@ -13,6 +13,7 @@ const ScoreDisplay = ({ state, matchDetails }) => {
     const status = displayData?.status;
 
     if (!status) return <p>Waiting for match status...</p>;
+    console.log("matchDetails",matchDetails)
 
     const getPlayerName = (playerId, playersList) => playersList?.find(p => p.player_id === parseInt(playerId))?.name || `ID: ${playerId}`;
 
@@ -34,7 +35,30 @@ const ScoreDisplay = ({ state, matchDetails }) => {
              </p>
              {displayData?.target && displayData?.inningNumber === 2 && <p><strong>Target: {displayData.target}</strong></p>}
              {/* Display LATEST commentary event from the live state */}
-             {displayData?.lastBallCommentary && <p style={{ marginTop: '0.5rem', fontStyle: 'italic', borderTop: '1px dashed #ccc', paddingTop: '0.5rem' }}>{displayData.lastBallCommentary}</p>}
+             {matchDetails.result_summary && <p style={{ marginTop: '0.5rem', fontStyle: 'italic', borderTop: '1px dashed #ccc', paddingTop: '0.5rem' }}>{matchDetails.result_summary}</p>}
+             <table>
+                   <thead>
+                       <tr>
+                           <th>Name</th>
+                           <th>Runs</th>
+                           <th>Balls</th>
+                           <th>SR</th>
+                           <th>Fours</th>
+                           {/* Add more headers: 4s, 6s, Bowl Avg, Bowl SR, Catches etc. */}
+                       </tr>
+                   </thead>
+                   <tbody>
+                       {matchDetails.playerStats.map(player=>{
+                        return(<tr>
+                           <td>{player.player_name ?? '-'}</td>
+                           <td>{player.runs_scored ?? '-'}</td>
+                           <td>{player.balls_faced ?? '-'}</td>
+                           <td>{player.runs_scored/player.balls_faced*100 ?? '-'}</td>
+                           <td>{player.fours ?? '-'}</td>
+                            {/* Add more data cells */}
+                       </tr>)})}
+                   </tbody>
+                </table>
         </div>
     );
 };

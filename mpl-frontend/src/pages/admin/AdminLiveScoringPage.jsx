@@ -287,6 +287,20 @@ function AdminLiveScoringPage() {
         try {
             await api.post(`/admin/scoring/matches/${matchId}/ball`, payload);
             setIsWicketEvent(false); setSelectedWicketType(''); setSelectedFielderId('');
+            const { data: fetchedState } = await api.get(`/admin/scoring/matches/${matchId}/state`);
+            if (!fetchedState || !fetchedState.status) {
+                throw new Error("Invalid state received from server.");
+            }
+             // Validate status - scoring page only makes sense for certain statuses
+             if (!['Setup', 'Live', 'InningsBreak', 'Completed'].includes(fetchedState.status)) {
+                 setError(`Match status is '${fetchedState.status}'. Cannot initiate/resume scoring.`);
+                 setMatchState(fetchedState); // Still set state for display purposes
+                 setIsLoading(false);
+                 return; // Don't proceed further (e.g., joining socket room for scoring)
+             }
+
+            setMatchState(fetchedState);
+            prevStateRef.current = fetchedState; 
         } catch (err) {
             console.error("Error submitting ball:", err);
             const errorMsg = typeof err === 'string' ? err : (err?.message || 'Failed to score ball.');
@@ -299,7 +313,26 @@ function AdminLiveScoringPage() {
 
     // --- Handlers for UI Controls ---
     const handleLegalBall = (runs) => submitBallData({ runsScored: runs, isBye: false }); const handleBye = (runs) => submitBallData({ runsScored: runs, isBye: true }); const handleWideClick = () => submitBallData({ isExtra: true, extraType: 'Wide', extraRuns: 1, runsScored: 0, isBye: false }); const handleWideByeClick = (byes) => submitBallData({ isExtra: true, extraType: 'Wide', extraRuns: 1, runsScored: byes, isBye: true }); const handleNoBallClick = (runs) => submitBallData({ isExtra: true, extraType: 'NoBall', extraRuns: 1, runsScored: runs, isBye: false }); const handleNoBallByeClick = (byes) => submitBallData({ isExtra: true, extraType: 'NoBall', extraRuns: 1, runsScored: byes, isBye: true }); const handleWicketConfirm = () => { if (!selectedWicketType) {setError("Wicket type needed"); return;} if (['Caught','Stumped'].includes(selectedWicketType) && !selectedFielderId) {setError("Fielder needed"); return;} submitBallData({ isWicket: true, wicketType: selectedWicketType, fielderPlayerId: selectedFielderId, runsScored: 0, isBye: false, isExtra: false }); };
-    const handleUndo = async () => { if (!matchState || !['Live', 'InningsBreak', 'Completed'].includes(matchState.status)) { setError("Cannot undo ball in current match state."); return; } /* Basic check - might still fail if DB is empty */ if ((matchState.score === 0 && matchState.wickets === 0 && matchState.overs === 0 && matchState.balls === 0) && matchState.inningNumber === 1 && matchState.status !== 'Completed') { setError("No balls seem to have been bowled yet to undo."); return; } if (!window.confirm("Are you sure you want to undo the last recorded ball?")) return; setError(''); setIsSubmitting(true); try { await api.delete(`/admin/scoring/matches/${matchId}/ball/last`); setIsWicketEvent(false); setSelectedWicketType(''); setSelectedFielderId(''); } catch (err) { console.error("Error undoing ball:", err); const errorMsg = typeof err === 'string' ? err : (err.response?.data?.message || 'Failed to undo last ball.'); setError(errorMsg); } finally { setIsSubmitting(false); } };
+    const handleUndo = async () => { if (!matchState || !['Live', 'InningsBreak', 'Completed'].includes(matchState.status)) { setError("Cannot undo ball in current match state."); return; } /* Basic check - might still fail if DB is empty */ if ((matchState.score === 0 && matchState.wickets === 0 && matchState.overs === 0 && matchState.balls === 0) && matchState.inningNumber === 1 && matchState.status !== 'Completed') { setError("No balls seem to have been bowled yet to undo."); return; } if (!window.confirm("Are you sure you want to undo the last recorded ball?")) return; setError(''); setIsSubmitting(true); try { 
+        await api.delete(`/admin/scoring/matches/${matchId}/ball/last`); 
+        setIsWicketEvent(false);
+         setSelectedWicketType('');
+          setSelectedFielderId(''); 
+          const { data: fetchedState } = await api.get(`/admin/scoring/matches/${matchId}/state`);
+            if (!fetchedState || !fetchedState.status) {
+                throw new Error("Invalid state received from server.");
+            }
+             // Validate status - scoring page only makes sense for certain statuses
+             if (!['Setup', 'Live', 'InningsBreak', 'Completed'].includes(fetchedState.status)) {
+                 setError(`Match status is '${fetchedState.status}'. Cannot initiate/resume scoring.`);
+                 setMatchState(fetchedState); // Still set state for display purposes
+                 setIsLoading(false);
+                 return; // Don't proceed further (e.g., joining socket room for scoring)
+             }
+
+            setMatchState(fetchedState);
+            prevStateRef.current = fetchedState; 
+        } catch (err) { console.error("Error undoing ball:", err); const errorMsg = typeof err === 'string' ? err : (err.response?.data?.message || 'Failed to undo last ball.'); setError(errorMsg); } finally { setIsSubmitting(false); } };
 
 
     // --- Render Logic ---
@@ -320,7 +353,7 @@ function AdminLiveScoringPage() {
     const buttonStyle = { minWidth: '55px', padding: '0.5em 0.8em', fontSize: '0.9rem'};
     const labelStyle = { fontWeight: 'bold', marginRight: '10px', minWidth: '80px', textAlign: 'right'};
 
-
+console.log("matchState====>",matchState)
     return (
         <div>
             <h2>Live Scoring - Match {matchId}</h2>
