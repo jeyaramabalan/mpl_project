@@ -4,8 +4,8 @@ require('dotenv').config(); // Load environment variables from .env file
 
 const pool = mysql.createPool({
     host: process.env.DB_HOST || 'localhost',
-    user: process.env.DB_USER || 'root', // Default user if not set in .env
-    password: process.env.DB_PASSWORD || '', // Default password if not set
+    user: process.env.DB_USER || 'mmpl_dbadmin', // Default user if not set in .env
+    password: process.env.DB_PASSWORD || 'Mpl@2025', // Default password if not set
     database: process.env.DB_NAME || 'mpl_db', // Default DB name
     waitForConnections: true,
     connectionLimit: 10, // Adjust based on expected load

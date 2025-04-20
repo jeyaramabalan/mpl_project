@@ -3,4 +3,3 @@ mpl-frontend/node_modules/
 
 # Ignore node_modules in mpl-backend
 mpl-backend/node_modules/
-mpl-backend/config/db.js
