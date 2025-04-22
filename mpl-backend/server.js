@@ -11,12 +11,14 @@ require('dotenv').config(); // Load environment variables from .env file
 const pool = require('./config/db'); // Database connection pool (ensures DB connects on start)
 const initializeSocket = require('./socket/socketHandler'); // Socket.IO event handling logic
 const { protect } = require('./middleware/authMiddleware'); // Admin authentication middleware
-
+const leaderboardRoutes = require('./routes/leaderboard');
 // --- Route Imports ---
 // Public Routes (Accessible without login)
 const playerRoutes = require('./routes/players');
 const matchRoutes = require('./routes/matches');
-const ratingRoutes = require('./routes/ratings'); // Contains public GET and protected POST
+//const ratingRoutes = require('./routes/ratings'); // Contains public GET and protected POST
+const standingsRoutes = require('./routes/standings');
+const publicSeasonRoutes = require('./routes/seasons');
 
 // Admin Auth Route (Login endpoint is public)
 const adminAuthRoutes = require('./routes/admin/auth');
@@ -64,10 +66,13 @@ app.get('/api', (req, res) => res.json({ message: 'MPL API is alive and kicking!
 // Mount Public Routes
 app.use('/api/players', playerRoutes);
 app.use('/api/matches', matchRoutes);
-app.use('/api/ratings', ratingRoutes); // Remember POST is protected internally if auth middleware added
+app.use('/api/standings', standingsRoutes)
+//app.use('/api/ratings', ratingRoutes); // Remember POST is protected internally if auth middleware added
+app.use('/api/seasons', publicSeasonRoutes);
 
 // Mount Admin Authentication Routes (Login is public)
 app.use('/api/admin/auth', adminAuthRoutes);
+app.use('/api/leaderboard', leaderboardRoutes);
 
 // Mount Protected Admin Routes (Apply 'protect' middleware here globally)
 app.use('/api/admin/seasons', protect, adminSeasonRoutes);

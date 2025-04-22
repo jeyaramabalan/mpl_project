@@ -1,0 +1,145 @@
+/* src/pages/HomePage.css */
+
+.home-page {
+    padding: 1rem 0; /* Adjust padding as needed */
+}
+
+.home-page section {
+    margin-bottom: 2.5rem;
+    padding: 1.5rem;
+    background-color: #3a3a3a; /* Slightly different background for sections */
+    border-radius: 8px;
+}
+
+.welcome-section {
+    text-align: center;
+    background-color: transparent; /* Make welcome blend more */
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+.welcome-section h1 {
+    margin-bottom: 0.5rem;
+    color: #e0e0ff; /* Lighter title color */
+}
+
+.welcome-section .tagline {
+    font-style: italic;
+    color: #ccc;
+    margin-bottom: 1rem;
+}
+
+.logo-container {
+    margin-bottom: 1.5rem;
+}
+
+.home-logo {
+    max-height: 100px; /* Adjust size as needed */
+    width: auto;
+}
+
+.home-divider {
+    border: none;
+    border-top: 1px solid #555;
+    margin: 2.5rem 0;
+}
+
+.next-match-section h2,
+.quick-links-section h2 {
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+    text-align: center;
+    color: #eee;
+    border-bottom: 1px solid #555;
+    padding-bottom: 0.5rem;
+}
+
+.match-card {
+    background-color: #444;
+    padding: 1.5rem;
+    border-radius: 6px;
+    text-align: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}
+
+.match-card .match-teams {
+    font-size: 1.3em;
+    font-weight: bold;
+    margin: 0 0 0.5rem 0;
+}
+
+.match-card .match-time {
+    font-size: 1.1em;
+    color: #f0e68c; /* Highlight time */
+    margin-bottom: 0.5rem;
+}
+.match-card .match-venue {
+    font-size: 0.95em;
+    color: #ccc;
+    margin-bottom: 1.2rem;
+}
+
+.match-card .details-button {
+    background-color: #646cff;
+    color: white;
+    border: none;
+    padding: 0.7em 1.5em;
+}
+.match-card .details-button:hover {
+    background-color: #535bf2;
+    border-color: #535bf2;
+}
+
+
+.quick-links-section ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.quick-links-section li a {
+    display: inline-block;
+    padding: 0.8rem 1.2rem;
+    background-color: #444;
+    border-radius: 5px;
+    text-decoration: none;
+    color: #a0a0ff;
+    transition: background-color 0.2s, color 0.2s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.quick-links-section li a:hover {
+    background-color: #505050;
+    color: #fff;
+}
+
+/* Light mode adjustments */
+@media (prefers-color-scheme: light) {
+    .home-page section {
+        background-color: #f8f9fa; /* Lighter section background */
+    }
+    .welcome-section { background-color: transparent;}
+    .welcome-section h1 { color: #213547; }
+    .welcome-section .tagline { color: #555; }
+    .home-divider { border-color: #ddd; }
+
+    .next-match-section h2,
+    .quick-links-section h2 {
+        color: #333;
+        border-color: #eee;
+    }
+
+    .match-card { background-color: #fff; border: 1px solid #eee; box-shadow: 0 1px 3px rgba(0,0,0,0.1);}
+    .match-card .match-teams { color: #213547; }
+    .match-card .match-time { color: #b8860b; }
+    .match-card .match-venue { color: #666; }
+    .match-card .details-button { background-color: #007bff; }
+    .match-card .details-button:hover { background-color: #0056b3; }
+
+    .quick-links-section li a { background-color: #e9ecef; color: #0000d0; box-shadow: none; border: 1px solid #ddd; }
+    .quick-links-section li a:hover { background-color: #dde2e7; color: #0000ff; }
+}

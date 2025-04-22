@@ -29,7 +29,7 @@ router.get('/:id/stats', getPlayerStats);
 // POST /api/players - Register a new player
 // Access Control Decision: Should this be public self-registration or admin-only?
 // If admin-only, add 'protect' middleware here.
-router.post('/', registerPlayer);
+router.post('/', protect, registerPlayer); 
 
 
 // --- Admin Only Routes (Protected) ---

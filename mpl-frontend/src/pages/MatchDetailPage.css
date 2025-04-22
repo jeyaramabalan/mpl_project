@@ -1,0 +1,231 @@
+/* src/pages/MatchDetailPage.css */
+
+.match-detail-page {
+    /* Max width inherited from main potentially */
+}
+
+.match-header {
+    background-color: #3a3a3a; /* Darker background for header */
+    padding: 1rem 1.5rem;
+    border-radius: 8px 8px 0 0; /* Rounded top corners */
+    margin-bottom: 0; /* Remove bottom margin if using divider */
+}
+
+.match-header h2 {
+    margin-top: 0;
+    margin-bottom: 0.5rem;
+    color: #fff;
+}
+
+.match-header p {
+    margin: 0.3rem 0;
+    font-size: 0.95em;
+    color: #ccc;
+}
+
+.match-header .status-live {
+    color: #ff6b6b; /* Reddish for live */
+    font-weight: bold;
+}
+.match-header .status-completed {
+    color: #a0ffa0; /* Greenish for completed */
+}
+.match-header .status-scheduled,
+.match-header .status-setup,
+.match-header .status-inningsbreak {
+    color: #f0e68c; /* Khaki/Yellow */
+}
+.match-header .status-abandoned {
+    color: #aaa; /* Grey */
+}
+
+
+/* Score Summary Styling */
+.score-summary-section {
+    margin-top: 1.5rem;
+}
+.score-summary-section h3 {
+    margin-bottom: 1rem;
+}
+
+.score-summary-box {
+    border: 1px solid #444;
+    padding: 1rem 1.5rem; /* More padding */
+    margin-bottom: 1rem;
+    background-color: #333; /* Slightly different shade */
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); /* Subtle shadow */
+}
+.score-summary-box .batting-bowling-info {
+    font-size: 0.9em;
+    color: #bbb;
+    margin-bottom: 0.8rem;
+}
+.score-summary-box .main-score {
+    font-size: 2.2em; /* Larger score */
+    font-weight: bold;
+    margin: 0.5rem 0;
+    color: #fff;
+}
+.score-summary-box .overs-info {
+    font-size: 1.1em;
+    color: #ddd;
+}
+.score-summary-box .target-info {
+    font-size: 1.1em;
+    color: #f0e68c; /* Highlight target */
+    margin-top: 0.8rem;
+}
+.score-summary-box .result-summary {
+    margin-top: 1rem;
+    font-weight: bold;
+    border-top: 1px dashed #555;
+    padding-top: 1rem;
+    color: #a0ffa0; /* Greenish for result */
+}
+.score-summary-box .last-ball-commentary {
+    margin-top: 1rem;
+    font-style: italic;
+    border-top: 1px dashed #555;
+    padding-top: 1rem;
+    color: #ccc;
+}
+
+.mom-info {
+    margin-top: 1rem;
+    font-weight: 500;
+    color: #f0e68c;
+}
+
+/* Commentary Section */
+.commentary-section {
+    margin-top: 2rem;
+}
+.commentary-section h3 {
+    margin-bottom: 1rem;
+}
+.commentary-box {
+    height: 350px; /* Increased height */
+    overflow-y: auto;
+    border: 1px solid #444;
+    padding: 0.8rem 1.2rem;
+    background-color: #303030; /* Slightly darker box */
+    border-radius: 5px;
+}
+.commentary-item {
+    border-bottom: 1px solid #484848;
+    padding: 0.5rem 0;
+    margin: 0 0 0.5rem 0;
+    font-size: 0.9em;
+    line-height: 1.4;
+}
+.commentary-item:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+/* Optional: Alternating commentary item background */
+/* .commentary-item:nth-child(even) { background-color: #353535; } */
+
+
+/* Scorecards Section */
+.detailed-scorecards-section {
+    margin-top: 2rem;
+}
+.detailed-scorecards-section h3 {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+/* Dividers */
+.section-divider {
+    border: none;
+    border-top: 1px solid #555;
+    margin: 2rem 0;
+}
+.innings-divider {
+     border: none;
+    border-top: 1px dashed #666;
+    margin: 2.5rem 0;
+}
+
+/* Back Link */
+.back-link-container {
+    margin-top: 2rem;
+    text-align: center; /* Center the button */
+}
+
+
+/* Light Mode Adjustments */
+@media (prefers-color-scheme: light) {
+    .match-header { background-color: #f0f0f0; }
+    .match-header h2 { color: #333; }
+    .match-header p { color: #555; }
+    .match-header .status-live { color: #dc3545; }
+    .match-header .status-completed { color: #28a745; }
+    .match-header .status-scheduled,
+    .match-header .status-setup,
+    .match-header .status-inningsbreak { color: #b8860b; /* DarkGoldenrod */ }
+    .match-header .status-abandoned { color: #888; }
+
+    .score-summary-box { border-color: #ddd; background-color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .score-summary-box .batting-bowling-info { color: #666; }
+    .score-summary-box .main-score { color: #213547; }
+    .score-summary-box .overs-info { color: #444; }
+    .score-summary-box .target-info { color: #b8860b; }
+    .score-summary-box .result-summary { border-color: #ddd; color: #28a745; }
+    .score-summary-box .last-ball-commentary { border-color: #ddd; color: #555; }
+
+    .mom-info { color: #b8860b; }
+
+    .commentary-section h3 {}
+    .commentary-box { border-color: #ddd; background-color: #fdfdfd; }
+    .commentary-item { border-color: #eee; }
+    /* .commentary-item:nth-child(even) { background-color: #f7f7f7; } */
+
+    .section-divider { border-color: #ccc; }
+    .innings-divider { border-color: #ddd; }
+}
+
+/* Add to src/pages/MatchDetailPage.css */
+
+.score-summary-box.completed {
+    /* Styles for the completed summary box */
+    padding-top: 1.5rem; /* More space */
+    padding-bottom: 0.5rem;
+}
+
+.score-summary-box .final-innings-score {
+    font-size: 1.1em;
+    margin: 0.4rem 0;
+    color: #eee;
+}
+.score-summary-box .final-innings-score strong {
+    display: inline-block;
+    min-width: 120px; /* Align team names */
+    color: #fff;
+}
+
+.score-summary-box .result-summary {
+    margin-top: 1.5rem; /* More space above result */
+    font-weight: bold;
+    border-top: 1px dashed #555;
+    padding-top: 1rem;
+    color: #a0ffa0; /* Greenish for result */
+}
+
+/* Light Mode */
+@media (prefers-color-scheme: light) {
+    .score-summary-box.completed {
+        padding-top: 1.5rem;
+        padding-bottom: 0.5rem;
+    }
+    .score-summary-box .final-innings-score {
+         color: #333;
+    }
+    .score-summary-box .final-innings-score strong {
+        color: #000;
+    }
+    .score-summary-box .result-summary {
+        border-color: #ddd; color: #28a745;
+    }
+}

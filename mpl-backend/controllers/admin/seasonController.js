@@ -145,6 +145,7 @@ exports.updateSeason = async (req, res, next) => {
     }
 };
 
+
 /**
  * @desc    Delete a season (Use with caution!)
  * @route   DELETE /api/admin/seasons/:id

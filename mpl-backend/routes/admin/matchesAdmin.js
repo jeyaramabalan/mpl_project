@@ -5,7 +5,8 @@ const {
     getAllMatches, // Can reuse logic from public controller if desired
     getMatchById,
     updateMatch,
-    deleteMatch
+    deleteMatch,
+    resolveMatch
 } = require('../../controllers/admin/matchAdminController'); // Point to the new controller
 
 const router = express.Router();
@@ -21,4 +22,6 @@ router.route('/:id')
     .put(updateMatch)  // Update scheduled match details
     .delete(deleteMatch); // Delete a scheduled match
 
+router.route('/:id/resolve')
+    .put(resolveMatch);
 module.exports = router;

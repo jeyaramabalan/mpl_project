@@ -1,0 +1,105 @@
+/* src/pages/StandingsPage.css */
+
+.standings-page h2 {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.filter-section {
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+.filter-section label {
+    margin-right: 0.5rem;
+    font-weight: 500;
+}
+
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.standings-table {
+    width: 100%;
+    min-width: 650px; /* Adjusted min-width for new column */
+    border-collapse: collapse;
+    font-size: 0.95em;
+    background-color: #383838;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.standings-table th,
+.standings-table td {
+    border: 1px solid #555;
+    padding: 0.7rem 0.9rem;
+    text-align: left;
+    vertical-align: middle;
+}
+
+.standings-table th {
+    background-color: #4a4a4a;
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+.standings-table tbody tr:nth-child(even) {
+    background-color: #404040;
+}
+
+.standings-table tbody tr:hover {
+    background-color: #4f4f4f;
+}
+
+/* Specific column styles */
+.standings-table .position {
+    text-align: center;
+    font-weight: bold;
+    width: 50px;
+}
+.standings-table .team-name {
+    font-weight: 500;
+    min-width: 180px;
+}
+.standings-table .nrr {
+    font-weight: 500;
+}
+.standings-table .points {
+    font-weight: bold;
+}
+
+/* Right align numeric columns - Adjusted indices for new NR column */
+.standings-table td:not(:nth-child(2)):not(:nth-child(7)), /* Exclude Team Name and NRR */
+.standings-table th:not(:nth-child(2)):not(:nth-child(7)) {
+     text-align: center;
+     font-variant-numeric: tabular-nums;
+     width: 70px;
+}
+/* Align Team Name header left */
+.standings-table th:nth-child(2),
+.standings-table td:nth-child(2) {
+    text-align: left;
+}
+/* Align NRR header/cell right (now column 7) */
+.standings-table th:nth-child(7),
+.standings-table td:nth-child(7) {
+    text-align: right;
+    width: 90px;
+}
+/* Align Points header/cell center (now column 8) */
+.standings-table th:nth-child(8),
+.standings-table td:nth-child(8) {
+    text-align: center;
+    width: 60px;
+}
+
+/* Light mode */
+@media (prefers-color-scheme: light) {
+    .standings-table { background-color: #f9f9f9; }
+    .standings-table th, .standings-table td { border-color: #ddd; }
+    .standings-table th { background-color: #e8e8e8; }
+    .standings-table tbody tr:nth-child(even) { background-color: #f2f2f2; }
+    .standings-table tbody tr:hover { background-color: #e9e9e9; }
+}

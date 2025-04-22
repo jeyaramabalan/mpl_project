@@ -1,0 +1,131 @@
+/* src/components/Scorecard.css */
+
+.scorecard-container {
+    margin-bottom: 2rem; /* Space between scorecards */
+    padding: 1rem;
+    border: 1px solid #444; /* Slightly visible border */
+    border-radius: 8px;
+    background-color: #383838; /* Slightly different background */
+}
+
+.scorecard-container h4 {
+    margin-top: 0;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid #555;
+    padding-bottom: 0.5rem;
+    color: #eee;
+}
+
+/* Make table scroll horizontally on small screens */
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+}
+
+.scorecard-table {
+    width: 100%;
+    min-width: 600px; /* Ensure table has minimum width before scrolling */
+    border-collapse: collapse;
+    font-size: 0.95em;
+}
+
+.scorecard-table th,
+.scorecard-table td {
+    border: 1px solid #555;
+    padding: 0.5rem 0.7rem; /* Slightly adjust padding */
+    text-align: left;
+    vertical-align: middle;
+}
+
+.scorecard-table th {
+    background-color: #4a4a4a; /* Darker header */
+    font-weight: bold;
+    white-space: nowrap; /* Prevent headers from wrapping */
+}
+
+.scorecard-table tbody tr:nth-child(even) {
+    background-color: #404040; /* Subtle alternating row */
+}
+
+.scorecard-table tbody tr:hover {
+    background-color: #4f4f4f; /* Hover effect */
+}
+
+/* Specific column styles */
+.scorecard-table .player-name {
+    font-weight: 500;
+    min-width: 150px;
+}
+.scorecard-table .player-name a {
+    color: #a0a0ff;
+    text-decoration: none;
+}
+.scorecard-table .player-name a:hover {
+    text-decoration: underline;
+    color: #c0c0ff;
+}
+
+.scorecard-table .dismissal {
+    font-size: 0.9em;
+    color: #ccc;
+    min-width: 120px;
+}
+.scorecard-table .dismissal .not-out {
+    color: #a0ffa0; /* Greenish for Not Out */
+    font-style: italic;
+}
+
+/* Align numeric columns to the right */
+.scorecard-table .runs,
+.scorecard-table .balls,
+.scorecard-table .fours,
+.scorecard-table .sixes,
+.scorecard-table .strike-rate,
+.scorecard-table .overs,
+.scorecard-table .maidens,
+.scorecard-table .runs-conceded,
+.scorecard-table .wickets,
+.scorecard-table .economy,
+.scorecard-table .wides,
+.scorecard-table .noballs {
+    text-align: right;
+    font-variant-numeric: tabular-nums; /* Ensures numbers align well */
+}
+
+/* Light mode adjustments */
+@media (prefers-color-scheme: light) {
+  .scorecard-container {
+    border-color: #ddd;
+    background-color: #f9f9f9;
+  }
+  .scorecard-container h4 {
+    border-color: #ddd;
+    color: #333;
+  }
+  .scorecard-table th,
+  .scorecard-table td {
+    border-color: #ddd;
+  }
+  .scorecard-table th {
+    background-color: #e8e8e8;
+  }
+  .scorecard-table tbody tr:nth-child(even) {
+    background-color: #f2f2f2;
+  }
+  .scorecard-table tbody tr:hover {
+    background-color: #e9e9e9;
+  }
+   .scorecard-table .player-name a {
+    color: #0000d0;
+   }
+    .scorecard-table .player-name a:hover {
+    color: #0000ff;
+   }
+   .scorecard-table .dismissal {
+    color: #555;
+   }
+   .scorecard-table .dismissal .not-out {
+    color: #008000; /* Darker green */
+   }
+}

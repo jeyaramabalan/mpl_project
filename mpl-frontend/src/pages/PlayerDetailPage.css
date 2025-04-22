@@ -1,0 +1,151 @@
+/* src/pages/PlayerDetailPage.css */
+
+.player-detail-page {
+    padding: 1rem 0; /* Add some vertical padding */
+}
+
+/* Two-column layout for wider screens */
+.player-layout {
+    display: flex;
+    flex-wrap: wrap; /* Allow wrapping on smaller screens */
+    gap: 2rem; /* Space between columns */
+}
+
+.player-info-column {
+    flex: 1; /* Take up available space */
+    min-width: 250px; /* Minimum width before wrapping */
+    /* background-color: #353535; */ /* Optional distinct background */
+    /* padding: 1.5rem; */
+    /* border-radius: 8px; */
+}
+
+.player-stats-column {
+    flex: 2; /* Take up more space */
+    min-width: 300px; /* Minimum width */
+}
+
+/* Player Info Styling */
+.player-info-column h1 {
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+    font-size: 2.5em; /* Larger name */
+    color: #fff;
+    border-bottom: 1px solid #555;
+    padding-bottom: 0.8rem;
+}
+
+.player-details-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.player-details-list li {
+    margin-bottom: 0.8rem;
+    font-size: 1.05em;
+    display: flex; /* Align label and value */
+    gap: 0.5rem;
+}
+
+.player-details-list .detail-label {
+    font-weight: 600;
+    color: #bbb;
+    min-width: 120px; /* Align labels */
+}
+
+.player-details-list .detail-value {
+    color: #eee;
+}
+
+.player-details-list .detail-value a { /* Style for team link */
+    color: #a0a0ff;
+    text-decoration: none;
+}
+.player-details-list .detail-value a:hover {
+    text-decoration: underline;
+    color: #c0c0ff;
+}
+
+
+/* Stats Section Styling */
+.player-stats-section h2,
+.player-rating-section h2 {
+    margin-top: 0; /* Remove top margin if section has padding */
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid #555;
+    padding-bottom: 0.5rem;
+}
+
+.stats-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95em;
+}
+
+.stats-table th,
+.stats-table td {
+    border: 1px solid #555;
+    padding: 0.6rem 0.8rem;
+    text-align: left;
+    vertical-align: middle;
+}
+
+.stats-table th {
+    background-color: #4a4a4a;
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+.stats-table tbody tr:nth-child(even) {
+    background-color: #404040;
+}
+.stats-table tbody tr:hover {
+    background-color: #4f4f4f;
+}
+
+/* Align numeric stats */
+.stats-table td:not(:first-child),
+.stats-table th:not(:first-child) {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Rating Section */
+.player-rating-section {
+    margin-top: 2.5rem;
+}
+.player-rating-section p {
+    font-size: 1.1em;
+}
+
+/* Back Link */
+.back-link {
+    display: inline-block; /* Allow margin */
+    margin-top: 2rem;
+}
+
+/* Divider */
+.section-divider {
+    border: none;
+    border-top: 1px solid #555;
+    margin: 2.5rem 0;
+}
+
+/* Light Mode */
+@media (prefers-color-scheme: light) {
+  .player-info-column h1 { color: #213547; border-color: #eee; }
+  .player-details-list .detail-label { color: #666; }
+  .player-details-list .detail-value { color: #333; }
+  .player-details-list .detail-value a { color: #0000d0; }
+  .player-details-list .detail-value a:hover { color: #0000ff; }
+
+  .player-stats-section h2,
+  .player-rating-section h2 { border-color: #eee; }
+
+  .stats-table th, .stats-table td { border-color: #ddd; }
+  .stats-table th { background-color: #e8e8e8; }
+  .stats-table tbody tr:nth-child(even) { background-color: #f2f2f2; }
+  .stats-table tbody tr:hover { background-color: #e9e9e9; }
+
+  .section-divider { border-color: #ccc; }
+}

@@ -347,3 +347,108 @@ exports.deleteMatch = async (req, res, next) => {
         connection.release();
     }
 };
+
+// Add this new function to mpl-backend/controllers/admin/matchAdminController.js
+
+/**
+ * @desc    Manually resolve a match (e.g., Tiebreaker, Abandoned, Admin Decision)
+ * @route   PUT /api/admin/matches/:id/resolve
+ * @access  Admin
+ */
+exports.resolveMatch = async (req, res, next) => {
+    const matchId = parseInt(req.params.id);
+    const { winner_team_id, result_summary, status, man_of_the_match_player_id } = req.body;
+
+    // Validation
+    if (isNaN(matchId)) {
+        return res.status(400).json({ message: 'Invalid Match ID.' });
+    }
+    // Status must be one of the final states allowed by admin resolution
+    const allowedFinalStatus = ['Completed', 'Abandoned'];
+    if (!status || !allowedFinalStatus.includes(status)) {
+        return res.status(400).json({ message: `Resolution requires a final status: ${allowedFinalStatus.join(' or ')}.` });
+    }
+    if (status === 'Completed' && !result_summary) {
+        return res.status(400).json({ message: 'Result summary is required when setting status to Completed.' });
+    }
+    // winner_team_id can be null (for Tie/Abandoned) or must be a number
+    const winnerId = (winner_team_id === null || winner_team_id === '') ? null : parseInt(winner_team_id);
+    if (winner_team_id !== null && winner_team_id !== '' && isNaN(winnerId)) {
+         return res.status(400).json({ message: 'Invalid Winner Team ID format.' });
+    }
+    // MoM ID can be null or must be a number
+    const momId = (man_of_the_match_player_id === null || man_of_the_match_player_id === '') ? null : parseInt(man_of_the_match_player_id);
+     if (man_of_the_match_player_id !== null && man_of_the_match_player_id !== '' && isNaN(momId)) {
+        return res.status(400).json({ message: 'Invalid Man of the Match Player ID format.' });
+    }
+
+    const connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        // 1. Fetch Match Details to validate winner/mom IDs if provided
+        const [matches] = await connection.query(
+            'SELECT team1_id, team2_id, season_id, status as current_status FROM Matches WHERE match_id = ? FOR UPDATE',
+            [matchId]
+        );
+        if (matches.length === 0) {
+            throw new Error('Match not found.');
+        }
+        const { team1_id, team2_id, season_id, current_status } = matches[0];
+
+        // Optional: Add check if current status allows resolution (e.g., prevent resolving already completed)
+        // if (current_status === 'Completed' || current_status === 'Abandoned') {
+        //     throw new Error(`Match is already in a final state (${current_status}). Cannot resolve again.`);
+        // }
+
+        // 2. Validate Winner Team ID (if provided) belongs to the match
+        if (winnerId !== null && winnerId !== team1_id && winnerId !== team2_id) {
+             throw new Error('Winner Team ID does not belong to this match.');
+        }
+
+        // 3. Validate MoM Player ID (if provided) exists and belongs to one of the teams in the season
+        if (momId !== null) {
+             const [momPlayerCheck] = await connection.query(
+                `SELECT 1 FROM TeamPlayers tp
+                 WHERE tp.player_id = ? AND tp.season_id = ? AND (tp.team_id = ? OR tp.team_id = ?)`,
+                [momId, season_id, team1_id, team2_id]
+             );
+             if (momPlayerCheck.length === 0) {
+                 throw new Error('Man of the Match Player ID is invalid or does not belong to either team in this season.');
+             }
+        }
+
+        // 4. Update the Match record
+        const summaryToSave = status === 'Abandoned' ? (result_summary || 'Match Abandoned') : result_summary;
+        const winnerToSave = status === 'Abandoned' ? null : winnerId; // No winner if abandoned
+        const momToSave = status === 'Abandoned' ? null : momId;       // No MoM if abandoned
+
+        const [updateResult] = await connection.query(
+            'UPDATE Matches SET status = ?, winner_team_id = ?, result_summary = ?, man_of_the_match_player_id = ? WHERE match_id = ?',
+            [status, winnerToSave, summaryToSave, momToSave, matchId]
+        );
+
+        if (updateResult.affectedRows === 0) {
+             // Should not happen if SELECT FOR UPDATE worked
+             throw new Error('Match record could not be updated.');
+        }
+
+        await connection.commit();
+
+        // Fetch updated record to return
+        const [updatedMatch] = await connection.query('SELECT * FROM Matches WHERE match_id = ?', [matchId]);
+
+        // TODO: Optionally emit a socket event ('matchEnded' or 'matchResolved') ?
+        // Depends if live viewers need to see this manual resolution instantly.
+
+        res.status(200).json({ message: 'Match resolved successfully.', match: updatedMatch[0] });
+
+    } catch (error) {
+        await connection.rollback();
+        console.error(`Error resolving match ${matchId}:`, error);
+        const statusCode = error.message.includes('not found') ? 404 : (error.message.includes('invalid') || error.message.includes('required') || error.message.includes('does not belong')) ? 400 : 500;
+        res.status(statusCode).json({ message: error.message || 'Failed to resolve match.' });
+    } finally {
+        if (connection) connection.release();
+    }
+};

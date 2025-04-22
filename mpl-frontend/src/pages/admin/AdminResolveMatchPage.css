@@ -1,0 +1,17 @@
+/* src/pages/admin/AdminResolveMatchPage.css */
+.admin-resolve-match-page h2,
+.admin-resolve-match-page h3 {
+    text-align: center;
+    margin-bottom: 1.5rem;
+}
+
+.filter-section,
+.admin-resolve-match-page div[style*="marginBottom"] {
+    margin-bottom: 1.5rem;
+}
+
+.admin-resolve-match-page form {
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}

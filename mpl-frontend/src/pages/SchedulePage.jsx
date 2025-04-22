@@ -16,7 +16,7 @@ function SchedulePage() {
     useEffect(() => {
         const fetchSeasons = async () => {
             try {
-                const { data } = await api.get('/admin/seasons'); // Assuming admin route lists seasons
+                const { data } = await api.get('/seasons/public'); //New public season api call
                 setSeasons(data);
                 // Optionally set the default selectedSeason to the latest one
                 if (data.length > 0) {
@@ -43,7 +43,7 @@ function SchedulePage() {
                 const params = {};
                 if (selectedSeason) params.season_id = selectedSeason;
                 if (selectedStatus) params.status = selectedStatus;
-
+                console.log("FETCHING FIXTURES FROM:", '/matches', "with params:", params);
                 const { data } = await api.get('/matches', { params });
                 setFixtures(data);
             } catch (err) {

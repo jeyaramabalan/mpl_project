@@ -13,9 +13,10 @@ const HomePage = lazy(() => import('./pages/HomePage'));
 const PlayersPage = lazy(() => import('./pages/PlayersPage'));
 const PlayerDetailPage = lazy(() => import('./pages/PlayerDetailPage'));
 const SchedulePage = lazy(() => import('./pages/SchedulePage'));
+const StandingsPage = lazy(() => import('./pages/StandingsPage'));
 const MatchDetailPage = lazy(() => import('./pages/MatchDetailPage')); // Live match viewer
 const AdminSchedulePage = lazy(() => import('./pages/admin/AdminSchedulePage'));
-
+const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
 // Admin Pages
 const AdminLoginPage = lazy(() => import('./pages/admin/AdminLoginPage'));
 const AdminDashboardPage = lazy(() => import('./pages/admin/AdminDashboardPage'));
@@ -23,6 +24,8 @@ const AdminSeasonsPage = lazy(() => import('./pages/admin/AdminSeasonsPage'));
 const AdminTeamsPage = lazy(() => import('./pages/admin/AdminTeamsPage'));
 const AdminMatchSetupPage = lazy(() => import('./pages/admin/AdminMatchSetupPage'));
 const AdminLiveScoringPage = lazy(() => import('./pages/admin/AdminLiveScoringPage'));
+const AdminPlayersPage = lazy(() => import('./pages/admin/AdminPlayersPage'));
+const AdminResolveMatchPage = lazy(() => import('./pages/admin/AdminResolveMatchPage'));
 // TODO: Import other admin pages (e.g., AdminPaymentsPage, AdminPlayerManagementPage) when created
 
 // Not Found Page
@@ -43,7 +46,9 @@ function App() {
                         <Route path="/players" element={<PlayersPage />} />
                         <Route path="/players/:id" element={<PlayerDetailPage />} />
                         <Route path="/schedule" element={<SchedulePage />} />
+                        <Route path="/standings" element={<StandingsPage />} />
                         <Route path="/matches/:matchId" element={<MatchDetailPage />} />
+                        <Route path="/leaderboard" element={<LeaderboardPage />} />
 
                         {/* --- Admin Routes --- */}
                         {/* Admin Login Page (Publicly accessible) */}
@@ -60,8 +65,10 @@ function App() {
                                 Maybe '/admin/seasons/:seasonId/teams' or handle season selection within AdminTeamsPage */}
                             <Route path="teams" element={<AdminTeamsPage />} />
                             <Route path="schedule" element={<AdminSchedulePage />} />
+                            <Route path="players" element={<AdminPlayersPage />} />
                             <Route path="scoring/setup" element={<AdminMatchSetupPage />} />
                             <Route path="scoring/live/:matchId" element={<AdminLiveScoringPage />} />
+                            <Route path="resolve" element={<AdminResolveMatchPage />} />
                             {/* Add other protected admin routes here */}
                             {/* Example: <Route path="payments" element={<AdminPaymentsPage />} /> */}
                         </Route>

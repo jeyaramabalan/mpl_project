@@ -30,6 +30,11 @@ function AdminDashboardPage() {
                      </Link>
                       {/* Could link to /admin/players directly too */}
                 </li>
+                
+                <li style={{ marginBottom: '0.8rem' }}> {/* <-- ADD THIS LI BLOCK --> */}
+                    <Link to="/admin/players"><button style={{ width: '250px', textAlign: 'left' }}>Manage Players (Register/Edit)</button></Link>
+                </li>
+                 
                 <li style={{ marginBottom: '0.8rem' }}>
                     <Link to="/admin/schedule"> {/* <-- Add Link */}
                         <button style={{ width: '250px', textAlign: 'left' }}>Manage Match Schedule</button>
@@ -40,6 +45,13 @@ function AdminDashboardPage() {
                         <button style={{ width: '250px', textAlign: 'left' }}>Setup Match Scoring</button>
                     </Link>
                 </li>
+
+                <li style={{ marginBottom: '0.8rem' }}>
+                    <Link to="/admin/resolve">
+                        <button style={{ width: '250px', textAlign: 'left' }}>Resolve Tie/Incomplete Match</button>
+                    </Link>
+                </li>
+                
                  {/* Add links to Manage Payments, Approve Registrations etc. */}
                  {/* Example:
                  <li style={{ marginBottom: '0.8rem' }}>
