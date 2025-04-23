@@ -151,7 +151,7 @@ exports.getPlayerStats = async (req, res, next) => {
     } catch (error) { console.error("Get Player Stats Error:", error); next(error); }
     // finally { if (connection) connection.release(); } // Remove if not using connection
 };
-
+    
 /**
  * @desc    Update player details
  * @route   PUT /api/players/:id

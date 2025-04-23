@@ -115,7 +115,7 @@ form select,
 form textarea {
     padding: 0.6rem;
     border: 1px solid #555;
-    background-color: #444;
+    background-color: #fcffe3;
     color: inherit; /* Inherit text color */
     border-radius: 4px;
     box-sizing: border-box; /* Include padding in width */
