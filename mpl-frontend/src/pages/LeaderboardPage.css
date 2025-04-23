@@ -120,3 +120,40 @@
     .tabs button:hover { color: #000; }
     .tabs button.active { color: #0000ff; border-color: #0000ff;}
 }
+
+/* Add these styles AT THE END of StandingsPage.css AND LeaderboardPage.css */
+
+@media (max-width: 768px) {
+    .standings-table th, .standings-table td,
+    .leaderboard-table th, .leaderboard-table td {
+        padding: 0.5rem 0.6rem;
+        font-size: 0.9em;
+    }
+    .tabs button { /* Adjust tab size if needed */
+        padding: 0.6rem 1rem;
+        font-size: 1em;
+    }
+     .filter-section select {
+        padding: 0.5rem; /* Adjust dropdown size */
+    }
+}
+
+@media (max-width: 480px) {
+    .standings-table th, .standings-table td,
+    .leaderboard-table th, .leaderboard-table td {
+        padding: 0.4rem 0.4rem;
+        font-size: 0.85em;
+    }
+     /* Optional: Hide less critical columns */
+     /* Example for Standings: Hide Played/Lost */
+     /*
+     .standings-table th:nth-child(3), .standings-table td:nth-child(3),
+     .standings-table th:nth-child(5), .standings-table td:nth-child(5) {
+        display: none;
+     }
+     */
+      .tabs button {
+        padding: 0.5rem 0.8rem;
+        font-size: 0.9em;
+    }
+}

@@ -235,3 +235,101 @@ nav .active { /* Class added by NavLink */
   .loading-fallback { color: #555; }
 
 }
+
+/* ================================== */
+/* Responsive Adjustments (Tablets & Phones) */
+/* ================================== */
+
+@media (max-width: 768px) {
+  :root {
+      /* Optional: Slightly reduce base font size for smaller screens */
+      /* font-size: 15px; */
+  }
+
+  #root {
+      padding: 1rem; /* Reduce overall padding */
+  }
+
+  main {
+      padding: 0.8rem; /* Reduce padding within main content area */
+      margin: 0.8rem auto;
+  }
+
+  h1 { font-size: 1.8em; }
+  h2 { font-size: 1.5em; }
+  h3 { font-size: 1.25em; }
+
+  nav {
+      padding: 0.6rem 1rem; /* Reduce navbar padding */
+      gap: 0.4rem 0.8rem; /* Slightly reduce gap */
+      justify-content: space-between; /* Ensure items spread out */
+  }
+
+  /* Make nav items slightly smaller */
+  nav a {
+      font-size: 0.95em;
+  }
+  .nav-right {
+       margin-left: 0; /* Remove auto margin when wrapping */
+       gap: 0.4rem 0.8rem;
+  }
+  .nav-right button {
+      padding: 0.4em 0.8em;
+      font-size: 0.9em;
+  }
+
+  /* General table adjustments */
+  table {
+      font-size: 0.9em; /* Slightly smaller table text */
+  }
+  th, td {
+      padding: 0.4rem 0.5rem; /* Reduce cell padding */
+  }
+
+  /* Form adjustments */
+  form {
+      gap: 0.6rem;
+      padding: 0.8rem;
+  }
+  form input[type="text"],
+  form input[type="email"],
+  form input[type="password"],
+  form input[type="number"],
+  form input[type="date"],
+  form input[type="datetime-local"],
+  form select,
+  form textarea {
+      padding: 0.5rem;
+      max-width: none; /* Allow inputs to take full width */
+  }
+
+  button {
+      padding: 0.5em 1em; /* Slightly smaller buttons */
+      font-size: 0.95em;
+  }
+}
+
+@media (max-width: 480px) {
+   #root {
+      padding: 0.5rem;
+   }
+   main {
+      padding: 0.5rem;
+      margin: 0.5rem auto;
+      border-radius: 4px; /* Less rounding on small screens */
+   }
+   h1 { font-size: 1.6em; }
+   h2 { font-size: 1.3em; }
+   h3 { font-size: 1.15em; }
+
+   nav {
+      flex-direction: column; /* Stack nav items vertically */
+      align-items: flex-start; /* Align items to the start */
+      gap: 0.5rem;
+   }
+    .nav-right {
+      width: 100%; /* Make admin section take full width */
+      justify-content: flex-start; /* Align to start */
+      margin-top: 0.5rem;
+   }
+}

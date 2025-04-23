@@ -129,3 +129,32 @@
     color: #008000; /* Darker green */
    }
 }
+
+/* Add these styles AT THE END of src/components/Scorecard.css */
+
+@media (max-width: 768px) {
+    .scorecard-table {
+        font-size: 0.9em;
+    }
+    .scorecard-table th,
+    .scorecard-table td {
+        padding: 0.4rem 0.6rem;
+    }
+     .scorecard-container h4 {
+        font-size: 1.1em; /* Slightly smaller heading */
+    }
+}
+
+@media (max-width: 480px) {
+    .scorecard-table {
+        font-size: 0.85em;
+    }
+     .scorecard-table th,
+    .scorecard-table td {
+        padding: 0.3rem 0.4rem;
+    }
+     .scorecard-container h4 {
+        font-size: 1em;
+    }
+     /* Optional: Hide columns if needed */
+}

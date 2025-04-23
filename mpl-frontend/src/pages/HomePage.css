@@ -143,3 +143,49 @@
     .quick-links-section li a { background-color: #e9ecef; color: #0000d0; box-shadow: none; border: 1px solid #ddd; }
     .quick-links-section li a:hover { background-color: #dde2e7; color: #0000ff; }
 }
+
+@media (max-width: 768px) {
+    .home-page section {
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    .welcome-section h1 {
+        font-size: 2em; /* Adjust heading sizes */
+    }
+    .next-match-section h2,
+    .quick-links-section h2 {
+        font-size: 1.4em;
+        margin-bottom: 1rem;
+    }
+    .match-card .match-teams { font-size: 1.2em; }
+    .match-card .match-time { font-size: 1em; }
+    .match-card .details-button { padding: 0.6em 1.2em; font-size: 0.9em;}
+
+    .quick-links-section ul {
+        gap: 0.8rem;
+    }
+     .quick-links-section li a {
+        padding: 0.6rem 1rem;
+        font-size: 0.9em;
+    }
+}
+
+@media (max-width: 480px) {
+     .welcome-section h1 {
+        font-size: 1.8em;
+     }
+     .next-match-section h2,
+    .quick-links-section h2 {
+        font-size: 1.2em;
+    }
+    .home-logo {
+        max-height: 80px;
+    }
+     .quick-links-section li {
+        width: calc(50% - 0.4rem); /* Two links per row */
+        text-align: center;
+     }
+      .quick-links-section li a {
+        display: block; /* Make link take full width of li */
+     }
+}

@@ -149,3 +149,62 @@
 
   .section-divider { border-color: #ccc; }
 }
+
+/* Add these styles AT THE END of src/pages/PlayerDetailPage.css */
+
+@media (max-width: 768px) {
+    .player-layout {
+        flex-direction: column; /* Stack columns */
+        gap: 1.5rem;
+    }
+    .player-info-column h1 {
+        font-size: 2em; /* Adjust heading size */
+        margin-bottom: 1rem;
+    }
+    .player-details-list li {
+        font-size: 1em;
+    }
+    .player-details-list .detail-label {
+        min-width: 100px; /* Slightly smaller label width */
+    }
+
+    .player-stats-section h2,
+    .player-rating-section h2 {
+        font-size: 1.4em;
+    }
+
+    .stats-table {
+        font-size: 0.9em; /* Slightly smaller table text */
+    }
+    .stats-table th,
+    .stats-table td {
+        padding: 0.5rem 0.6rem; /* Reduce padding */
+    }
+}
+
+@media (max-width: 480px) {
+    .player-info-column h1 {
+        font-size: 1.8em;
+    }
+     .player-stats-section h2,
+    .player-rating-section h2 {
+        font-size: 1.2em;
+    }
+     .stats-table {
+        font-size: 0.85em;
+    }
+    .stats-table th,
+    .stats-table td {
+        padding: 0.4rem 0.4rem;
+    }
+    /* Optional: Hide less critical columns on very small screens */
+    /*
+    .stats-table th:nth-child(3), .stats-table td:nth-child(3), // Hide HS
+    .stats-table th:nth-child(6), .stats-table td:nth-child(6) { // Hide 4s
+        display: none;
+    }
+    .stats-table thead tr:first-child th:first-child { // Adjust Batting colspan
+       colspan: 5; // Recalculate based on hidden columns
+    }
+    */
+}
