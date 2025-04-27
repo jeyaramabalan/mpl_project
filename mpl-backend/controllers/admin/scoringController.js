@@ -684,11 +684,9 @@ exports.scoreSingleBall = async (req, res, next) => {
 
         // --- 3. Calculate Runs & Legality ---
         let actualRunsOffBat = (!isBye && !isExtra) ? runsScored : ((!isBye && isExtra && extraType === 'NoBall') ? runsScored : 0);
-        let isLegalDelivery = 1;
-        if (isExtra) {
-            isLegalDelivery = 0;
-        }
 
+        //let isLegalDelivery = !(isExtra && (extraType === 'Wide'||extraType === 'NoBall'));
+        let isLegalDelivery = !(isExtra)
         let isSuperOverBall = dbOverNumber === match.super_over_number;
         if (isSuperOverBall && (!isExtra || extraType === 'NoBall') && !isBye && actualRunsOffBat > 0) actualRunsOffBat *= 2;
         const runsForBowler = actualRunsOffBat + (parseInt(extraRuns) || 0);
