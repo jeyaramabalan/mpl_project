@@ -305,6 +305,7 @@ function AdminLiveScoringPage() {
             console.error("Error submitting ball:", err);
             const errorMsg = typeof err === 'string' ? err : (err?.message || 'Failed to score ball.');
             setError(errorMsg);
+            alert(errorMsg)
         } finally {
             setIsSubmitting(false);
         }

@@ -347,7 +347,7 @@ exports.getLiveMatchState = async (req, res, next) => {
         const [overProgressData] = await pool.query(`
              SELECT over_number, COUNT(*) as legal_balls
              FROM BallByBall
-             WHERE match_id = ? AND inning_number = ? AND (is_extra = false OR extra_type = 'NoBall')
+             WHERE match_id = ? AND inning_number = ? AND (is_extra = false)
              GROUP BY over_number ORDER BY over_number DESC LIMIT 1
          `, [matchId, inningNumber]);
 
@@ -389,7 +389,7 @@ exports.getLiveMatchState = async (req, res, next) => {
         const [batsmenOutStats] = await pool.query(`SELECT player_id FROM PlayerMatchStats WHERE match_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, battingTeamId]);
         const batsmenOutIds = batsmenOutStats.map(b => b.player_id);
 
-        const [currentBowlerStats] = await pool.query(`SELECT player_id, FLOOR(overs_bowled) as completed_overs FROM PlayerMatchStats WHERE match_id = ? AND team_id = ? AND overs_bowled > 0`, [matchId, bowlingTeamId]);
+        const [currentBowlerStats] = await pool.query(`SELECT ps.player_id, FLOOR(ps.overs_bowled) as completed_overs,p.name as player_name FROM PlayerMatchStats ps join players p on ps.player_id = p.player_id  WHERE ps.match_id = ? AND ps.team_id = ? AND ps.overs_bowled > 0`, [matchId, bowlingTeamId]);
         console.log(`--- getLiveMatchState: Fetched ${batsmenOutIds.length} out batsmen, ${currentBowlerStats.length} bowlers with stats ---`);
 
         // --- 5. Fetch Recent Commentary ---
@@ -611,7 +611,7 @@ exports.scoreSingleBall = async (req, res, next) => {
             const [lastBallInfo] = await connection.query(`SELECT over_number, ball_number_in_over, bowler_player_id FROM BallByBall WHERE match_id = ? AND inning_number = ? ORDER BY ball_id DESC LIMIT 1`, [matchId, inningNumber]); // Fetch bowler_id too
             if (lastBallInfo.length > 0) {
                 const lastBall = lastBallInfo[0];
-                const [legalBallsData] = await connection.query(`SELECT COUNT(*) as count FROM BallByBall WHERE match_id = ? AND inning_number = ? AND over_number = ? AND (is_extra = false OR extra_type = 'NoBall')`, [matchId, inningNumber, lastBall.over_number]);
+                const [legalBallsData] = await connection.query(`SELECT COUNT(*) as count FROM BallByBall WHERE match_id = ? AND inning_number = ? AND over_number = ? AND (is_extra = false)`, [matchId, inningNumber, lastBall.over_number]);
                 const legalBallsInLastOverCount = legalBallsData[0]?.count || 0;
                 dbBallNumberInOver = lastBall.ball_number_in_over + 1;
                 if (legalBallsInLastOverCount >= 6) { // If starting a NEW over
@@ -632,7 +632,7 @@ exports.scoreSingleBall = async (req, res, next) => {
 
 
             // --- Now perform Bowler Eligibility Checks ---
-            const [bowlerOversData] = await connection.query(`SELECT player_id, FLOOR(overs_bowled) as completed_overs FROM PlayerMatchStats WHERE match_id = ? AND team_id = ? AND overs_bowled > 0`, [matchId, bowlingTeamId]);
+            const [bowlerOversData] = await connection.query(`SELECT ps.player_id, FLOOR(ps.overs_bowled) as completed_overs,p.name as player_name FROM PlayerMatchStats ps join players p on ps.player_id = p.player_id  WHERE ps.match_id = ? AND ps.team_id = ? AND ps.overs_bowled > 0`, [matchId, bowlingTeamId]);
             let twoOverBowlerExists = false; let currentBowlerCompletedOvers = 0;
             let didCurrentBowlerBowlSuperOver = false; // ADDED: Check if current bowler bowled the super over
 
@@ -646,14 +646,16 @@ exports.scoreSingleBall = async (req, res, next) => {
                 }
             });
 
+            let bowlerName = bowlerOversData.find(b => b.player_id === bowlerPlayerId).player_name
+
             // Check 1: Max 2 overs
-            if (currentBowlerCompletedOvers >= 2) throw new Error(`Bowler ${bowlerPlayerId} has already completed 2 overs.`);
+            if (currentBowlerCompletedOvers >= 2) throw new Error(`Bowler ${bowlerName} has already completed 2 overs.`);
             // Check 2: Only one bowler can bowl 2 overs
             if (currentBowlerCompletedOvers >= 1 && twoOverBowlerExists && !bowlerOversData.find(b => b.player_id === bowlerPlayerId && b.completed_overs >= 2)) throw new Error(`Another bowler bowled 2 overs. Bowler ${bowlerPlayerId} can only bowl 1.`);
 
             // Check 3: Cannot bowl consecutive overs (only applies if starting a new over)
             if (dbBallNumberInOver === 1 && dbOverNumber > 1 && previousOverBowlerId === bowlerPlayerId) { // ADDED CHECK
-                throw new Error(`Bowler ${bowlerPlayerId} cannot bowl consecutive overs (bowled over ${dbOverNumber - 1}).`);
+                throw new Error(`Bowler ${bowlerName} cannot bowl consecutive overs (bowled over ${dbOverNumber - 1}).`);
             }
 
             // Check 4: Super Over bowler limitation (only applies if they completed at least one over)
@@ -682,16 +684,16 @@ exports.scoreSingleBall = async (req, res, next) => {
 
         // --- 3. Calculate Runs & Legality ---
         let actualRunsOffBat = (!isBye && !isExtra) ? runsScored : ((!isBye && isExtra && extraType === 'NoBall') ? runsScored : 0);
-        //let isLegalDelivery = !(isExtra && (extraType === 'Wide'||extraType === 'NoBall'));
-        if(isExtra)
-        {
-            let isLegalDelivery = 0;
+        let isLegalDelivery = 1;
+        if (isExtra) {
+            isLegalDelivery = 0;
         }
-        
+
         let isSuperOverBall = dbOverNumber === match.super_over_number;
-        if (isSuperOverBall && !isExtra && !isBye && actualRunsOffBat > 0) actualRunsOffBat *= 2;
+        if (isSuperOverBall && (!isExtra || extraType === 'NoBall') && !isBye && actualRunsOffBat > 0) actualRunsOffBat *= 2;
         const runsForBowler = actualRunsOffBat + (parseInt(extraRuns) || 0);
-        if (isSuperOverBall && (isExtra || isBye)>0) extraRuns *=2;
+        if (isSuperOverBall && (isExtra) > 0) extraRuns *= 2;
+        if (isSuperOverBall && isBye) extraRuns = extraRuns + 2
 
         // --- 4. Generate Commentary ---
         let logicalBallDisplay = logicalBallInOver + (isLegalDelivery ? 1 : 0);
@@ -739,7 +741,7 @@ exports.scoreSingleBall = async (req, res, next) => {
         let winnerTeamId = null;
         const maxOvers = 5;
         const maxWickets = 5;
-        const [progressInfo] = await connection.query(`SELECT COUNT(*) as wickets_this_inning FROM PlayerMatchStats WHERE match_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, battingTeamId]); const [legalBallsDataCurrent] = await connection.query(`SELECT COUNT(*) as count FROM BallByBall WHERE match_id = ? AND inning_number = ? AND over_number = ? AND (is_extra = false OR extra_type = 'NoBall')`, [matchId, inningNumber, dbOverNumber]);
+        const [progressInfo] = await connection.query(`SELECT COUNT(*) as wickets_this_inning FROM PlayerMatchStats WHERE match_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, battingTeamId]); const [legalBallsDataCurrent] = await connection.query(`SELECT COUNT(*) as count FROM BallByBall WHERE match_id = ? AND inning_number = ? AND over_number = ? AND (is_extra = false)`, [matchId, inningNumber, dbOverNumber]);
         const totalWicketsThisInning = progressInfo[0].wickets_this_inning || 0;
         const legalBallsThisOver = legalBallsDataCurrent[0].count || 0;
         let inningsEndReason = null;
@@ -854,15 +856,13 @@ exports.scoreSingleBall = async (req, res, next) => {
             if (updatedStatus === 'InningsBreak' && currentStatus !== 'InningsBreak') io.to(roomName).emit('inningsBreak', fullLiveState);
             if (updatedStatus === 'Completed' && currentStatus !== 'Completed') io.to(roomName).emit('matchEnded', fullLiveState);
             console.log(`[Backend Emit] Successfully emitted 'updateScore' for match ${matchId}.`);
-        } 
-        else if (!io) 
-            {
-                console.error("[Backend Emit] Socket.IO instance not found. Emission failed!");
-            } 
-        else if (!fullLiveState) 
-            {
-                console.error(`[Backend Emit] Failed to get consistent state. Emission skipped!`);
-            }
+        }
+        else if (!io) {
+            console.error("[Backend Emit] Socket.IO instance not found. Emission failed!");
+        }
+        else if (!fullLiveState) {
+            console.error(`[Backend Emit] Failed to get consistent state. Emission skipped!`);
+        }
 
         res.status(201).json({ message: 'Ball scored successfully', ballId: newBallId, newState: fullLiveState || {} }); // Return fetched state
 
@@ -963,7 +963,7 @@ exports.undoLastBall = async (req, res, next) => {
         // --- 5. Revert Match Status if necessary ---
         let newStatus = currentStatus; let revertStatus = false; const maxOvers = 5; const maxWickets = 5;
         const [prevProgressInfo] = await connection.query(`SELECT COUNT(*) as wickets_this_inning FROM PlayerMatchStats WHERE match_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, battingTeamId]);
-        const [prevOverProgress] = await pool.query(`SELECT over_number, COUNT(*) as legal_balls FROM BallByBall WHERE match_id = ? AND inning_number = ? AND (is_extra = false OR extra_type = 'NoBall') GROUP BY over_number ORDER BY over_number DESC LIMIT 1`, [matchId, inningNumber]);
+        const [prevOverProgress] = await pool.query(`SELECT over_number, COUNT(*) as legal_balls FROM BallByBall WHERE match_id = ? AND inning_number = ? AND (is_extra = false) GROUP BY over_number ORDER BY over_number DESC LIMIT 1`, [matchId, inningNumber]);
         const prevLastLegalOverNum = prevOverProgress[0]?.over_number || 0;
         const ballsInPrevLastLegalOver = prevOverProgress[0]?.legal_balls || 0;
 
