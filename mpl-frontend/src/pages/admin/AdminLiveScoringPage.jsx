@@ -421,7 +421,15 @@ function AdminLiveScoringPage() {
 
             setMatchState(fetchedState);
             prevStateRef.current = fetchedState; 
-        } catch (err) { console.error("Error undoing ball:", err); const errorMsg = typeof err === 'string' ? err : (err.response?.data?.message || 'Failed to undo last ball.'); setError(errorMsg); } finally { setIsSubmitting(false); } };
+        } catch (err) { 
+            console.error("Error undoing ball:", err); 
+            const errorMsg = typeof err === 'string' ? err : (err.response?.data?.message || 'Failed to undo last ball.'); 
+            setError(errorMsg); 
+        } finally 
+        { 
+            setIsSubmitting(false); 
+        } 
+    };
 
 
     // --- Render Logic ---
