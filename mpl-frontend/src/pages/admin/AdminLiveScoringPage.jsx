@@ -11,8 +11,8 @@ const ScoreDisplay = ({ state }) => {
     const status = state.status;
     const battingTeamId = state.battingTeamId;
     const bowlingTeamId = state.bowlingTeamId;
-    const battingTeamName = `Team ${battingTeamId || '?'}`;
-    const bowlingTeamName = `Team ${bowlingTeamId || '?'}`;
+    const battingTeamName = state.battingTeamName ;
+    const bowlingTeamName = state.bowlingTeamName;
 
     return (
          <div style={{ border: '1px solid #eee', padding: '1rem', marginBottom: '1rem', backgroundColor: '#f9f9f9', borderRadius: '5px' }}>
@@ -405,6 +405,7 @@ function AdminLiveScoringPage() {
         setIsSubmitting(true);
       
         try {
+         await api.delete(`/admin/scoring/matches/${matchId}/ball/last`); 
           setIsWicketEvent(false);
           setSelectedWicketType('');
           setSelectedFielderId(''); 
