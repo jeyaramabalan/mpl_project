@@ -258,7 +258,7 @@ exports.getLiveMatchState = async (req, res, next) => {
             return res.json({
                 matchId: matchId, status: status, seasonId: season_id, superOver: super_over_number,
                 team1_id: team1_id, team2_id: team2_id,
-                team1_name: team1Data[0]?.name || `Team ${team1_id}`, team2_name: team2Data[0]?.name || `Team ${team2_id}`,
+                team1_name: team1Data[0]?.name || `${team1_id}`, team2_name: team2Data[0]?.name || `${team2_id}`,
             });
         }
 
@@ -646,7 +646,7 @@ exports.scoreSingleBall = async (req, res, next) => {
                 }
             });
 
-            let bowlerName = bowlerOversData.find(b => b.player_id === bowlerPlayerId).player_name
+            let bowlerName = bowlerOversData.find(b => b.player_id === bowlerPlayerId)?.player_name
 
             // Check 1: Max 2 overs
             if (currentBowlerCompletedOvers >= 2) throw new Error(`Bowler ${bowlerName} has already completed 2 overs.`);
@@ -773,7 +773,7 @@ exports.scoreSingleBall = async (req, res, next) => {
                         console.error("Error fetching team names for result summary:", nameError);
                         // Continue with IDs if names can't be fetched
                     }
-                    resultSummary = `Team ${winnerTeamName} won by ${maxWickets - totalWicketsThisInning} wickets.`;
+                    resultSummary = `${winnerTeamName} won by ${maxWickets - totalWicketsThisInning} wickets.`;
                 }
                 else if (inn2Score < inn1Score) {
                     winnerTeamId = bowlingTeamId;
@@ -795,7 +795,25 @@ exports.scoreSingleBall = async (req, res, next) => {
             }
         } else if (inningNumber === 2 && targetScore !== null) {
             const [currentInningScoreData] = await connection.query(`SELECT SUM(runs_scored + extra_runs) as score FROM BallByBall WHERE match_id = ? AND inning_number = 2`, [matchId]); const currentInningScore = currentInningScoreData[0]?.score || 0;
-            if (currentInningScore >= targetScore) { inningsEnded = true; matchCompleted = true; updatedStatus = 'Completed'; winnerTeamId = battingTeamId; resultSummary = `Team ${battingTeamId} won by ${maxWickets - totalWicketsThisInning} wickets.`; commentary += ` TARGET ACHIEVED.`; console.log(`Match ${matchId}: Target achieved. Status -> Completed. Result: ${resultSummary}`); }
+            if (currentInningScore >= targetScore) 
+                { 
+                    inningsEnded = true; 
+                    matchCompleted = true; 
+                    updatedStatus = 'Completed'; 
+                    winnerTeamId = battingTeamId;
+                    winnerTeamName = winnerTeamId;
+                    try {
+                        const [t1] = await connection.query('SELECT name FROM Teams WHERE team_id = ?', [winnerTeamId]);
+                        if (t1.length > 0) winnerTeamName = t1[0].name;
+
+                    } catch (nameError) {
+                        console.error("Error fetching team names for result summary:", nameError);
+                        // Continue with IDs if names can't be fetched
+                    }
+                    resultSummary = `${winnerTeamName} won by ${maxWickets - totalWicketsThisInning} wickets.`;
+                    commentary += ` TARGET ACHIEVED.`; 
+                    console.log(`Match ${matchId}: Target achieved. Status -> Completed. Result: ${resultSummary}`); 
+                }
         }
 
         // --- Calculate MoM IF Match Completed --- // <<< INSERT THIS BLOCK

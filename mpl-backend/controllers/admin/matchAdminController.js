@@ -71,7 +71,7 @@ exports.createMatch = async (req, res, next) => {
         const [result] = await connection.query(
             `INSERT INTO Matches (season_id, team1_id, team2_id, match_datetime, venue, status)
              VALUES (?, ?, ?, ?, ?, 'Scheduled')`,
-            [parseInt(season_id), parseInt(team1_id), parseInt(team2_id), match_datetime, venue || 'Metalworks Box Arena']
+            [parseInt(season_id), parseInt(team1_id), parseInt(team2_id), match_datetime, venue || 'Bowyer Park']
         );
         const newMatchId = result.insertId;
 

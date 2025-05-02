@@ -10,7 +10,7 @@ const MatchForm = ({ onSubmit, initialData = {}, seasons = [], teams = [], loadi
         team1_id: '',
         team2_id: '',
         match_datetime: '',
-        venue: 'Metalworks Box Arena',
+        venue: 'Bowyer Park',
         // status: 'Scheduled' // Status generally not editable here
     });
      const [filteredTeams, setFilteredTeams] = useState([]);
@@ -23,7 +23,7 @@ const MatchForm = ({ onSubmit, initialData = {}, seasons = [], teams = [], loadi
             team1_id: initialData.team1_id || '',
             team2_id: initialData.team2_id || '',
             match_datetime: initialData.match_datetime ? initialData.match_datetime.substring(0, 16) : '', // Format for datetime-local T separation
-            venue: initialData.venue || 'Metalworks Box Arena',
+            venue: initialData.venue || 'Bowyer Park',
             status: initialData.status || 'Scheduled' // Keep track of status for display/logic
         });
     }, [initialData, seasons]);
@@ -123,7 +123,7 @@ const MatchForm = ({ onSubmit, initialData = {}, seasons = [], teams = [], loadi
                     value={formData.venue}
                     onChange={handleChange}
                     disabled={loading}
-                    placeholder='Defaults to Metalworks Box Arena'
+                    placeholder='Defaults to Bowyer Park'
                  />
              </div>
              {/* Optionally allow editing status back to Scheduled or to Abandoned if needed */}
