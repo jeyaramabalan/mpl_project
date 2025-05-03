@@ -25,6 +25,7 @@ exports.getFixtures = async (req, res, next) => {
             JOIN Teams t2 ON m.team2_id = t2.team_id
             LEFT JOIN Teams wt ON m.winner_team_id = wt.team_id
             LEFT JOIN Players mom ON m.man_of_the_match_player_id = mom.player_id
+
         `;
         const params = [];
         const conditions = [];
@@ -56,7 +57,7 @@ exports.getFixtures = async (req, res, next) => {
         }
 
         // Add ordering (e.g., show upcoming first, then recent completed)
-        query += ' ORDER BY CASE m.status WHEN "Live" THEN 1 WHEN "Setup" THEN 2 WHEN "Scheduled" THEN 3 ELSE 4 END, m.match_datetime ASC';
+        query += ' ORDER BY CASE m.status WHEN "Live" THEN 1 WHEN "Setup" THEN 2 WHEN "Scheduled" THEN 3 ELSE 4 END, m.match_datetime DESC';
 
         const [matches] = await pool.query(query, params);
         res.json(matches);
