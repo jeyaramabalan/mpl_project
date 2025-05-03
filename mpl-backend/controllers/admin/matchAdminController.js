@@ -147,7 +147,7 @@ exports.getAllMatches = async (req, res, next) => {
             query += ' WHERE ' + conditions.join(' AND ');
         }
         // Default ordering
-        query += ' ORDER BY m.match_datetime ASC, m.match_id ASC';
+        query += ' ORDER BY m.match_datetime DESC, m.match_id DESC';
 
         const [matches] = await pool.query(query, params);
         res.json(matches);
