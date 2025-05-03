@@ -698,14 +698,22 @@ exports.scoreSingleBall = async (req, res, next) => {
         if (isSuperOverBall && isBye) extraRuns = extraRuns + 2
 
         // --- 4. Generate Commentary ---
-        const [playerNamesResult] = await connection.query(`select bat.name as batsman_name,bowl.name as bowler_name from players bat join players bowl where bat.player_id = ? and bowl.player_id= ? LIMIT 1`, [batsmanOnStrikePlayerId, bowlerPlayerId]); // Fetch bowler_id too
+        let [playerNamesResult] = []
+        if(fielderPlayerId){
+            [playerNamesResult] = await connection.query(`select bat.name as batsman_name,bowl.name as bowler_name, fielder.name as fielder_name from players bat join players bowl join players fielder where bat.player_id = ? and bowl.player_id= ? and fielder.player_id= ? LIMIT 1`, [batsmanOnStrikePlayerId, bowlerPlayerId, fielderPlayerId]); // Fetch bowler_id too
+        }
+        else{
+            [playerNamesResult] = await connection.query(`select bat.name as batsman_name,bowl.name as bowler_name from players bat join players bowl where bat.player_id = ? and bowl.player_id= ? LIMIT 1`, [batsmanOnStrikePlayerId, bowlerPlayerId]); // Fetch bowler_id too
+
+        }
         const playerNames = playerNamesResult[0]
+
         //;
         let logicalBallDisplay = logicalBallInOver + (isLegalDelivery ? 1 : 0);
         if (logicalBallDisplay > 6) logicalBallDisplay = 1;
         let commentary = `${logicalOver}.${logicalBallDisplay}: Ball. `;
         commentary += `${playerNames.bowler_name} to ${playerNames.batsman_name} `
-        if (isWicket) commentary += `WICKET! (${wicketType}).${fielderPlayerId ? ` Fielder: ${fielderPlayerId}.` : ''} `;
+        if (isWicket) commentary += `WICKET! (${wicketType}).${fielderPlayerId ? ` Fielder: ${playerNames.fielder_name}.` : ''} `;
         if (isExtra) commentary += `${extraType}! +${extraRuns || 0}. `;
         if (!isExtra && !isBye && runsScored > 0) commentary += `${runsScored} run${runsScored !== 1 ? 's' : ''}${isSuperOverBall ? ' (Super Over!) - ' + actualRunsOffBat + ' runs' : ''}. `;
         if (!isExtra && !isBye && runsScored == 0) commentary += `no run ${isSuperOverBall ? ' (Super Over!) - ' + actualRunsOffBat + ' runs' : ''}. `;
