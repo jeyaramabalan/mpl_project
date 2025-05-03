@@ -42,7 +42,7 @@ const InningsScorecard = ({ stats, teamName, inningsNumber }) => {
                         </tr>
                     </thead>
                     <tbody>
-                        {stats.map((stat) => (
+                        {stats.filter(filt=>filt.balls_faced>0).map((stat) => (
                             <tr key={`${inningsNumber}-bat-${stat.player_id}`}>
                                 {/* Add Link to player name */}
                                 <td className="player-name">
