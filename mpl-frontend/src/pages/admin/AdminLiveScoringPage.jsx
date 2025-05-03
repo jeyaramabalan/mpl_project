@@ -305,6 +305,9 @@ function AdminLiveScoringPage() {
              }
 
             setMatchState(fetchedState);
+            if(payload.wicketType!==null){
+                setCurrentBatsmanId(null)
+            }
             prevStateRef.current = fetchedState; 
         } catch (err) {
             console.error("Error submitting ball:", err);

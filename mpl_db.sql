@@ -62,7 +62,7 @@ CREATE TABLE `ballbyball` (
   `extra_type` enum('Wide','NoBall') DEFAULT NULL COMMENT 'Type of extra (Byes/LegByes unlikely in box cricket)',
   `extra_runs` tinyint(3) UNSIGNED NOT NULL DEFAULT 0 COMMENT 'Runs awarded specifically for the extra (e.g., 1 for wide)',
   `is_wicket` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'Did a wicket fall on this delivery?',
-  `wicket_type` enum('Bowled','Caught','Run Out','Stumped','Hit Wicket','Caught (Hit Six)') DEFAULT NULL COMMENT 'Type of dismissal',
+  `wicket_type` enum('Bowled','Caught','Run Out','Stumped','Hit Wicket','Hit Outside') DEFAULT NULL COMMENT 'Type of dismissal',
   `fielder_player_id` int(11) DEFAULT NULL COMMENT 'FK to the fielder involved in Catch/RunOut/Stumping',
   `commentary_text` varchar(255) DEFAULT NULL COMMENT 'Auto-generated or brief manual commentary for the ball',
   `scored_at` timestamp NOT NULL DEFAULT current_timestamp() COMMENT 'Timestamp when this ball was recorded'

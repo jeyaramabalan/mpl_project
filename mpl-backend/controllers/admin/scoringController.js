@@ -278,17 +278,17 @@ exports.getLiveMatchState = async (req, res, next) => {
         } // If status is Setup, default inning 1 is correct
 
         // --- Determine batting/bowling teams based on the determined inningNumber ---
-        let battingTeamId, bowlingTeamId,battingTeamName, bowlingTeamName;
+        let battingTeamId, bowlingTeamId, battingTeamName, bowlingTeamName;
         if (inningNumber === 1) {
             battingTeamId = (decision === 'Bat') ? toss_winner_team_id : (toss_winner_team_id == team1_id ? team2_id : team1_id);
             bowlingTeamId = (battingTeamId == team1_id) ? team2_id : team1_id;
-            battingTeamName = (decision === 'Bat'&& toss_winner_team_id == team1_id) ? team1_name : team2_name;
+            battingTeamName = (decision === 'Bat' && toss_winner_team_id == team1_id) ? team1_name : team2_name;
             bowlingTeamName = (battingTeamId == team1_id) ? team2_name : team1_name;
         }
         else {
             bowlingTeamId = (decision === 'Bat') ? toss_winner_team_id : (toss_winner_team_id == team1_id ? team2_id : team1_id);
             battingTeamId = (bowlingTeamId == team1_id) ? team2_id : team1_id;
-            bowlingTeamName = (decision === 'Bat' && toss_winner_team_id == team1_id ) ? team1_name : team2_name;
+            bowlingTeamName = (decision === 'Bat' && toss_winner_team_id == team1_id) ? team1_name : team2_name;
             battingTeamName = (bowlingTeamId == team1_id) ? team2_name : team1_name;
         }
         console.log(`--- getLiveMatchState: Determined Inning=${inningNumber}, Batting=${battingTeamId}, Bowling=${bowlingTeamId} ---`);
@@ -698,16 +698,20 @@ exports.scoreSingleBall = async (req, res, next) => {
         if (isSuperOverBall && isBye) extraRuns = extraRuns + 2
 
         // --- 4. Generate Commentary ---
+        const [playerNamesResult] = await connection.query(`select bat.name as batsman_name,bowl.name as bowler_name from players bat join players bowl where bat.player_id = ? and bowl.player_id= ? LIMIT 1`, [batsmanOnStrikePlayerId, bowlerPlayerId]); // Fetch bowler_id too
+        const playerNames = playerNamesResult[0]
+        //;
         let logicalBallDisplay = logicalBallInOver + (isLegalDelivery ? 1 : 0);
         if (logicalBallDisplay > 6) logicalBallDisplay = 1;
         let commentary = `${logicalOver}.${logicalBallDisplay}: Ball. `;
+        commentary += `${playerNames.bowler_name} to ${playerNames.batsman_name} `
         if (isWicket) commentary += `WICKET! (${wicketType}).${fielderPlayerId ? ` Fielder: ${fielderPlayerId}.` : ''} `;
         if (isExtra) commentary += `${extraType}! +${extraRuns || 0}. `;
         if (!isExtra && !isBye && runsScored > 0) commentary += `${runsScored} run${runsScored !== 1 ? 's' : ''}${isSuperOverBall ? ' (Super Over!) - ' + actualRunsOffBat + ' runs' : ''}. `;
+        if (!isExtra && !isBye && runsScored == 0) commentary += `no run ${isSuperOverBall ? ' (Super Over!) - ' + actualRunsOffBat + ' runs' : ''}. `;
         if (isBye) commentary += `${runsScored} bye${runsScored !== 1 ? 's' : ''}. `;
         if (extraType === 'NoBall' && runsScored > 0 && !isBye) commentary += `(+${runsScored} off bat${isSuperOverBall ? ' Super Over! - ' + actualRunsOffBat + ' runs' : ''}). `;
         if (extraType === 'NoBall' && runsScored > 0 && isBye) commentary += `(+${runsScored} bye). `;
-        if (isWicket && wicketType === 'Hit Outside') commentary = `${logicalOver}.${logicalBallDisplay}: Ball. WICKET! (Hit Outside). `;
         commentary = commentary.trim();
 
         // --- 5. Insert into BallByBall table ---
@@ -799,25 +803,24 @@ exports.scoreSingleBall = async (req, res, next) => {
             }
         } else if (inningNumber === 2 && targetScore !== null) {
             const [currentInningScoreData] = await connection.query(`SELECT SUM(runs_scored + extra_runs) as score FROM BallByBall WHERE match_id = ? AND inning_number = 2`, [matchId]); const currentInningScore = currentInningScoreData[0]?.score || 0;
-            if (currentInningScore >= targetScore) 
-                { 
-                    inningsEnded = true; 
-                    matchCompleted = true; 
-                    updatedStatus = 'Completed'; 
-                    winnerTeamId = battingTeamId;
-                    winnerTeamName = winnerTeamId;
-                    try {
-                        const [t1] = await connection.query('SELECT name FROM Teams WHERE team_id = ?', [winnerTeamId]);
-                        if (t1.length > 0) winnerTeamName = t1[0].name;
+            if (currentInningScore >= targetScore) {
+                inningsEnded = true;
+                matchCompleted = true;
+                updatedStatus = 'Completed';
+                winnerTeamId = battingTeamId;
+                winnerTeamName = winnerTeamId;
+                try {
+                    const [t1] = await connection.query('SELECT name FROM Teams WHERE team_id = ?', [winnerTeamId]);
+                    if (t1.length > 0) winnerTeamName = t1[0].name;
 
-                    } catch (nameError) {
-                        console.error("Error fetching team names for result summary:", nameError);
-                        // Continue with IDs if names can't be fetched
-                    }
-                    resultSummary = `${winnerTeamName} won by ${maxWickets - totalWicketsThisInning} wickets.`;
-                    commentary += ` TARGET ACHIEVED.`; 
-                    console.log(`Match ${matchId}: Target achieved. Status -> Completed. Result: ${resultSummary}`); 
+                } catch (nameError) {
+                    console.error("Error fetching team names for result summary:", nameError);
+                    // Continue with IDs if names can't be fetched
                 }
+                resultSummary = `${winnerTeamName} won by ${maxWickets - totalWicketsThisInning} wickets.`;
+                commentary += ` TARGET ACHIEVED.`;
+                console.log(`Match ${matchId}: Target achieved. Status -> Completed. Result: ${resultSummary}`);
+            }
         }
 
         // --- Calculate MoM IF Match Completed --- // <<< INSERT THIS BLOCK
