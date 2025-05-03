@@ -54,8 +54,8 @@ function AdminLiveScoringPage() {
     const hasJoinedRoom = useRef(false);
 
     // --- State for Scoring Inputs ---
-    const [currentBowlerId, setCurrentBowlerId] = useState('');
-    const [currentBatsmanId, setCurrentBatsmanId] = useState('');
+    const [currentBowlerId, setCurrentBowlerId] = useState(null);
+    const [currentBatsmanId, setCurrentBatsmanId] = useState(null);
     const [isWicketEvent, setIsWicketEvent] = useState(false);
     const [selectedWicketType, setSelectedWicketType] = useState('');
     const [selectedFielderId, setSelectedFielderId] = useState('');
@@ -79,8 +79,8 @@ function AdminLiveScoringPage() {
             if (isMounted) setError('');
             if (isMounted) setMatchState(null); // Clear previous state
             hasJoinedRoom.current = false; // Reset room join status
-            if (isMounted) setCurrentBowlerId(''); // Reset selections
-            if (isMounted) setCurrentBatsmanId('');
+            if (isMounted) setCurrentBowlerId(null); // Reset selections
+            if (isMounted) setCurrentBatsmanId(null);
             if (isMounted) setIsWicketEvent(false);
             if (isMounted) setSelectedWicketType('');
             if (isMounted) setSelectedFielderId('');
@@ -141,6 +141,11 @@ function AdminLiveScoringPage() {
              }
         }
 
+        if(matchState.status=="InningsBreak"){
+            setCurrentBatsmanId(null)
+            setCurrentBowlerId(null)
+        }
+
         const attemptJoinRoom = () => {
             if (isConnected && !hasJoinedRoom.current) {
                 console.log(`---> Admin attempting to join room match_${matchId}`);
@@ -193,7 +198,7 @@ function AdminLiveScoringPage() {
                  const inningsBreakStarted = (newState.status === 'InningsBreak' && oldStatus !== 'InningsBreak');
                 if (overCompleted || inningsBreakStarted) {
                     console.log("Clearing bowler selection due to over complete or innings break.");
-                    setCurrentBowlerId(''); // Clear bowler state
+                    setCurrentBowlerId(null); // Clear bowler state
                 }
 
                  // Clear batsman if wicket fell AND match didn't just end/break/setup
@@ -201,14 +206,14 @@ function AdminLiveScoringPage() {
                  const shouldClearBatsman = wicketFell && !['Completed', 'InningsBreak', 'Setup'].includes(newState.status);
                  if (shouldClearBatsman) {
                     console.log("Clearing batsman selection due to wicket.");
-                    setCurrentBatsmanId(''); // Clear batsman state
+                    setCurrentBatsmanId(null); // Clear batsman state
                 }
 
             } else {
                  console.log(`Scorer received update for different match (${newState?.matchId}) or invalid data. Ignoring.`);
             }
         };
-        const handleInningsBreak = (breakState) => { if (breakState && breakState.matchId === parseInt(matchId)) { console.log("Handling inningsBreak event"); setMatchState(prev => ({...prev, ...breakState})); prevStateRef.current = {...(prevStateRef.current || {}), ...breakState}; setCurrentBowlerId(''); setCurrentBatsmanId(''); }};
+        const handleInningsBreak = (breakState) => { if (breakState && breakState.matchId === parseInt(matchId)) { console.log("Handling inningsBreak event"); setMatchState(prev => ({...prev, ...breakState})); prevStateRef.current = {...(prevStateRef.current || {}), ...breakState}; setCurrentBowlerId(null); setCurrentBatsmanId(null); }};
         const handleMatchEnded = (endState) => { if (endState && endState.matchId === parseInt(matchId)) { console.log("Handling matchEnded event"); setMatchState(prev => ({...prev, ...endState})); prevStateRef.current = {...(prevStateRef.current || {}), ...endState}; }};
         const handleScoringError = (errorMsg) => { console.error('Socket scoring error:', errorMsg); setError(`Scoring Error (Live): ${errorMsg.message || 'Unknown error'}`); };
 

@@ -256,11 +256,8 @@ exports.getLiveMatchState = async (req, res, next) => {
             return res.json({
                 matchId: matchId, status: status, seasonId: season_id, superOver: super_over_number,
                 team1_id: team1_id, team2_id: team2_id,
-<<<<<<< HEAD
-                team1_name: team1Data[0]?.name || `${team1_id}`, team2_name: team2Data[0]?.name || `${team2_id}`,
-=======
+
                 team1_name: team1_name, team2_name: team2_name,
->>>>>>> aae5381670ae7999c1b9746a968ae88b919109ec
             });
         }
 
@@ -960,11 +957,9 @@ exports.undoLastBall = async (req, res, next) => {
         if (isWicket && fielder_player_id) { await connection.query(`UPDATE PlayerMatchStats SET catches = GREATEST(0, catches - ?), stumps = GREATEST(0, stumps - ?) WHERE match_id = ? AND player_id = ?`, [wicketType === 'Caught' ? 1 : 0, wicketType === 'Stumped' ? 1 : 0, matchId, fielder_player_id]); }
         console.log(`--- Player Stats Reverted ---`);
 
-        
         // Calculate Impact Points to Reverse // <<< INSERT THIS BLOCK
         const impactPointsToReverse = calculateImpactPoints({ runs_scored: lastBall.runs_scored, is_extra: lastBall.is_extra, extra_type: lastBall.extra_type, extra_runs: lastBall.extra_runs, is_wicket: lastBall.is_wicket, wicket_type: lastBall.wicket_type, is_bye: lastBall.is_bye });
         console.log(`--- Reversing Impact: Bat=${impactPointsToReverse.batsman}, Bowl=${impactPointsToReverse.bowler}, Field=${impactPointsToReverse.fielder} ---`);
-
         // Revert Batsman: Subtract batting_impact_points
         await connection.query(`UPDATE PlayerMatchStats SET runs_scored = GREATEST(0, runs_scored - ?), balls_faced = GREATEST(0, balls_faced - ?), fours = GREATEST(0, fours - ?), sixes = GREATEST(0, sixes - ?), is_out = IF(? = TRUE AND how_out = ?, FALSE, is_out), how_out = IF(? = TRUE AND how_out = ?, NULL, how_out), batting_impact_points = batting_impact_points - ? WHERE match_id = ? AND player_id = ?`,
             [actualRunsOffBat, isLegalDelivery ? 1 : 0, (lastBall.runs_scored == 4 && !lastBall.is_extra && !lastBall.is_bye) ? 1 : 0, (lastBall.runs_scored == 6 && !lastBall.is_extra && !lastBall.is_bye) ? 1 : 0, lastBall.is_wicket, lastBall.wicket_type, lastBall.is_wicket, lastBall.wicket_type, impactPointsToReverse.batsman, matchId, lastBall.batsman_on_strike_player_id]); // Subtracted impact
