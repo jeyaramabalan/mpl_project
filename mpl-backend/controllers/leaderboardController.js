@@ -39,7 +39,7 @@ exports.getLeaderboards = async (req, res, next) => {
                 SUM(CASE WHEN pms.is_out = TRUE THEN 1 ELSE 0 END) as times_out,
                 MAX(COALESCE(pms.runs_scored, 0)) as highest_score, -- Simple Max, not considering not outs
                 SUM(COALESCE(pms.fours, 0)) as total_fours,
-                SUM(COALESCE(pms.sixes, 0)) as total_sixes,
+                SUM(COALESCE(pms.twos, 0)) as total_twos,
                 SUM(COALESCE(pms.wickets_taken, 0)) as total_wickets,
                 SUM(COALESCE(pms.runs_conceded, 0)) as total_runs_conceded,
                 SUM(COALESCE(pms.overs_bowled, 0)) as total_overs_bowled, -- Sum of decimals
@@ -69,7 +69,7 @@ exports.getLeaderboards = async (req, res, next) => {
                 sr: calculateSR(s.total_runs, s.total_balls_faced),
                 hs: s.highest_score, // Simple highest for now
                 fours: s.total_fours,
-                sixes: s.total_sixes,
+                twos: s.total_twos,
             }))
             .sort((a, b) => b.runs - a.runs) // Sort by runs descending
             .slice(0, 20); // Limit to top 20

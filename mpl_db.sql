@@ -1010,7 +1010,7 @@ CREATE TABLE `playermatchstats` (
   `runs_scored` int(11) NOT NULL DEFAULT 0 COMMENT 'Runs scored by the batsman',
   `balls_faced` int(11) NOT NULL DEFAULT 0 COMMENT 'Number of legal deliveries faced by the batsman',
   `fours` int(11) NOT NULL DEFAULT 0 COMMENT 'Number of 4s hit (or map fence runs here)',
-  `sixes` int(11) NOT NULL DEFAULT 0 COMMENT 'Number of 6s hit',
+  `twos` int(11) NOT NULL DEFAULT 0 COMMENT 'Number of 2s hit',
   `is_out` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'Flag indicating if the batsman got out',
   `how_out` varchar(50) DEFAULT NULL COMMENT 'Method of dismissal (e.g., "Bowled", "Caught", "Run Out")',
   `overs_bowled` decimal(3,1) NOT NULL DEFAULT 0.0 COMMENT 'Overs bowled (e.g., 2.1 for 2 overs and 1 ball)',

@@ -103,8 +103,8 @@ function LeaderboardPage() {
         { key: 'hs', header: 'HS' },
         { key: 'avg', header: 'Avg' },
         { key: 'sr', header: 'SR' },
+        { key: 'twos', header: '2s' },
         { key: 'fours', header: '4s' },
-        { key: 'sixes', header: '6s' },
     ];
 
     const bowlingColumns = [

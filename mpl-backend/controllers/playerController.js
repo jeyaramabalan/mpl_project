@@ -78,7 +78,7 @@ exports.getPlayerStats = async (req, res, next) => {
                 COALESCE(SUM(pms.balls_faced), 0) as total_balls_faced,
                 MAX(COALESCE(pms.runs_scored, 0)) as highest_score,
                 COALESCE(SUM(pms.fours), 0) as total_fours,
-                COALESCE(SUM(pms.sixes), 0) as total_sixes,
+                COALESCE(SUM(pms.twos), 0) as total_twos,
                 COALESCE(SUM(CASE WHEN pms.is_out = TRUE THEN 1 ELSE 0 END), 0) as times_out,
                 COALESCE(SUM(pms.wickets_taken), 0) as total_wickets,
                 COALESCE(SUM(pms.runs_conceded), 0) as total_runs_conceded,
@@ -111,7 +111,7 @@ exports.getPlayerStats = async (req, res, next) => {
         if (statsArr.length === 0) {
              const [playerCheck] = await pool.query('SELECT player_id, name, role FROM Players WHERE player_id = ?', [playerId]);
              if (playerCheck.length === 0) { return res.status(404).json({ message: 'Player not found.' }); }
-             else { return res.json({ ...playerCheck[0], matches_played: 0, total_runs: 0, total_balls_faced: 0, highest_score: 0, total_fours: 0, total_sixes: 0, times_out: 0, total_wickets: 0, total_runs_conceded: 0, total_overs_bowled: 0.0, total_maidens: 0, total_wides: 0, total_no_balls: 0, total_catches: 0, total_stumps: 0, total_run_outs: 0, total_batting_impact: 0, total_bowling_impact: 0, total_fielding_impact: 0, average_impact: 0, super_overs_bowled: 0, batting_average: null, batting_strike_rate: null, bowling_average: null, bowling_economy_rate: null, bowling_strike_rate: null }); } // Added super_overs_bowled: 0
+             else { return res.json({ ...playerCheck[0], matches_played: 0, total_runs: 0, total_balls_faced: 0, highest_score: 0, total_fours: 0, total_twos: 0, times_out: 0, total_wickets: 0, total_runs_conceded: 0, total_overs_bowled: 0.0, total_maidens: 0, total_wides: 0, total_no_balls: 0, total_catches: 0, total_stumps: 0, total_run_outs: 0, total_batting_impact: 0, total_bowling_impact: 0, total_fielding_impact: 0, average_impact: 0, super_overs_bowled: 0, batting_average: null, batting_strike_rate: null, bowling_average: null, bowling_economy_rate: null, bowling_strike_rate: null }); } // Added super_overs_bowled: 0
         }
 
         let stats = statsArr[0];

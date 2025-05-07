@@ -11,7 +11,7 @@ const ScoreDisplay = ({ state }) => {
     const status = state.status;
     const battingTeamId = state.battingTeamId;
     const bowlingTeamId = state.bowlingTeamId;
-    const battingTeamName = state.battingTeamName ;
+    const battingTeamName = state.battingTeamName;
     const bowlingTeamName = state.bowlingTeamName;
 
     return (

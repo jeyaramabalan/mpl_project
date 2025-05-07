@@ -36,8 +36,8 @@ const InningsScorecard = ({ stats, teamName, inningsNumber }) => {
                             <th>Dismissal</th>
                             <th>Runs</th>
                             <th>Balls</th>
+                            <th>2s</th>
                             <th>4s</th>
-                            <th>6s</th>
                             <th>SR</th>
                         </tr>
                     </thead>
@@ -51,8 +51,8 @@ const InningsScorecard = ({ stats, teamName, inningsNumber }) => {
                                 <td className="dismissal">{formatDismissal(stat)}</td>
                                 <td className="runs">{stat.runs_scored ?? 0}</td>
                                 <td className="balls">{stat.balls_faced ?? 0}</td>
+                                <td className="twos">{stat.twos ?? 0}</td>
                                 <td className="fours">{stat.fours ?? 0}</td>
-                                <td className="sixes">{stat.sixes ?? 0}</td>
                                 <td className="strike-rate">{calculateSR(stat.runs_scored, stat.balls_faced)}</td>
                             </tr>
                         ))}
