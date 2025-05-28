@@ -696,6 +696,8 @@ exports.scoreSingleBall = async (req, res, next) => {
         const runsForBowler = actualRunsOffBat + (parseInt(extraRuns) || 0);
         if (isSuperOverBall && (isExtra) > 0) extraRuns *= 2;
         if (isSuperOverBall && isBye) extraRuns = extraRuns + 2
+        if (!isSuperOverBall && isBye ) extraRuns = extraRuns + 1
+
 
         // --- 4. Generate Commentary ---
         let [playerNamesResult] = []
@@ -942,7 +944,7 @@ exports.undoLastBall = async (req, res, next) => {
         if (matches.length === 0) throw new Error('Match not found.');
         const match = matches[0];
         let currentStatus = match.status;
-        if (!['Live', 'InningsBreak', 'Completed'].includes(currentStatus)) throw new Error(`Cannot undo ball. Match status is '${currentStatus}'.`);
+        if (!['Live'].includes(currentStatus)) throw new Error(`Cannot undo ball. Match status is '${currentStatus}'.`);
 
         // Determine batting/bowling team
         let battingTeamId, bowlingTeamId;
