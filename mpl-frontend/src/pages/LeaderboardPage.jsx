@@ -47,28 +47,28 @@ const LeaderboardTable = ({ title, data, columns }) => {
 };
 
 function LeaderboardPage() {
-    const [seasons, setSeasons] = useState([]);
+    const [seasons, setseasons] = useState([]);
     const [selectedSeason, setSelectedSeason] = useState('');
     const [leaderboardData, setLeaderboardData] = useState({ batting: null, bowling: null, impact: null });
-    const [loadingSeasons, setLoadingSeasons] = useState(true);
+    const [loadingseasons, setLoadingseasons] = useState(true);
     const [loadingData, setLoadingData] = useState(false);
     const [error, setError] = useState('');
     const [activeTab, setActiveTab] = useState('batting'); // 'batting', 'bowling', 'impact'
 
-    // Fetch Seasons
+    // Fetch seasons
     useEffect(() => {
-        const fetchSeasons = async () => {
-            setLoadingSeasons(true);
+        const fetchseasons = async () => {
+            setLoadingseasons(true);
             try {
                 const { data } = await api.get('/seasons/public'); // Use admin route to get all seasons
-                setSeasons(data);
+                setseasons(data);
                 if (data.length > 0) {
                     setSelectedSeason(data[0].season_id); // Default to first/latest season
                 }
             } catch (err) { setError('Failed to load seasons.'); }
-            finally { setLoadingSeasons(false); }
+            finally { setLoadingseasons(false); }
         };
-        fetchSeasons();
+        fetchseasons();
     }, []);
 
     // Fetch Leaderboard Data when season changes
@@ -131,7 +131,7 @@ function LeaderboardPage() {
         <div className="leaderboard-page">
             <h2>Season Leaderboards</h2>
 
-            {loadingSeasons ? <LoadingFallback /> : (
+            {loadingseasons ? <LoadingFallback /> : (
                 <div className="filter-section">
                     <label htmlFor="season-select-leaderboard">Select Season:</label>
                     <select
@@ -165,7 +165,7 @@ function LeaderboardPage() {
                             <>
                                 {activeTab === 'batting' && <LeaderboardTable title="Top Run Scorers" data={leaderboardData.batting} columns={battingColumns} />}
                                 {activeTab === 'bowling' && <LeaderboardTable title="Top Wicket Takers" data={leaderboardData.bowling} columns={bowlingColumns} />}
-                                {activeTab === 'impact' && <LeaderboardTable title="Top Impact Players" data={leaderboardData.impact} columns={impactColumns} />}
+                                {activeTab === 'impact' && <LeaderboardTable title="Top Impact players" data={leaderboardData.impact} columns={impactColumns} />}
                             </>
                         )}
                     </div>

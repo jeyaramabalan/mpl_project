@@ -2,7 +2,7 @@
 const express = require('express');
 const {
     addTeamToSeason,
-    getTeamsForSeason,
+    getteamsForSeason,
     updateTeam,
     getTeamDetails,
     addPlayerToTeam,
@@ -22,7 +22,7 @@ router.post('/', addTeamToSeason);
 
 // GET /api/admin/teams?season_id=X
 // Get teams, requires filtering by season_id query parameter
-router.get('/', getTeamsForSeason);
+router.get('/', getteamsForSeason);
 
 // GET /api/admin/teams/:id?season_id=X
 // Get details of a specific team AND its players for a specific season
@@ -44,7 +44,7 @@ router.put('/:id', updateTeam);
 router.post('/players', addPlayerToTeam);
 
 // DELETE /api/admin/teams/players/:teamPlayerId
-// Remove a player assignment using the unique ID from the TeamPlayers table
+// Remove a player assignment using the unique ID from the teamplayers table
 router.delete('/players/:teamPlayerId', removePlayerFromTeam);
 
 

@@ -20,13 +20,13 @@ exports.createSeason = async (req, res, next) => {
 
     try {
         const [result] = await pool.query(
-            'INSERT INTO Seasons (year, name, start_date, end_date, status) VALUES (?, ?, ?, ?, ?)',
+            'INSERT INTO seasons (year, name, start_date, end_date, status) VALUES (?, ?, ?, ?, ?)',
             // Provide null for optional fields if they are empty strings or undefined
             [year, name, start_date || null, end_date || null, status || 'Planned']
         );
         const seasonId = result.insertId;
         // Fetch the newly created season to return it in the response
-        const [newSeason] = await pool.query('SELECT * FROM Seasons WHERE season_id = ?', [seasonId]);
+        const [newSeason] = await pool.query('SELECT * FROM seasons WHERE season_id = ?', [seasonId]);
 
         if (newSeason.length === 0) {
             // Should not happen if insert was successful
@@ -49,13 +49,13 @@ exports.createSeason = async (req, res, next) => {
  * @route   GET /api/admin/seasons
  * @access  Admin (Protected)
  */
-exports.getSeasons = async (req, res, next) => {
+exports.getseasons = async (req, res, next) => {
     try {
         // Order by year descending to show most recent first
-        const [seasons] = await pool.query('SELECT * FROM Seasons ORDER BY year DESC');
+        const [seasons] = await pool.query('SELECT * FROM seasons ORDER BY year DESC');
         res.json(seasons);
     } catch (error) {
-        console.error("Get Seasons Error:", error);
+        console.error("Get seasons Error:", error);
         next(error);
     }
 };
@@ -72,7 +72,7 @@ exports.getSeasonById = async (req, res, next) => {
     }
 
     try {
-        const [seasons] = await pool.query('SELECT * FROM Seasons WHERE season_id = ?', [id]);
+        const [seasons] = await pool.query('SELECT * FROM seasons WHERE season_id = ?', [id]);
         if (seasons.length === 0) {
             return res.status(404).json({ message: 'Season not found.' });
         }
@@ -110,7 +110,7 @@ exports.updateSeason = async (req, res, next) => {
 
     try {
         // Check if the season exists before attempting to update
-        const [existing] = await pool.query('SELECT season_id FROM Seasons WHERE season_id = ?', [id]);
+        const [existing] = await pool.query('SELECT season_id FROM seasons WHERE season_id = ?', [id]);
         if (existing.length === 0) {
             return res.status(404).json({ message: 'Season not found.' });
         }
@@ -124,19 +124,19 @@ exports.updateSeason = async (req, res, next) => {
         if (status) fieldsToUpdate.status = status;
 
         // Perform the update query
-        const [result] = await pool.query('UPDATE Seasons SET ? WHERE season_id = ?', [fieldsToUpdate, id]);
+        const [result] = await pool.query('UPDATE seasons SET ? WHERE season_id = ?', [fieldsToUpdate, id]);
 
          if (result.affectedRows === 0) {
              // This might happen if the data submitted was the same as existing data
              console.warn(`Update Season ${id}: Affected rows was 0. Data might be unchanged.`);
               // Fetch current data to confirm if it matches request or if ID was wrong despite check
-             const [currentSeason] = await pool.query('SELECT * FROM Seasons WHERE season_id = ?', [id]);
+             const [currentSeason] = await pool.query('SELECT * FROM seasons WHERE season_id = ?', [id]);
              return res.json({ message: 'Season data unchanged.', season: currentSeason[0] });
 
          }
 
         // Fetch the updated season data to return in the response
-        const [updatedSeason] = await pool.query('SELECT * FROM Seasons WHERE season_id = ?', [id]);
+        const [updatedSeason] = await pool.query('SELECT * FROM seasons WHERE season_id = ?', [id]);
         res.json({ message: 'Season updated successfully', season: updatedSeason[0] });
 
     } catch (error) {
@@ -160,13 +160,13 @@ exports.updateSeason = async (req, res, next) => {
 //     // depending on your FOREIGN KEY constraints (ON DELETE CASCADE). Double-check schema.
 //     // Consider logical deletion (setting an 'is_deleted' flag) instead of physical deletion.
 //     try {
-//          const [existing] = await pool.query('SELECT season_id FROM Seasons WHERE season_id = ?', [id]);
+//          const [existing] = await pool.query('SELECT season_id FROM seasons WHERE season_id = ?', [id]);
 //         if (existing.length === 0) {
 //             return res.status(404).json({ message: 'Season not found.' });
 //         }
 
 //         // Perform deletion
-//         const [result] = await pool.query('DELETE FROM Seasons WHERE season_id = ?', [id]);
+//         const [result] = await pool.query('DELETE FROM seasons WHERE season_id = ?', [id]);
 
 //          if (result.affectedRows === 0) {
 //              return res.status(404).json({ message: 'Season not found or already deleted.' });

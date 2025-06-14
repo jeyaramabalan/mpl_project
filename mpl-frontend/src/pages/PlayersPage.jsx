@@ -1,23 +1,23 @@
-// mpl-project/mpl-frontend/src/pages/PlayersPage.jsx
+// mpl-project/mpl-frontend/src/pages/playersPage.jsx
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api'; // Your configured Axios instance
 import LoadingFallback from '../components/LoadingFallback';
 
-function PlayersPage() {
-    const [players, setPlayers] = useState([]);
+function playersPage() {
+    const [players, setplayers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
     useEffect(() => {
-        const fetchPlayers = async () => {
+        const fetchplayers = async () => {
             setLoading(true);
             setError('');
             try {
                 console.log("Fetching players list...");
                 const { data } = await api.get('/players'); // API call to get player list
-                setPlayers(data);
-                console.log("Players fetched:", data.length);
+                setplayers(data);
+                console.log("players fetched:", data.length);
             } catch (err) {
                 console.error("Failed to fetch players:", err);
                 const errorMessage = typeof err === 'string' ? err : (err.message || 'Failed to load players list.');
@@ -27,7 +27,7 @@ function PlayersPage() {
             }
         };
 
-        fetchPlayers();
+        fetchplayers();
     }, []); // Empty dependency array ensures this runs only once on mount
 
     if (loading) return <LoadingFallback />;
@@ -35,7 +35,7 @@ function PlayersPage() {
 
     return (
         <div>
-            <h1>MPL Players</h1>
+            <h1>MPL players</h1>
             {/* Optional: Add search/filter functionality here */}
             {players.length > 0 ? (
                 <table>
@@ -66,4 +66,4 @@ function PlayersPage() {
     );
 }
 
-export default PlayersPage;
+export default playersPage;

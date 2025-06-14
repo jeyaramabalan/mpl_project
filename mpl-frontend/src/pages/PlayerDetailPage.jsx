@@ -178,7 +178,7 @@ function PlayerDetailPage() {
                  </div>
             </div>
 
-            <Link to="/players" className="back-link">← Back to Players List</Link>
+            <Link to="/players" className="back-link">← Back to players List</Link>
        </div>
    );
 }

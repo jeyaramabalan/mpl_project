@@ -3,9 +3,9 @@ const pool = require('../config/db');
 
 // WARNING: In-memory store is simple for development but NOT suitable for production.
 // Consider Redis or another external store for managing live match states.
-let liveMatchesState = {};
+let livematchesState = {};
 // Structure Example (Will be updated by backend API emits now):
-// liveMatchesState = {
+// livematchesState = {
 //   "match_1": { // Keyed by matchId
 //     matchId: 1, seasonId: 1, status: 'Live', innings: 1, score: 45, wickets: 1, overs: 4, balls: 6, // Note: overs/balls represent *completed*
 //     battingTeamId: 1, bowlingTeamId: 2, superOver: 3, target: null,
@@ -14,7 +14,7 @@ let liveMatchesState = {};
 //     batsmanStrike: { id: 101, name: 'Rohit Sharma', runs: 35, balls: 20 }, // Might be simplified or part of players list
 //     bowler: { id: 110, name: 'Yuzvendra Chahal', oversDecimal: 0.0, runs: 8, wickets: 0 }, // Simplified
 //     lastEvent: "Ball 4.6: WICKET! Caught (Hit Six). Innings End.",
-//     lastBallCommentary: "Over 4.6: Chahal to Rohit Sharma, WICKET! Caught by Kohli (Hit Six!)", // From BallByBall table via backend emit
+//     lastBallCommentary: "Over 4.6: Chahal to Rohit Sharma, WICKET! Caught by Kohli (Hit Six!)", // From ballbyball table via backend emit
 //     recentCommentary: ["Over 4.6: ...", "Over 4.5: ..."] // Array of recent commentary strings
 //   },
 //   ...
@@ -38,8 +38,8 @@ function initializeSocket(io) {
             console.log(`[Socket Join] ${socket.id} joined room: ${roomName}`);
 
             // Send the current cached state of the match *to the user who just joined*
-            if (liveMatchesState[matchId]) {
-                socket.emit('updateScore', liveMatchesState[matchId]); // Send the last known full state
+            if (livematchesState[matchId]) {
+                socket.emit('updateScore', livematchesState[matchId]); // Send the last known full state
                 console.log(`[Socket State] Sent cached state of match ${matchId} to ${socket.id}`);
             } else {
                  console.log(`[Socket State] No cached state found for match ${matchId} to send on join.`);
@@ -80,7 +80,7 @@ function initializeSocket(io) {
 
             // Initialize or overwrite the live state in memory
             // This state will be updated by 'updateScore' events triggered by the backend API
-            liveMatchesState[matchId] = {
+            livematchesState[matchId] = {
                 ...initialState, // Contains teams, players, superOver etc. from setup API response
                 status: 'Live', // Explicitly set status to Live
                 score: 0,
@@ -99,14 +99,14 @@ function initializeSocket(io) {
 
             // Broadcast to everyone in the room that the match is now live with its initial state
             const roomName = `match_${matchId}`;
-            io.to(roomName).emit('matchLive', liveMatchesState[matchId]); // Signal the match is officially live
-            io.to(roomName).emit('updateScore', liveMatchesState[matchId]); // Send the initial full state
+            io.to(roomName).emit('matchLive', livematchesState[matchId]); // Signal the match is officially live
+            io.to(roomName).emit('updateScore', livematchesState[matchId]); // Send the initial full state
             console.log(`[Socket Start] Match ${matchId} initialized to Live state. State broadcasted.`);
         });
 
 
         // --- IMPORTANT: 'scoreBall' listener is REMOVED ---
-        // The logic for processing a ball, updating the database (BallByBall, PlayerMatchStats),
+        // The logic for processing a ball, updating the database (ballbyball, playermatchstats),
         // calculating the new state, and determining end of over/innings/match
         // now resides in the backend HTTP endpoint controller: `controllers/admin/scoringController.js -> scoreSingleBall`.
         // That controller function, AFTER successfully committing database changes,
@@ -122,7 +122,7 @@ function initializeSocket(io) {
         // --- Disconnect Handling ---
         socket.on('disconnect', (reason) => {
             console.log(`[Socket Disconnect] ID: ${socket.id}, Reason: ${reason}`);
-            // No specific cleanup needed for liveMatchesState here unless tracking individual user sessions
+            // No specific cleanup needed for livematchesState here unless tracking individual user sessions
         });
 
         // --- Connection Error Handling ---

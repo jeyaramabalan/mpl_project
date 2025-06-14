@@ -13,7 +13,7 @@ const MatchForm = ({ onSubmit, initialData = {}, seasons = [], teams = [], loadi
         venue: 'Bowyer Park',
         // status: 'Scheduled' // Status generally not editable here
     });
-     const [filteredTeams, setFilteredTeams] = useState([]);
+     const [filteredteams, setFilteredteams] = useState([]);
 
     // Effect to initialize form when initialData or seasons change
     useEffect(() => {
@@ -31,17 +31,17 @@ const MatchForm = ({ onSubmit, initialData = {}, seasons = [], teams = [], loadi
      // Effect to update available teams when selected season changes
      useEffect(() => {
          if (formData.season_id) {
-            const seasonTeams = teams.filter(t => t.season_id === parseInt(formData.season_id));
-            setFilteredTeams(seasonTeams);
+            const seasonteams = teams.filter(t => t.season_id === parseInt(formData.season_id));
+            setFilteredteams(seasonteams);
              // Reset team selections if the currently selected teams are not in the newly selected season
-             if (formData.team1_id && !seasonTeams.some(t => t.team_id === parseInt(formData.team1_id))) {
+             if (formData.team1_id && !seasonteams.some(t => t.team_id === parseInt(formData.team1_id))) {
                 setFormData(prev => ({ ...prev, team1_id: '' }));
              }
-              if (formData.team2_id && !seasonTeams.some(t => t.team_id === parseInt(formData.team2_id))) {
+              if (formData.team2_id && !seasonteams.some(t => t.team_id === parseInt(formData.team2_id))) {
                 setFormData(prev => ({ ...prev, team2_id: '' }));
              }
          } else {
-             setFilteredTeams([]);
+             setFilteredteams([]);
               setFormData(prev => ({ ...prev, team1_id: '', team2_id: '' })); // Clear teams if no season
          }
      }, [formData.season_id, teams]);
@@ -91,7 +91,7 @@ const MatchForm = ({ onSubmit, initialData = {}, seasons = [], teams = [], loadi
                  <label htmlFor="team1_id">Team 1:*</label>
                  <select id="team1_id" name="team1_id" value={formData.team1_id} onChange={handleChange} required disabled={loading || !formData.season_id || (isEditing && formData.status !== 'Scheduled')}>
                      <option value="">-- Select Team 1 --</option>
-                     {filteredTeams.map(t => <option key={'t1-'+t.team_id} value={t.team_id}>{t.name}</option>)}
+                     {filteredteams.map(t => <option key={'t1-'+t.team_id} value={t.team_id}>{t.name}</option>)}
                  </select>
              </div>
              <div>
@@ -99,7 +99,7 @@ const MatchForm = ({ onSubmit, initialData = {}, seasons = [], teams = [], loadi
                  <select id="team2_id" name="team2_id" value={formData.team2_id} onChange={handleChange} required disabled={loading || !formData.season_id || (isEditing && formData.status !== 'Scheduled')}>
                      <option value="">-- Select Team 2 --</option>
                       {/* Filter out selected team 1 */}
-                     {filteredTeams.filter(t => t.team_id !== parseInt(formData.team1_id)).map(t => <option key={'t2-'+t.team_id} value={t.team_id}>{t.name}</option>)}
+                     {filteredteams.filter(t => t.team_id !== parseInt(formData.team1_id)).map(t => <option key={'t2-'+t.team_id} value={t.team_id}>{t.name}</option>)}
                  </select>
              </div>
              <div>
@@ -147,9 +147,9 @@ const MatchForm = ({ onSubmit, initialData = {}, seasons = [], teams = [], loadi
 
 // --- Main Page Component ---
 function AdminSchedulePage() {
-    const [seasons, setSeasons] = useState([]);
-    const [allTeams, setAllTeams] = useState([]); // Fetch all teams for form dropdowns
-    const [matches, setMatches] = useState([]); // Matches displayed in the list
+    const [seasons, setseasons] = useState([]);
+    const [allteams, setAllteams] = useState([]); // Fetch all teams for form dropdowns
+    const [matches, setmatches] = useState([]); // matches displayed in the list
     const [selectedSeasonFilter, setSelectedSeasonFilter] = useState(''); // Filter list by season
     const [editingMatch, setEditingMatch] = useState(null); // Holds match object if editing
     const [loading, setLoading] = useState(true); // Combined loading state
@@ -166,32 +166,32 @@ function AdminSchedulePage() {
                 api.get('/admin/seasons'), // Use admin route if different access needed
                 api.get('/admin/teams') // Fetch all teams across all seasons for the form
              ]);
-            setSeasons(seasonsRes.data || []);
-            setAllTeams(teamsRes.data || []);
+            setseasons(seasonsRes.data || []);
+            setAllteams(teamsRes.data || []);
 
              // Set default filter to the first season if available
              if (seasonsRes.data?.length > 0 && !selectedSeasonFilter) {
                  setSelectedSeasonFilter(seasonsRes.data[0].season_id);
              } else if (seasonsRes.data?.length > 0 && selectedSeasonFilter) {
                  // If a filter was already set, fetch matches for it
-                 fetchMatches(selectedSeasonFilter);
+                 fetchmatches(selectedSeasonFilter);
              } else {
                  // No seasons or no filter, load empty matches
-                 setMatches([]);
+                 setmatches([]);
                  setLoading(false); // Stop loading if no season to fetch matches for
              }
 
         } catch (err) {
             console.error("Failed to load initial data:", err);
-            setError(typeof err === 'string' ? err : 'Failed to load necessary data (Seasons/Teams).');
+            setError(typeof err === 'string' ? err : 'Failed to load necessary data (seasons/teams).');
              setLoading(false);
         }
-        // Loading is set to false inside fetchMatches or above if no matches fetched
+        // Loading is set to false inside fetchmatches or above if no matches fetched
     }, [selectedSeasonFilter]); // Include filter
 
-    const fetchMatches = useCallback(async (seasonId) => {
+    const fetchmatches = useCallback(async (seasonId) => {
          if (!seasonId) {
-             setMatches([]);
+             setmatches([]);
              setLoading(false); // Ensure loading stops if no season is selected
              return;
          };
@@ -200,7 +200,7 @@ function AdminSchedulePage() {
          setError('');
         try {
             const { data } = await api.get(`/admin/matches?season_id=${seasonId}`);
-            setMatches(data);
+            setmatches(data);
         } catch (err) {
             console.error(`Failed to fetch matches for season ${seasonId}:`, err);
             setError(typeof err === 'string' ? err : 'Failed to load match schedule.');
@@ -218,12 +218,12 @@ function AdminSchedulePage() {
      useEffect(() => {
         if (selectedSeasonFilter) {
              setLoading(true); // Show loading when filter changes
-             fetchMatches(selectedSeasonFilter);
+             fetchmatches(selectedSeasonFilter);
         } else {
-             setMatches([]); // Clear matches if no season selected
+             setmatches([]); // Clear matches if no season selected
              setLoading(false); // Stop loading if no filter selected after initial load
         }
-    }, [selectedSeasonFilter, fetchMatches]);
+    }, [selectedSeasonFilter, fetchmatches]);
 
     // --- Handlers ---
     const handleFormSubmit = async (payload) => {
@@ -239,7 +239,7 @@ function AdminSchedulePage() {
             }
             setEditingMatch(null); // Close form
             setShowAddForm(false); // Close add form if open
-            fetchMatches(selectedSeasonFilter || payload.season_id); // Refresh list for current/new season
+            fetchmatches(selectedSeasonFilter || payload.season_id); // Refresh list for current/new season
         } catch (err) {
              setError(typeof err === 'string' ? err : `Failed to ${editingMatch ? 'update' : 'add'} match.`);
         } finally {
@@ -264,12 +264,12 @@ function AdminSchedulePage() {
         setLoading(true); // Use main loading indicator for delete
         try {
             await api.delete(`/api/admin/matches/${matchId}`);
-            fetchMatches(selectedSeasonFilter); // Refresh list
+            fetchmatches(selectedSeasonFilter); // Refresh list
         } catch (err) {
              setError(typeof err === 'string' ? err : 'Failed to delete match. It might have already started or been completed.');
              setLoading(false); // Stop loading on error
         }
-        // setLoading(false) will be called by fetchMatches on success
+        // setLoading(false) will be called by fetchmatches on success
     };
 
 
@@ -304,13 +304,13 @@ function AdminSchedulePage() {
                      onSubmit={handleFormSubmit}
                      initialData={editingMatch || {}} // Pass empty object if adding
                      seasons={seasons}
-                     teams={allTeams} // Pass all teams
+                     teams={allteams} // Pass all teams
                      loading={formLoading}
                      onCancel={handleCancelEdit}
                  />
             )}
 
-             {/* Matches List */}
+             {/* matches List */}
             <h3>Match List {selectedSeasonFilter ? `(${seasons.find(s=>s.season_id==selectedSeasonFilter)?.name})` : ''}</h3>
             {loading && <LoadingFallback message="Loading matches..." />}
              {!loading && matches.length === 0 && selectedSeasonFilter && <p>No matches scheduled for this season yet.</p>}

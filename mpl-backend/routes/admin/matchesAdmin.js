@@ -2,7 +2,7 @@
 const express = require('express');
 const {
     createMatch,
-    getAllMatches, // Can reuse logic from public controller if desired
+    getAllmatches, // Can reuse logic from public controller if desired
     getMatchById,
     updateMatch,
     deleteMatch,
@@ -15,7 +15,7 @@ const router = express.Router();
 
 router.route('/')
     .post(createMatch)
-    .get(getAllMatches); // List matches with filters for admin view
+    .get(getAllmatches); // List matches with filters for admin view
 
 router.route('/:id')
     .get(getMatchById) // Get specific match details for editing

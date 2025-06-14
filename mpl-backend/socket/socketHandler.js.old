@@ -4,9 +4,9 @@ const pool = require('../config/db');
 // WARNING: In-memory store is simple for development but NOT suitable for production.
 // It doesn't persist across server restarts and won't work with multiple server instances (scaling).
 // Consider using Redis or another external store for managing live match states in production.
-let liveMatchesState = {};
+let livematchesState = {};
 // Structure Example:
-// liveMatchesState = {
+// livematchesState = {
 //   "match_123": {
 //     matchId: 123, seasonId: 1, status: 'Live', innings: 1, score: 50, wickets: 1, overs: 4, balls: 2,
 //     battingTeamId: 10, bowlingTeamId: 11, superOver: 3, target: null,
@@ -39,8 +39,8 @@ function initializeSocket(io) {
             console.log(`[Socket Join] ${socket.id} joined room: ${roomName}`);
 
             // Send the current state of the match *to the user who just joined*
-            if (liveMatchesState[matchId]) {
-                socket.emit('updateScore', liveMatchesState[matchId]);
+            if (livematchesState[matchId]) {
+                socket.emit('updateScore', livematchesState[matchId]);
                 console.log(`[Socket State] Sent current state of match ${matchId} to ${socket.id}`);
             } else {
                  console.log(`[Socket State] No live state found for match ${matchId} to send on join.`);
@@ -72,7 +72,7 @@ function initializeSocket(io) {
             console.log(`[Socket Start] Starting scoring for Match ${matchId} requested by ${socket.id}`);
 
             // Initialize or update the live state
-            liveMatchesState[matchId] = {
+            livematchesState[matchId] = {
                 ...initialState, // Contains teams, players, superOver etc. from setup
                 status: 'Live', // Explicitly set status to Live
                 score: 0,
@@ -90,8 +90,8 @@ function initializeSocket(io) {
 
             // Broadcast to everyone in the room that the match is now live
             const roomName = `match_${matchId}`;
-            io.to(roomName).emit('matchLive', liveMatchesState[matchId]);
-            io.to(roomName).emit('updateScore', liveMatchesState[matchId]); // Send initial live state
+            io.to(roomName).emit('matchLive', livematchesState[matchId]);
+            io.to(roomName).emit('updateScore', livematchesState[matchId]); // Send initial live state
             console.log(`[Socket Start] Match ${matchId} is now Live. State broadcasted.`);
         });
 
@@ -102,13 +102,13 @@ function initializeSocket(io) {
             // { matchId: number, runs: number, isWicket: boolean, wicketType?: string, isExtra: boolean, extraType?: 'Wide'|'NoBall', /* TODO: batsmanId?: number, bowlerId?: number */ }
             const { matchId, runs, isWicket, wicketType, isExtra, extraType } = data;
 
-            if (!matchId || !liveMatchesState[matchId]) {
+            if (!matchId || !livematchesState[matchId]) {
                 console.warn(`[Score Ball] Event received for unknown or non-live match ${matchId} from ${socket.id}`);
                 socket.emit('scoringError', { message: `Match ${matchId} state not found.` });
                 return;
             }
 
-            let currentState = liveMatchesState[matchId];
+            let currentState = livematchesState[matchId];
 
             // Prevent scoring if match isn't live
             if (currentState.status !== 'Live') {
@@ -129,7 +129,7 @@ function initializeSocket(io) {
              // 7. Check for end of over (6 legal deliveries). If ended: increment overs, reset balls, check for maiden, trigger bowler change.
              // 8. Check for end of innings (wickets >= 1 or overs >= 5). If ended: set status, calculate target (if 1st innings), trigger innings break/match end.
              // 9. Update `lastEvent` string for commentary.
-             // 10. Update the `liveMatchesState[matchId]` object.
+             // 10. Update the `livematchesState[matchId]` object.
              // --- End of TODO ---
 
             // --- Placeholder Logic (Very Simplified) ---
@@ -199,7 +199,7 @@ function initializeSocket(io) {
 
                 // TODO: Trigger final saving of stats to DB here or via separate finalize step.
                 // Consider removing from live state once fully completed and saved?
-                // delete liveMatchesState[matchId];
+                // delete livematchesState[matchId];
             }
 
         }); // End of 'scoreBall' handler

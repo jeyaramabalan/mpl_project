@@ -294,7 +294,7 @@ const MatchDetailPage = () => {
 
   if (
     matchDetails?.status === "Completed" &&
-    matchDetails?.playerStats?.length > 0
+    matchDetails?.playerstats?.length > 0
   ) {
     const inn1BatTeamId =
       matchDetails.decision === "Bat"
@@ -314,16 +314,16 @@ const MatchDetailPage = () => {
       inn2BatTeamId === matchDetails.team1_id
         ? matchDetails.team1_name
         : matchDetails.team2_name;
-    innings1BatStats = matchDetails.playerStats.filter(
+    innings1BatStats = matchDetails.playerstats.filter(
       (stat) => stat.team_id === inn1BatTeamId
     );
-    innings2BatStats = matchDetails.playerStats.filter(
+    innings2BatStats = matchDetails.playerstats.filter(
       (stat) => stat.team_id === inn2BatTeamId
     );
-    innings1BowlStats = matchDetails.playerStats.filter(
+    innings1BowlStats = matchDetails.playerstats.filter(
       (stat) => stat.team_id === inn2BatTeamId && stat.overs_bowled > 0
     );
-    innings2BowlStats = matchDetails.playerStats.filter(
+    innings2BowlStats = matchDetails.playerstats.filter(
       (stat) => stat.team_id === inn1BatTeamId && stat.overs_bowled > 0
     );
     const calculateInningsSummary = (batStats) => {

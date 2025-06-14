@@ -4,12 +4,12 @@ import api from '../../services/api';
 import LoadingFallback from '../../components/LoadingFallback';
 
 function AdminResolveMatchPage() {
-    const [seasons, setSeasons] = useState([]);
+    const [seasons, setseasons] = useState([]);
     const [selectedSeason, setSelectedSeason] = useState('');
-    const [matches, setMatches] = useState([]); // Matches needing resolution
+    const [matches, setmatches] = useState([]); // matches needing resolution
     const [selectedMatch, setSelectedMatch] = useState(null); // Full details of the selected match
-    const [loadingSeasons, setLoadingSeasons] = useState(true);
-    const [loadingMatches, setLoadingMatches] = useState(false);
+    const [loadingseasons, setLoadingseasons] = useState(true);
+    const [loadingmatches, setLoadingmatches] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
 
@@ -19,26 +19,26 @@ function AdminResolveMatchPage() {
     const [resultSummary, setResultSummary] = useState('');
     const [momPlayerId, setMomPlayerId] = useState(''); // Optional
 
-    // Fetch Seasons
+    // Fetch seasons
     useEffect(() => {
-        const fetchSeasons = async () => {
-            setLoadingSeasons(true);
+        const fetchseasons = async () => {
+            setLoadingseasons(true);
             try {
                 const { data } = await api.get('/admin/seasons');
-                setSeasons(data);
+                setseasons(data);
                 if (data.length > 0) setSelectedSeason(data[0].season_id);
             } catch (err) { setError('Failed to load seasons.'); }
-            finally { setLoadingSeasons(false); }
+            finally { setLoadingseasons(false); }
         };
-        fetchSeasons();
+        fetchseasons();
     }, []);
 
-    // Fetch Matches needing resolution when season changes
-    const fetchMatchesToResolve = useCallback(async () => {
+    // Fetch matches needing resolution when season changes
+    const fetchmatchesToResolve = useCallback(async () => {
         if (!selectedSeason) {
-            setMatches([]); return;
+            setmatches([]); return;
         }
-        setLoadingMatches(true); setError(''); setMatches([]); setSelectedMatch(null); // Reset
+        setLoadingmatches(true); setError(''); setmatches([]); setSelectedMatch(null); // Reset
         try {
             // Fetch matches that are Tied (winner is NULL but status is Completed) OR Abandoned OR maybe Stuck in Live/Break?
             // Adjust the statuses based on what you want admins to be able to resolve
@@ -52,7 +52,7 @@ function AdminResolveMatchPage() {
              const { data } = await api.get('/admin/matches', { params });
 
              // Filter for matches that might need resolution
-             const filteredMatches = data.filter(m =>
+             const filteredmatches = data.filter(m =>
                 (m.status === 'Completed' && m.winner_team_id === null) || // Tied matches
                  m.status === 'Abandoned' || // Already abandoned
                  m.status === 'Live' || // Stuck Live?
@@ -60,15 +60,15 @@ function AdminResolveMatchPage() {
                  m.status === 'Setup' // Stuck in Setup?
                 // Add any other statuses you want to allow resolution for
              );
-             setMatches(filteredMatches);
+             setmatches(filteredmatches);
 
         } catch (err) { setError(typeof err === 'string' ? err : 'Failed to load matches.'); }
-        finally { setLoadingMatches(false); }
+        finally { setLoadingmatches(false); }
     }, [selectedSeason]);
 
     useEffect(() => {
-        fetchMatchesToResolve();
-    }, [fetchMatchesToResolve]);
+        fetchmatchesToResolve();
+    }, [fetchmatchesToResolve]);
 
     // Handle match selection
     const handleMatchSelect = (matchId) => {
@@ -114,7 +114,7 @@ function AdminResolveMatchPage() {
             await api.put(`/admin/matches/${selectedMatch.match_id}/resolve`, payload);
             alert('Match resolved successfully!');
             setSelectedMatch(null); // Clear selection
-            fetchMatchesToResolve(); // Refresh the list
+            fetchmatchesToResolve(); // Refresh the list
         } catch (err) {
             setError(typeof err === 'string' ? err : 'Failed to resolve match.');
         } finally {
@@ -126,10 +126,10 @@ function AdminResolveMatchPage() {
         <div className="admin-resolve-match-page">
             <h2>Resolve Match Result</h2>
 
-            {loadingSeasons ? <LoadingFallback /> : (
+            {loadingseasons ? <LoadingFallback /> : (
                 <div className="filter-section">
                     <label htmlFor="season-select-resolve">Select Season:</label>
-                    <select id="season-select-resolve" value={selectedSeason} onChange={(e) => setSelectedSeason(e.target.value)} disabled={loadingMatches || submitting}>
+                    <select id="season-select-resolve" value={selectedSeason} onChange={(e) => setSelectedSeason(e.target.value)} disabled={loadingmatches || submitting}>
                         <option value="">-- Select Season --</option>
                         {seasons.map(s => (<option key={s.season_id} value={s.season_id}>{s.name} ({s.year})</option>))}
                     </select>
@@ -138,13 +138,13 @@ function AdminResolveMatchPage() {
 
             {error && <p className="error-message">{error}</p>}
 
-            {loadingMatches && <LoadingFallback message="Loading matches..." />}
+            {loadingmatches && <LoadingFallback message="Loading matches..." />}
 
-            {!loadingMatches && selectedSeason && matches.length === 0 && (
+            {!loadingmatches && selectedSeason && matches.length === 0 && (
                 <p>No matches found needing resolution for this season.</p>
             )}
 
-            {!loadingMatches && matches.length > 0 && (
+            {!loadingmatches && matches.length > 0 && (
                 <div style={{ marginBottom: '1.5rem' }}>
                     <label htmlFor="match-select-resolve">Select Match to Resolve:</label>
                     <select id="match-select-resolve" value={selectedMatch?.match_id || ''} onChange={(e) => handleMatchSelect(e.target.value)} disabled={submitting}>

@@ -1,21 +1,21 @@
-// mpl-project/mpl-frontend/src/pages/admin/AdminSeasonsPage.jsx
+// mpl-project/mpl-frontend/src/pages/admin/AdminseasonsPage.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import LoadingFallback from '../../components/LoadingFallback';
 
-function AdminSeasonsPage() {
-    const [seasons, setSeasons] = useState([]);
+function AdminseasonsPage() {
+    const [seasons, setseasons] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [isEditing, setIsEditing] = useState(null); // Holds season_id if editing, else null
     const [formData, setFormData] = useState({ year: '', name: '', start_date: '', end_date: '', status: 'Planned' });
 
-    const fetchSeasons = useCallback(async () => {
+    const fetchseasons = useCallback(async () => {
         setLoading(true);
         setError('');
         try {
             const { data } = await api.get('/admin/seasons');
-            setSeasons(data);
+            setseasons(data);
         } catch (err) {
             console.error("Failed to fetch seasons:", err);
             setError(typeof err === 'string' ? err : 'Failed to load seasons.');
@@ -25,8 +25,8 @@ function AdminSeasonsPage() {
     }, []);
 
     useEffect(() => {
-        fetchSeasons();
-    }, [fetchSeasons]);
+        fetchseasons();
+    }, [fetchseasons]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -80,7 +80,7 @@ function AdminSeasonsPage() {
                 console.log("Season created successfully");
             }
             resetForm();
-            fetchSeasons(); // Refresh the list
+            fetchseasons(); // Refresh the list
         } catch (err) {
              console.error(`Failed to ${isEditing ? 'update' : 'create'} season:`, err);
              setError(typeof err === 'string' ? err : `Failed to ${isEditing ? 'update' : 'create'} season.`);
@@ -93,7 +93,7 @@ function AdminSeasonsPage() {
 
     return (
         <div>
-            <h2>Manage Seasons</h2>
+            <h2>Manage seasons</h2>
 
             {/* Add/Edit Form */}
             <form onSubmit={handleSubmit} style={{ marginBottom: '2rem', padding: '1rem', border: '1px solid #ccc', borderRadius: '5px' }}>
@@ -159,8 +159,8 @@ function AdminSeasonsPage() {
             </form>
 
 
-            {/* Seasons List */}
-            <h3>Existing Seasons</h3>
+            {/* seasons List */}
+            <h3>Existing seasons</h3>
              {loading && seasons.length === 0 && <LoadingFallback message="Loading seasons..." />} {/* Show loading only if list is empty */}
 
             {seasons.length > 0 ? (
@@ -199,4 +199,4 @@ function AdminSeasonsPage() {
     );
 }
 
-export default AdminSeasonsPage;
+export default AdminseasonsPage;

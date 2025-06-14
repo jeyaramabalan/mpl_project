@@ -6,7 +6,7 @@ import LoadingFallback from '../components/LoadingFallback';
 
 function SchedulePage() {
     const [fixtures, setFixtures] = useState([]);
-    const [seasons, setSeasons] = useState([]);
+    const [seasons, setseasons] = useState([]);
     const [selectedSeason, setSelectedSeason] = useState('');
     const [selectedStatus, setSelectedStatus] = useState(''); // 'Scheduled', 'Live', 'Completed' etc.
     const [loading, setLoading] = useState(true);
@@ -14,10 +14,10 @@ function SchedulePage() {
 
     // Fetch available seasons for dropdown
     useEffect(() => {
-        const fetchSeasons = async () => {
+        const fetchseasons = async () => {
             try {
                 const { data } = await api.get('/seasons/public'); //New public season api call
-                setSeasons(data);
+                setseasons(data);
                 // Optionally set the default selectedSeason to the latest one
                 if (data.length > 0) {
                    // Find the most recent year or highest ID? Assuming sorted by year desc
@@ -28,7 +28,7 @@ function SchedulePage() {
                 // Don't necessarily block fixture loading if seasons fail
             }
         };
-        fetchSeasons();
+        fetchseasons();
     }, []);
 
     // Fetch fixtures based on selected filters
@@ -71,7 +71,7 @@ function SchedulePage() {
                             value={selectedSeason}
                             onChange={(e) => setSelectedSeason(e.target.value)}
                         >
-                            <option value="">All Seasons</option>
+                            <option value="">All seasons</option>
                             {seasons.map(season => (
                                 <option key={season.season_id} value={season.season_id}>
                                     {season.name} ({season.year})

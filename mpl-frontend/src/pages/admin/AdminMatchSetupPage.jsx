@@ -5,7 +5,7 @@ import api from '../../services/api';
 import LoadingFallback from '../../components/LoadingFallback';
 
 function AdminMatchSetupPage() {
-    const [matches, setMatches] = useState([]); // Matches in 'Scheduled' state
+    const [matches, setmatches] = useState([]); // matches in 'Scheduled' state
     const [selectedMatchId, setSelectedMatchId] = useState('');
     const [selectedMatchDetails, setSelectedMatchDetails] = useState(null); // Holds { team1_id, team1_name, team2_id, team2_name }
 
@@ -23,12 +23,12 @@ function AdminMatchSetupPage() {
 
     // Fetch scheduled matches on component mount
     useEffect(() => {
-        const fetchScheduledMatches = async () => {
+        const fetchScheduledmatches = async () => {
             setLoading(true);
             setError('');
             try {
                 const { data } = await api.get('/admin/scoring/setup-list');
-                setMatches(data);
+                setmatches(data);
                 // Reset selection if list reloads? Optional.
                 // setSelectedMatchId('');
                 // setSelectedMatchDetails(null);
@@ -39,7 +39,7 @@ function AdminMatchSetupPage() {
                 setLoading(false);
             }
         };
-        fetchScheduledMatches();
+        fetchScheduledmatches();
     }, []); // Run only once on mount
 
     // Update selected match details when dropdown changes

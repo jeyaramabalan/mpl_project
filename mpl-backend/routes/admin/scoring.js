@@ -1,7 +1,7 @@
 // mpl-project/mpl-backend/routes/admin/scoring.js
 const express = require('express');
 const {
-    getMatchesForSetup,
+    getmatchesForSetup,
     submitMatchSetup,
     scoreSingleBall,
     submitFinalMatchScore, // Keep if manual final entry/correction is needed
@@ -15,7 +15,7 @@ const router = express.Router();
 
 // GET /api/admin/scoring/setup-list
 // Get matches in 'Scheduled' state, ready for toss/setup
-router.get('/setup-list', getMatchesForSetup);
+router.get('/setup-list', getmatchesForSetup);
 
 // POST /api/admin/scoring/matches/:matchId/setup
 // Submit toss winner, decision (Bat/Bowl), and Super Over number.

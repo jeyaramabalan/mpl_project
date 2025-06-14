@@ -10,7 +10,7 @@ import LoadingFallback from './components/LoadingFallback'; // Loading indicator
 // --- Lazy Load Pages (improves initial load time) ---
 // Public Pages
 const HomePage = lazy(() => import('./pages/HomePage'));
-const PlayersPage = lazy(() => import('./pages/PlayersPage'));
+const playersPage = lazy(() => import('./pages/playersPage'));
 const PlayerDetailPage = lazy(() => import('./pages/PlayerDetailPage'));
 const SchedulePage = lazy(() => import('./pages/SchedulePage'));
 const StandingsPage = lazy(() => import('./pages/StandingsPage'));
@@ -20,13 +20,13 @@ const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
 // Admin Pages
 const AdminLoginPage = lazy(() => import('./pages/admin/AdminLoginPage'));
 const AdminDashboardPage = lazy(() => import('./pages/admin/AdminDashboardPage'));
-const AdminSeasonsPage = lazy(() => import('./pages/admin/AdminSeasonsPage'));
-const AdminTeamsPage = lazy(() => import('./pages/admin/AdminTeamsPage'));
+const AdminseasonsPage = lazy(() => import('./pages/admin/AdminseasonsPage'));
+const AdminteamsPage = lazy(() => import('./pages/admin/AdminteamsPage'));
 const AdminMatchSetupPage = lazy(() => import('./pages/admin/AdminMatchSetupPage'));
 const AdminLiveScoringPage = lazy(() => import('./pages/admin/AdminLiveScoringPage'));
-const AdminPlayersPage = lazy(() => import('./pages/admin/AdminPlayersPage'));
+const AdminplayersPage = lazy(() => import('./pages/admin/AdminplayersPage'));
 const AdminResolveMatchPage = lazy(() => import('./pages/admin/AdminResolveMatchPage'));
-// TODO: Import other admin pages (e.g., AdminPaymentsPage, AdminPlayerManagementPage) when created
+// TODO: Import other admin pages (e.g., AdminpaymentsPage, AdminPlayerManagementPage) when created
 
 // Not Found Page
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
@@ -43,7 +43,7 @@ function App() {
 
                         {/* --- Public Routes --- */}
                         <Route path="/" element={<HomePage />} />
-                        <Route path="/players" element={<PlayersPage />} />
+                        <Route path="/players" element={<playersPage />} />
                         <Route path="/players/:id" element={<PlayerDetailPage />} />
                         <Route path="/schedule" element={<SchedulePage />} />
                         <Route path="/standings" element={<StandingsPage />} />
@@ -60,17 +60,17 @@ function App() {
                             {/* Redirect /admin to /admin/dashboard */}
                             <Route index element={<Navigate to="dashboard" replace />} />
                             <Route path="dashboard" element={<AdminDashboardPage />} />
-                            <Route path="seasons" element={<AdminSeasonsPage />} />
+                            <Route path="seasons" element={<AdminseasonsPage />} />
                             {/* TODO: Define routes for managing teams within a season?
-                                Maybe '/admin/seasons/:seasonId/teams' or handle season selection within AdminTeamsPage */}
-                            <Route path="teams" element={<AdminTeamsPage />} />
+                                Maybe '/admin/seasons/:seasonId/teams' or handle season selection within AdminteamsPage */}
+                            <Route path="teams" element={<AdminteamsPage />} />
                             <Route path="schedule" element={<AdminSchedulePage />} />
-                            <Route path="players" element={<AdminPlayersPage />} />
+                            <Route path="players" element={<AdminplayersPage />} />
                             <Route path="scoring/setup" element={<AdminMatchSetupPage />} />
                             <Route path="scoring/live/:matchId" element={<AdminLiveScoringPage />} />
                             <Route path="resolve" element={<AdminResolveMatchPage />} />
                             {/* Add other protected admin routes here */}
-                            {/* Example: <Route path="payments" element={<AdminPaymentsPage />} /> */}
+                            {/* Example: <Route path="payments" element={<AdminpaymentsPage />} /> */}
                         </Route>
 
                         {/* --- Catch-all 404 Not Found Route --- */}

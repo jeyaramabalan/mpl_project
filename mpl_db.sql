@@ -50,7 +50,7 @@ INSERT INTO `admins` (`admin_id`, `username`, `password_hash`, `email`, `created
 
 CREATE TABLE `ballbyball` (
   `ball_id` bigint(20) NOT NULL COMMENT 'Unique ID for each ball bowled',
-  `match_id` int(11) NOT NULL COMMENT 'FK linking to the Matches table',
+  `match_id` int(11) NOT NULL COMMENT 'FK linking to the matches table',
   `inning_number` tinyint(3) UNSIGNED NOT NULL COMMENT 'Which innings (1 or 2)',
   `over_number` tinyint(3) UNSIGNED NOT NULL COMMENT 'Over number within the innings (1-5)',
   `ball_number_in_over` tinyint(3) UNSIGNED NOT NULL COMMENT 'Ball number within the over (1-6+, handles extras)',
@@ -899,18 +899,18 @@ INSERT INTO `ballbyball` (`ball_id`, `match_id`, `inning_number`, `over_number`,
 
 CREATE TABLE `matches` (
   `match_id` int(11) NOT NULL COMMENT 'Unique ID for each match',
-  `season_id` int(11) NOT NULL COMMENT 'Foreign key linking to the Seasons table',
-  `team1_id` int(11) NOT NULL COMMENT 'Foreign key linking to the first team (Teams table)',
-  `team2_id` int(11) NOT NULL COMMENT 'Foreign key linking to the second team (Teams table)',
+  `season_id` int(11) NOT NULL COMMENT 'Foreign key linking to the seasons table',
+  `team1_id` int(11) NOT NULL COMMENT 'Foreign key linking to the first team (teams table)',
+  `team2_id` int(11) NOT NULL COMMENT 'Foreign key linking to the second team (teams table)',
   `match_datetime` datetime NOT NULL COMMENT 'Scheduled date and time of the match',
   `venue` varchar(100) DEFAULT 'Metalworks Box Arena' COMMENT 'Location where the match is played',
   `status` enum('Scheduled','Setup','Live','Completed','Abandoned','InningsBreak') NOT NULL DEFAULT 'Scheduled' COMMENT 'Current status of the match',
-  `toss_winner_team_id` int(11) DEFAULT NULL COMMENT 'Foreign key linking to the team that won the toss (Teams table)',
+  `toss_winner_team_id` int(11) DEFAULT NULL COMMENT 'Foreign key linking to the team that won the toss (teams table)',
   `decision` enum('Bat','Bowl') DEFAULT NULL COMMENT 'Decision made by the toss winner (Bat or Bowl)',
   `super_over_number` tinyint(3) UNSIGNED DEFAULT NULL COMMENT 'Which over (1-5) is designated as the Super Over (double runs)',
   `result_summary` varchar(255) DEFAULT NULL COMMENT 'Text summary of the match result (e.g., "Team A won by 5 wickets")',
-  `winner_team_id` int(11) DEFAULT NULL COMMENT 'Foreign key linking to the winning team (Teams table, NULL for tie/abandoned)',
-  `man_of_the_match_player_id` int(11) DEFAULT NULL COMMENT 'Foreign key linking to the Man of the Match player (Players table)',
+  `winner_team_id` int(11) DEFAULT NULL COMMENT 'Foreign key linking to the winning team (teams table, NULL for tie/abandoned)',
+  `man_of_the_match_player_id` int(11) DEFAULT NULL COMMENT 'Foreign key linking to the Man of the Match player (players table)',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp() COMMENT 'Timestamp when the match record was created'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Stores details about each scheduled or played match';
 
@@ -1004,9 +1004,9 @@ INSERT INTO `payments` (`payment_id`, `player_id`, `season_id`, `amount`, `payme
 
 CREATE TABLE `playermatchstats` (
   `stat_id` int(11) NOT NULL COMMENT 'Unique ID for a player stats record in a specific match',
-  `match_id` int(11) NOT NULL COMMENT 'Foreign key linking to the Matches table',
-  `player_id` int(11) NOT NULL COMMENT 'Foreign key linking to the Players table',
-  `team_id` int(11) NOT NULL COMMENT 'Foreign key linking to the Team the player played for in this match (Teams table)',
+  `match_id` int(11) NOT NULL COMMENT 'Foreign key linking to the matches table',
+  `player_id` int(11) NOT NULL COMMENT 'Foreign key linking to the players table',
+  `team_id` int(11) NOT NULL COMMENT 'Foreign key linking to the Team the player played for in this match (teams table)',
   `runs_scored` int(11) NOT NULL DEFAULT 0 COMMENT 'Runs scored by the batsman',
   `balls_faced` int(11) NOT NULL DEFAULT 0 COMMENT 'Number of legal deliveries faced by the batsman',
   `fours` int(11) NOT NULL DEFAULT 0 COMMENT 'Number of 4s hit (or map fence runs here)',
@@ -1841,8 +1841,8 @@ INSERT INTO `playermatchstats` (`stat_id`, `match_id`, `player_id`, `team_id`, `
 CREATE TABLE `playerratings` (
   `rating_id` int(11) NOT NULL COMMENT 'Unique ID for each rating submission',
   `season_id` int(11) NOT NULL COMMENT 'Foreign key linking to the season the rating pertains to',
-  `rated_player_id` int(11) NOT NULL COMMENT 'Foreign key linking to the player being rated (Players table)',
-  `rater_player_id` int(11) NOT NULL COMMENT 'Foreign key linking to the player giving the rating (Players table)',
+  `rated_player_id` int(11) NOT NULL COMMENT 'Foreign key linking to the player being rated (players table)',
+  `rater_player_id` int(11) NOT NULL COMMENT 'Foreign key linking to the player giving the rating (players table)',
   `rating_value` tinyint(3) UNSIGNED NOT NULL COMMENT 'Rating score from 1 to 5',
   `comment` text DEFAULT NULL COMMENT 'Optional comment accompanying the rating',
   `rated_at` timestamp NOT NULL DEFAULT current_timestamp() COMMENT 'Timestamp when the rating was submitted'
@@ -1939,9 +1939,9 @@ INSERT INTO `seasons` (`season_id`, `year`, `name`, `start_date`, `end_date`, `s
 
 CREATE TABLE `teamplayers` (
   `team_player_id` int(11) NOT NULL COMMENT 'Unique ID for the player-team assignment in a season',
-  `season_id` int(11) NOT NULL COMMENT 'Foreign key linking to the Seasons table',
-  `team_id` int(11) NOT NULL COMMENT 'Foreign key linking to the Teams table',
-  `player_id` int(11) NOT NULL COMMENT 'Foreign key linking to the Players table',
+  `season_id` int(11) NOT NULL COMMENT 'Foreign key linking to the seasons table',
+  `team_id` int(11) NOT NULL COMMENT 'Foreign key linking to the teams table',
+  `player_id` int(11) NOT NULL COMMENT 'Foreign key linking to the players table',
   `purchase_price` decimal(10,2) DEFAULT NULL COMMENT 'Price paid for the player in the auction (if applicable)',
   `is_captain` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'Flag indicating if this player is the current captain of this team'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Links players to teams for a specific season, handling transfers/assignments';
@@ -2010,9 +2010,9 @@ INSERT INTO `teamplayers` (`team_player_id`, `season_id`, `team_id`, `player_id`
 
 CREATE TABLE `teams` (
   `team_id` int(11) NOT NULL COMMENT 'Unique ID for each team within a season',
-  `season_id` int(11) NOT NULL COMMENT 'Foreign key linking to the Seasons table',
+  `season_id` int(11) NOT NULL COMMENT 'Foreign key linking to the seasons table',
   `name` varchar(100) NOT NULL COMMENT 'Name of the team for this season',
-  `captain_player_id` int(11) DEFAULT NULL COMMENT 'Foreign key linking to the Players table for the team captain (can be NULL initially)',
+  `captain_player_id` int(11) DEFAULT NULL COMMENT 'Foreign key linking to the players table for the team captain (can be NULL initially)',
   `budget` decimal(10,2) DEFAULT 10000.00 COMMENT 'Auction budget allocated to the team (example value)',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp() COMMENT 'Timestamp when the team record was created'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Stores information about teams participating in a specific season';

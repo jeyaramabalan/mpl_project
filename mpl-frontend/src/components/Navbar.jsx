@@ -60,7 +60,7 @@ function Navbar() {
         <nav>
            {/* Use NavLink for automatic 'active' class */}
             <NavLink to="/" className={({ isActive }) => isActive ? 'active' : ''}>Home</NavLink>
-            <NavLink to="/players" className={({ isActive }) => isActive ? 'active' : ''}>Players</NavLink>
+            <NavLink to="/players" className={({ isActive }) => isActive ? 'active' : ''}>players</NavLink>
             <NavLink to="/schedule" className={({ isActive }) => isActive ? 'active' : ''}>Schedule</NavLink>
             <NavLink to="/standings" className={({ isActive }) => isActive ? 'active' : ''}>Standings</NavLink> 
             <NavLink to="/leaderboard" className={({ isActive }) => isActive ? 'active' : ''}>Leaderboard</NavLink> 

@@ -2,9 +2,9 @@
 const express = require('express');
 const {
     registerPlayer,
-    getAllPlayers,
+    getAllplayers,
     getPlayerById,
-    getPlayerStats,
+    getplayerstats,
     updatePlayer, // Assuming implementation exists
     deletePlayer // Assuming implementation exists
 } = require('../controllers/playerController');
@@ -15,13 +15,13 @@ const router = express.Router();
 // --- Public Routes ---
 
 // GET /api/players - Get a list of all registered players
-router.get('/', getAllPlayers);
+router.get('/', getAllplayers);
 
 // GET /api/players/:id - Get details of a specific player by ID
 router.get('/:id', getPlayerById);
 
 // GET /api/players/:id/stats?season_id=X - Get stats for a player (career or specific season)
-router.get('/:id/stats', getPlayerStats);
+router.get('/:id/stats', getplayerstats);
 
 
 // --- Potentially Public or Protected Routes ---

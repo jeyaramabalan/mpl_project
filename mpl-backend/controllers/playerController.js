@@ -15,9 +15,9 @@ exports.registerPlayer = async (req, res, next) => {
     if (role && !validRoles.includes(role)) { return res.status(400).json({ message: `Invalid role. Must be one of: ${validRoles.slice(0,-1).join(', ')} or empty.` }); }
     // --- End Validation ---
     try {
-        const [result] = await pool.query('INSERT INTO Players (name, base_price, role, current_team_id) VALUES (?, ?, ?, NULL)', [ name, base_price === undefined || base_price === null ? 100.00 : base_price, role || null ]);
+        const [result] = await pool.query('INSERT INTO players (name, base_price, role, current_team_id) VALUES (?, ?, ?, NULL)', [ name, base_price === undefined || base_price === null ? 100.00 : base_price, role || null ]);
         const playerId = result.insertId;
-        const [newPlayer] = await pool.query('SELECT player_id, name, base_price, role, current_team_id FROM Players WHERE player_id = ?', [playerId]);
+        const [newPlayer] = await pool.query('SELECT player_id, name, base_price, role, current_team_id FROM players WHERE player_id = ?', [playerId]);
         if (newPlayer.length === 0) throw new Error('Failed to retrieve newly registered player.');
         res.status(201).json({ message: 'Player registered successfully', player: newPlayer[0] });
     } catch (error) { console.error("Player Registration Error:", error); next(error); }
@@ -28,11 +28,11 @@ exports.registerPlayer = async (req, res, next) => {
  * @route   GET /api/players
  * @access  Public
  */
-exports.getAllPlayers = async (req, res, next) => {
+exports.getAllplayers = async (req, res, next) => {
     try {
-        const [players] = await pool.query('SELECT p.player_id, p.name, p.role, t.name as current_team_name FROM Players p LEFT JOIN Teams t ON p.current_team_id = t.team_id ORDER BY p.name ASC');
+        const [players] = await pool.query('SELECT p.player_id, p.name, p.role, t.name as current_team_name FROM players p LEFT JOIN teams t ON p.current_team_id = t.team_id ORDER BY p.name ASC');
         res.json(players);
-    } catch (error) { console.error("Get All Players Error:", error); next(error); }
+    } catch (error) { console.error("Get All players Error:", error); next(error); }
 };
 
 /**
@@ -43,11 +43,11 @@ exports.getAllPlayers = async (req, res, next) => {
 exports.getPlayerById = async (req, res, next) => {
      const { id } = req.params; if (isNaN(parseInt(id))) { return res.status(400).json({ message: 'Invalid Player ID.' }); }
     try {
-        const playerQuery = ` SELECT p.player_id, p.name, p.base_price, p.role, p.current_team_id, t.name as current_team_name FROM Players p LEFT JOIN Teams t ON p.current_team_id = t.team_id WHERE p.player_id = ? `;
+        const playerQuery = ` SELECT p.player_id, p.name, p.base_price, p.role, p.current_team_id, t.name as current_team_name FROM players p LEFT JOIN teams t ON p.current_team_id = t.team_id WHERE p.player_id = ? `;
         const [players] = await pool.query(playerQuery, [id]);
         if (players.length === 0) { return res.status(404).json({ message: 'Player not found.' }); }
         const playerData = players[0];
-        const impactQuery = ` SELECT SUM(COALESCE(batting_impact_points, 0) + COALESCE(bowling_impact_points, 0) + COALESCE(fielding_impact_points, 0)) as total_impact, COUNT(DISTINCT match_id) as matches_played FROM PlayerMatchStats WHERE player_id = ? GROUP BY player_id `;
+        const impactQuery = ` SELECT SUM(COALESCE(batting_impact_points, 0) + COALESCE(bowling_impact_points, 0) + COALESCE(fielding_impact_points, 0)) as total_impact, COUNT(DISTINCT match_id) as matches_played FROM playermatchstats WHERE player_id = ? GROUP BY player_id `;
         const [impactRes] = await pool.query(impactQuery, [id]); let averageImpact = 0; if (impactRes.length > 0 && impactRes[0].matches_played > 0) { averageImpact = impactRes[0].total_impact / impactRes[0].matches_played; }
         const responseData = { ...playerData, average_impact: parseFloat(averageImpact.toFixed(2)) };
         res.json(responseData);
@@ -59,7 +59,7 @@ exports.getPlayerById = async (req, res, next) => {
  * @route   GET /api/players/:id/stats?season_id=X
  * @access  Public
  */
-exports.getPlayerStats = async (req, res, next) => {
+exports.getplayerstats = async (req, res, next) => {
     const playerId = req.params.id;
     const { season_id } = req.query;
     // Use pool directly unless transaction is needed across queries
@@ -92,15 +92,15 @@ exports.getPlayerStats = async (req, res, next) => {
                 COALESCE(SUM(pms.batting_impact_points), 0) as total_batting_impact,
                 COALESCE(SUM(pms.bowling_impact_points), 0) as total_bowling_impact,
                 COALESCE(SUM(pms.fielding_impact_points), 0) as total_fielding_impact
-            FROM Players p
-            LEFT JOIN PlayerMatchStats pms ON p.player_id = pms.player_id
+            FROM players p
+            LEFT JOIN playermatchstats pms ON p.player_id = pms.player_id
         `;
         const params = [];
         let joinClause = '';
         let whereClause = ' WHERE p.player_id = ?'; params.push(playerId);
 
         if (season_id) {
-            joinClause = ' LEFT JOIN Matches m ON pms.match_id = m.match_id';
+            joinClause = ' LEFT JOIN matches m ON pms.match_id = m.match_id';
             whereClause += ' AND m.season_id = ?'; params.push(season_id);
         }
         query += joinClause + whereClause + ' GROUP BY p.player_id, p.name, p.role';
@@ -109,7 +109,7 @@ exports.getPlayerStats = async (req, res, next) => {
 
         // --- Handle No Stats Found ---
         if (statsArr.length === 0) {
-             const [playerCheck] = await pool.query('SELECT player_id, name, role FROM Players WHERE player_id = ?', [playerId]);
+             const [playerCheck] = await pool.query('SELECT player_id, name, role FROM players WHERE player_id = ?', [playerId]);
              if (playerCheck.length === 0) { return res.status(404).json({ message: 'Player not found.' }); }
              else { return res.json({ ...playerCheck[0], matches_played: 0, total_runs: 0, total_balls_faced: 0, highest_score: 0, total_fours: 0, total_twos: 0, times_out: 0, total_wickets: 0, total_runs_conceded: 0, total_overs_bowled: 0.0, total_maidens: 0, total_wides: 0, total_no_balls: 0, total_catches: 0, total_stumps: 0, total_run_outs: 0, total_batting_impact: 0, total_bowling_impact: 0, total_fielding_impact: 0, average_impact: 0, super_overs_bowled: 0, batting_average: null, batting_strike_rate: null, bowling_average: null, bowling_economy_rate: null, bowling_strike_rate: null }); } // Added super_overs_bowled: 0
         }
@@ -119,8 +119,8 @@ exports.getPlayerStats = async (req, res, next) => {
         // --- Query 2: Calculate Super Overs Bowled --- // ADDED THIS QUERY
         let superOverQuery = `
             SELECT COUNT(DISTINCT b.match_id) as super_overs_bowled
-            FROM BallByBall b
-            JOIN Matches m ON b.match_id = m.match_id
+            FROM ballbyball b
+            JOIN matches m ON b.match_id = m.match_id
             WHERE b.bowler_player_id = ?
               AND b.over_number = m.super_over_number
         `;
@@ -172,7 +172,7 @@ exports.updatePlayer = async (req, res, next) => {
 
     try {
         // Check if player exists
-        const [existing] = await pool.query('SELECT player_id FROM Players WHERE player_id = ?', [id]);
+        const [existing] = await pool.query('SELECT player_id FROM players WHERE player_id = ?', [id]);
         if (existing.length === 0) {
             return res.status(404).json({ message: 'Player not found.' });
         }
@@ -185,7 +185,7 @@ exports.updatePlayer = async (req, res, next) => {
 
         // Perform update if there are fields to change
         if (Object.keys(fieldsToUpdate).length > 0) {
-            const [result] = await pool.query('UPDATE Players SET ? WHERE player_id = ?', [fieldsToUpdate, id]);
+            const [result] = await pool.query('UPDATE players SET ? WHERE player_id = ?', [fieldsToUpdate, id]);
              if (result.affectedRows === 0) {
                 console.warn(`Update Player ${id}: Affected rows was 0. Data might be unchanged.`);
              }
@@ -194,7 +194,7 @@ exports.updatePlayer = async (req, res, next) => {
         }
 
         // Fetch updated player details (excluding sensitive/derived fields)
-        const [updatedPlayer] = await pool.query('SELECT player_id, name, base_price, role, current_team_id FROM Players WHERE player_id = ?', [id]);
+        const [updatedPlayer] = await pool.query('SELECT player_id, name, base_price, role, current_team_id FROM players WHERE player_id = ?', [id]);
         res.json({ message: 'Player updated successfully', player: updatedPlayer[0] });
 
     } catch (error) {
@@ -219,27 +219,27 @@ exports.deletePlayer = async (req, res, next) => {
         await connection.beginTransaction();
 
         // Check if player exists
-         const [existing] = await connection.query('SELECT player_id FROM Players WHERE player_id = ?', [id]);
+         const [existing] = await connection.query('SELECT player_id FROM players WHERE player_id = ?', [id]);
         if (existing.length === 0) {
             await connection.rollback(); return res.status(404).json({ message: 'Player not found.' });
         }
 
         // --- Handle Foreign Key References ---
-        await connection.query('UPDATE Teams SET captain_player_id = NULL WHERE captain_player_id = ?', [id]);
-        await connection.query('UPDATE Matches SET man_of_the_match_player_id = NULL WHERE man_of_the_match_player_id = ?', [id]);
+        await connection.query('UPDATE teams SET captain_player_id = NULL WHERE captain_player_id = ?', [id]);
+        await connection.query('UPDATE matches SET man_of_the_match_player_id = NULL WHERE man_of_the_match_player_id = ?', [id]);
         // Assuming ratings should be kept but reference nulled (adjust if cascading delete is desired)
-        // await connection.query('UPDATE PlayerRatings SET rater_player_id = NULL WHERE rater_player_id = ?', [id]);
-        // await connection.query('UPDATE PlayerRatings SET rated_player_id = NULL WHERE rated_player_id = ?', [id]);
+        // await connection.query('UPDATE playerratings SET rater_player_id = NULL WHERE rater_player_id = ?', [id]);
+        // await connection.query('UPDATE playerratings SET rated_player_id = NULL WHERE rated_player_id = ?', [id]);
 
-        // Explicitly delete from TeamPlayers junction table
-        await connection.query('DELETE FROM TeamPlayers WHERE player_id = ?', [id]);
-        console.log(`Deleted TeamPlayers entries for player ${id}`);
+        // Explicitly delete from teamplayers junction table
+        await connection.query('DELETE FROM teamplayers WHERE player_id = ?', [id]);
+        console.log(`Deleted teamplayers entries for player ${id}`);
 
-        // NOTE: Deletion will fail if player has stats in PlayerMatchStats and FK constraint is RESTRICT.
+        // NOTE: Deletion will fail if player has stats in playermatchstats and FK constraint is RESTRICT.
         // Handle this based on your desired behavior (e.g., delete stats too? Disallow player delete?).
 
         // Finally, attempt to delete the player
-        const [result] = await connection.query('DELETE FROM Players WHERE player_id = ?', [id]);
+        const [result] = await connection.query('DELETE FROM players WHERE player_id = ?', [id]);
 
         if (result.affectedRows === 0) {
              await connection.rollback();

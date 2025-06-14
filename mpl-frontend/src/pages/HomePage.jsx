@@ -22,8 +22,8 @@ function HomePage() {
 
                 if (isMounted) {
                     if (data && data.length > 0) {
-                        const sortedMatches = data.sort((a, b) => new Date(a.match_datetime) - new Date(b.match_datetime));
-                        setNextMatch(sortedMatches[0]);
+                        const sortedmatches = data.sort((a, b) => new Date(a.match_datetime) - new Date(b.match_datetime));
+                        setNextMatch(sortedmatches[0]);
                     } else {
                         setNextMatch(null);
                     }
@@ -87,7 +87,7 @@ function HomePage() {
                      <li><Link to="/schedule">View Full Schedule & Results</Link></li>
                      <li><Link to="/standings">View Team Standings</Link></li>
                      <li><Link to="/leaderboard">View Player Leaderboards</Link></li>
-                     <li><Link to="/players">Browse Players</Link></li>
+                     <li><Link to="/players">Browse players</Link></li>
                      {/* Add link to rules page if you create one */}
                  </ul>
             </section>

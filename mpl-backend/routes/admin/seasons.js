@@ -2,7 +2,7 @@
 const express = require('express');
 const {
     createSeason,
-    getSeasons,
+    getseasons,
     getSeasonById,
     updateSeason,
     // deleteSeason // Uncomment if implemented
@@ -15,7 +15,7 @@ const router = express.Router();
 // Base route: /api/admin/seasons
 router.route('/')
     .post(createSeason) // POST /api/admin/seasons - Create a new season
-    .get(getSeasons);   // GET /api/admin/seasons - Get all seasons
+    .get(getseasons);   // GET /api/admin/seasons - Get all seasons
 
 // Route for specific season by ID: /api/admin/seasons/:id
 router.route('/:id')

@@ -2576,7 +2576,7 @@ exports.getLeaderboards = async (req, res, next) => {
     try {
         const seasonIdNum = parseInt(season_id);
 
-        // Base query joining PlayerMatchStats and Players, filtered by season
+        // Base query joining playermatchstats and players, filtered by season
         const baseQuery = `
             SELECT
                 p.player_id,
@@ -2596,9 +2596,9 @@ exports.getLeaderboards = async (req, res, next) => {
                 SUM(COALESCE(pms.bowling_impact_points, 0)) as total_bowling_impact,
                 SUM(COALESCE(pms.fielding_impact_points, 0)) as total_fielding_impact,
                 SUM(COALESCE(pms.batting_impact_points, 0) + COALESCE(pms.bowling_impact_points, 0) + COALESCE(pms.fielding_impact_points, 0)) as total_impact
-            FROM PlayerMatchStats pms
-            JOIN Players p ON pms.player_id = p.player_id
-            JOIN Matches m ON pms.match_id = m.match_id
+            FROM playermatchstats pms
+            JOIN players p ON pms.player_id = p.player_id
+            JOIN matches m ON pms.match_id = m.match_id
             WHERE m.season_id = ?
             GROUP BY p.player_id, p.name
         `;
@@ -2699,12 +2699,12 @@ exports.getFixtures = async (req, res, next) => {
                 m.team2_id, t2.name as team2_name,
                 m.winner_team_id, wt.name as winner_team_name,
                 m.man_of_the_match_player_id, mom.name as man_of_the_match_name
-            FROM Matches m
-            JOIN Seasons s ON m.season_id = s.season_id
-            JOIN Teams t1 ON m.team1_id = t1.team_id
-            JOIN Teams t2 ON m.team2_id = t2.team_id
-            LEFT JOIN Teams wt ON m.winner_team_id = wt.team_id
-            LEFT JOIN Players mom ON m.man_of_the_match_player_id = mom.player_id
+            FROM matches m
+            JOIN seasons s ON m.season_id = s.season_id
+            JOIN teams t1 ON m.team1_id = t1.team_id
+            JOIN teams t2 ON m.team2_id = t2.team_id
+            LEFT JOIN teams wt ON m.winner_team_id = wt.team_id
+            LEFT JOIN players mom ON m.man_of_the_match_player_id = mom.player_id
         `;
         const params = [];
         const conditions = [];
@@ -2762,20 +2762,20 @@ exports.getMatchDetails = async (req, res, next) => {
          // Query to fetch comprehensive match details
          const query = `
             SELECT
-                m.*, -- Select all columns from Matches table
+                m.*, -- Select all columns from matches table
                 s.name as season_name,
                 t1.name as team1_name,
                 t2.name as team2_name,
                 twt.name as toss_winner_name, -- Name of team that won toss
                 wt.name as winner_team_name,  -- Name of winning team (if completed)
                 mom.name as man_of_the_match_name -- Name of MoM (if set)
-            FROM Matches m
-            JOIN Seasons s ON m.season_id = s.season_id
-            JOIN Teams t1 ON m.team1_id = t1.team_id
-            JOIN Teams t2 ON m.team2_id = t2.team_id
-            LEFT JOIN Teams twt ON m.toss_winner_team_id = twt.team_id
-            LEFT JOIN Teams wt ON m.winner_team_id = wt.team_id
-            LEFT JOIN Players mom ON m.man_of_the_match_player_id = mom.player_id
+            FROM matches m
+            JOIN seasons s ON m.season_id = s.season_id
+            JOIN teams t1 ON m.team1_id = t1.team_id
+            JOIN teams t2 ON m.team2_id = t2.team_id
+            LEFT JOIN teams twt ON m.toss_winner_team_id = twt.team_id
+            LEFT JOIN teams wt ON m.winner_team_id = wt.team_id
+            LEFT JOIN players mom ON m.man_of_the_match_player_id = mom.player_id
             WHERE m.match_id = ?
         `;
         const [matches] = await pool.query(query, [id]);
@@ -2787,26 +2787,26 @@ exports.getMatchDetails = async (req, res, next) => {
         const matchDetails = matches[0];
 
         // If the match is completed, also fetch the detailed player stats for the scorecard
-        let playerStats = [];
+        let playerstats = [];
         if (matchDetails.status === 'Completed') {
              const [stats] = await pool.query(
                 `SELECT
-                    pms.*, -- Select all columns from PlayerMatchStats
+                    pms.*, -- Select all columns from playermatchstats
                     p.name as player_name,
                      -- Determine which team (1 or 2) this player belongs to for display grouping
                     CASE WHEN pms.team_id = m.team1_id THEN 1 ELSE 2 END as team_number
-                 FROM PlayerMatchStats pms
-                 JOIN Players p ON pms.player_id = p.player_id
-                 JOIN Matches m ON pms.match_id = m.match_id -- Join Matches to determine team number
+                 FROM playermatchstats pms
+                 JOIN players p ON pms.player_id = p.player_id
+                 JOIN matches m ON pms.match_id = m.match_id -- Join matches to determine team number
                  WHERE pms.match_id = ?
                  ORDER BY team_number, p.name`, // Order by team, then player name for scorecard
                 [id]
             );
-            playerStats = stats;
+            playerstats = stats;
         }
 
         // Return the combined match details and player stats (if available)
-        res.json({ ...matchDetails, playerStats });
+        res.json({ ...matchDetails, playerstats });
 
     } catch (error) {
         console.error("Get Match Details Error:", error);
@@ -2829,10 +2829,10 @@ exports.getMatchCommentary = async (req, res, next) => {
                 batsman.name as batsman_name,
                 bowler.name as bowler_name,
                 fielder.name as fielder_name
-             FROM BallByBall b
-             JOIN Players batsman ON b.batsman_on_strike_player_id = batsman.player_id
-             JOIN Players bowler ON b.bowler_player_id = bowler.player_id
-             LEFT JOIN Players fielder ON b.fielder_player_id = fielder.player_id
+             FROM ballbyball b
+             JOIN players batsman ON b.batsman_on_strike_player_id = batsman.player_id
+             JOIN players bowler ON b.bowler_player_id = bowler.player_id
+             LEFT JOIN players fielder ON b.fielder_player_id = fielder.player_id
              WHERE b.match_id = ?
              ORDER BY b.inning_number ASC, b.over_number ASC, b.ball_number_in_over ASC, b.ball_id ASC`,
             [id]
@@ -2893,9 +2893,9 @@ exports.registerPlayer = async (req, res, next) => {
     if (role && !validRoles.includes(role)) { return res.status(400).json({ message: `Invalid role. Must be one of: ${validRoles.slice(0,-1).join(', ')} or empty.` }); }
     // --- End Validation ---
     try {
-        const [result] = await pool.query('INSERT INTO Players (name, base_price, role, current_team_id) VALUES (?, ?, ?, NULL)', [ name, base_price === undefined || base_price === null ? 100.00 : base_price, role || null ]);
+        const [result] = await pool.query('INSERT INTO players (name, base_price, role, current_team_id) VALUES (?, ?, ?, NULL)', [ name, base_price === undefined || base_price === null ? 100.00 : base_price, role || null ]);
         const playerId = result.insertId;
-        const [newPlayer] = await pool.query('SELECT player_id, name, base_price, role, current_team_id FROM Players WHERE player_id = ?', [playerId]);
+        const [newPlayer] = await pool.query('SELECT player_id, name, base_price, role, current_team_id FROM players WHERE player_id = ?', [playerId]);
         if (newPlayer.length === 0) throw new Error('Failed to retrieve newly registered player.');
         res.status(201).json({ message: 'Player registered successfully', player: newPlayer[0] });
     } catch (error) { console.error("Player Registration Error:", error); next(error); }
@@ -2906,11 +2906,11 @@ exports.registerPlayer = async (req, res, next) => {
  * @route   GET /api/players
  * @access  Public
  */
-exports.getAllPlayers = async (req, res, next) => {
+exports.getAllplayers = async (req, res, next) => {
     try {
-        const [players] = await pool.query('SELECT p.player_id, p.name, p.role, t.name as current_team_name FROM Players p LEFT JOIN Teams t ON p.current_team_id = t.team_id ORDER BY p.name ASC');
+        const [players] = await pool.query('SELECT p.player_id, p.name, p.role, t.name as current_team_name FROM players p LEFT JOIN teams t ON p.current_team_id = t.team_id ORDER BY p.name ASC');
         res.json(players);
-    } catch (error) { console.error("Get All Players Error:", error); next(error); }
+    } catch (error) { console.error("Get All players Error:", error); next(error); }
 };
 
 /**
@@ -2921,11 +2921,11 @@ exports.getAllPlayers = async (req, res, next) => {
 exports.getPlayerById = async (req, res, next) => {
      const { id } = req.params; if (isNaN(parseInt(id))) { return res.status(400).json({ message: 'Invalid Player ID.' }); }
     try {
-        const playerQuery = ` SELECT p.player_id, p.name, p.base_price, p.role, p.current_team_id, t.name as current_team_name FROM Players p LEFT JOIN Teams t ON p.current_team_id = t.team_id WHERE p.player_id = ? `;
+        const playerQuery = ` SELECT p.player_id, p.name, p.base_price, p.role, p.current_team_id, t.name as current_team_name FROM players p LEFT JOIN teams t ON p.current_team_id = t.team_id WHERE p.player_id = ? `;
         const [players] = await pool.query(playerQuery, [id]);
         if (players.length === 0) { return res.status(404).json({ message: 'Player not found.' }); }
         const playerData = players[0];
-        const impactQuery = ` SELECT SUM(COALESCE(batting_impact_points, 0) + COALESCE(bowling_impact_points, 0) + COALESCE(fielding_impact_points, 0)) as total_impact, COUNT(DISTINCT match_id) as matches_played FROM PlayerMatchStats WHERE player_id = ? GROUP BY player_id `;
+        const impactQuery = ` SELECT SUM(COALESCE(batting_impact_points, 0) + COALESCE(bowling_impact_points, 0) + COALESCE(fielding_impact_points, 0)) as total_impact, COUNT(DISTINCT match_id) as matches_played FROM playermatchstats WHERE player_id = ? GROUP BY player_id `;
         const [impactRes] = await pool.query(impactQuery, [id]); let averageImpact = 0; if (impactRes.length > 0 && impactRes[0].matches_played > 0) { averageImpact = impactRes[0].total_impact / impactRes[0].matches_played; }
         const responseData = { ...playerData, average_impact: parseFloat(averageImpact.toFixed(2)) };
         res.json(responseData);
@@ -2937,7 +2937,7 @@ exports.getPlayerById = async (req, res, next) => {
  * @route   GET /api/players/:id/stats?season_id=X
  * @access  Public
  */
-exports.getPlayerStats = async (req, res, next) => {
+exports.getplayerstats = async (req, res, next) => {
     const playerId = req.params.id;
     const { season_id } = req.query;
     // Use pool directly unless transaction is needed across queries
@@ -2970,15 +2970,15 @@ exports.getPlayerStats = async (req, res, next) => {
                 COALESCE(SUM(pms.batting_impact_points), 0) as total_batting_impact,
                 COALESCE(SUM(pms.bowling_impact_points), 0) as total_bowling_impact,
                 COALESCE(SUM(pms.fielding_impact_points), 0) as total_fielding_impact
-            FROM Players p
-            LEFT JOIN PlayerMatchStats pms ON p.player_id = pms.player_id
+            FROM players p
+            LEFT JOIN playermatchstats pms ON p.player_id = pms.player_id
         `;
         const params = [];
         let joinClause = '';
         let whereClause = ' WHERE p.player_id = ?'; params.push(playerId);
 
         if (season_id) {
-            joinClause = ' LEFT JOIN Matches m ON pms.match_id = m.match_id';
+            joinClause = ' LEFT JOIN matches m ON pms.match_id = m.match_id';
             whereClause += ' AND m.season_id = ?'; params.push(season_id);
         }
         query += joinClause + whereClause + ' GROUP BY p.player_id, p.name, p.role';
@@ -2987,7 +2987,7 @@ exports.getPlayerStats = async (req, res, next) => {
 
         // --- Handle No Stats Found ---
         if (statsArr.length === 0) {
-             const [playerCheck] = await pool.query('SELECT player_id, name, role FROM Players WHERE player_id = ?', [playerId]);
+             const [playerCheck] = await pool.query('SELECT player_id, name, role FROM players WHERE player_id = ?', [playerId]);
              if (playerCheck.length === 0) { return res.status(404).json({ message: 'Player not found.' }); }
              else { return res.json({ ...playerCheck[0], matches_played: 0, total_runs: 0, total_balls_faced: 0, highest_score: 0, total_fours: 0, total_sixes: 0, times_out: 0, total_wickets: 0, total_runs_conceded: 0, total_overs_bowled: 0.0, total_maidens: 0, total_wides: 0, total_no_balls: 0, total_catches: 0, total_stumps: 0, total_run_outs: 0, total_batting_impact: 0, total_bowling_impact: 0, total_fielding_impact: 0, average_impact: 0, super_overs_bowled: 0, batting_average: null, batting_strike_rate: null, bowling_average: null, bowling_economy_rate: null, bowling_strike_rate: null }); } // Added super_overs_bowled: 0
         }
@@ -2997,8 +2997,8 @@ exports.getPlayerStats = async (req, res, next) => {
         // --- Query 2: Calculate Super Overs Bowled --- // ADDED THIS QUERY
         let superOverQuery = `
             SELECT COUNT(DISTINCT b.match_id) as super_overs_bowled
-            FROM BallByBall b
-            JOIN Matches m ON b.match_id = m.match_id
+            FROM ballbyball b
+            JOIN matches m ON b.match_id = m.match_id
             WHERE b.bowler_player_id = ?
               AND b.over_number = m.super_over_number
         `;
@@ -3050,7 +3050,7 @@ exports.updatePlayer = async (req, res, next) => {
 
     try {
         // Check if player exists
-        const [existing] = await pool.query('SELECT player_id FROM Players WHERE player_id = ?', [id]);
+        const [existing] = await pool.query('SELECT player_id FROM players WHERE player_id = ?', [id]);
         if (existing.length === 0) {
             return res.status(404).json({ message: 'Player not found.' });
         }
@@ -3063,7 +3063,7 @@ exports.updatePlayer = async (req, res, next) => {
 
         // Perform update if there are fields to change
         if (Object.keys(fieldsToUpdate).length > 0) {
-            const [result] = await pool.query('UPDATE Players SET ? WHERE player_id = ?', [fieldsToUpdate, id]);
+            const [result] = await pool.query('UPDATE players SET ? WHERE player_id = ?', [fieldsToUpdate, id]);
              if (result.affectedRows === 0) {
                 console.warn(`Update Player ${id}: Affected rows was 0. Data might be unchanged.`);
              }
@@ -3072,7 +3072,7 @@ exports.updatePlayer = async (req, res, next) => {
         }
 
         // Fetch updated player details (excluding sensitive/derived fields)
-        const [updatedPlayer] = await pool.query('SELECT player_id, name, base_price, role, current_team_id FROM Players WHERE player_id = ?', [id]);
+        const [updatedPlayer] = await pool.query('SELECT player_id, name, base_price, role, current_team_id FROM players WHERE player_id = ?', [id]);
         res.json({ message: 'Player updated successfully', player: updatedPlayer[0] });
 
     } catch (error) {
@@ -3097,27 +3097,27 @@ exports.deletePlayer = async (req, res, next) => {
         await connection.beginTransaction();
 
         // Check if player exists
-         const [existing] = await connection.query('SELECT player_id FROM Players WHERE player_id = ?', [id]);
+         const [existing] = await connection.query('SELECT player_id FROM players WHERE player_id = ?', [id]);
         if (existing.length === 0) {
             await connection.rollback(); return res.status(404).json({ message: 'Player not found.' });
         }
 
         // --- Handle Foreign Key References ---
-        await connection.query('UPDATE Teams SET captain_player_id = NULL WHERE captain_player_id = ?', [id]);
-        await connection.query('UPDATE Matches SET man_of_the_match_player_id = NULL WHERE man_of_the_match_player_id = ?', [id]);
+        await connection.query('UPDATE teams SET captain_player_id = NULL WHERE captain_player_id = ?', [id]);
+        await connection.query('UPDATE matches SET man_of_the_match_player_id = NULL WHERE man_of_the_match_player_id = ?', [id]);
         // Assuming ratings should be kept but reference nulled (adjust if cascading delete is desired)
-        // await connection.query('UPDATE PlayerRatings SET rater_player_id = NULL WHERE rater_player_id = ?', [id]);
-        // await connection.query('UPDATE PlayerRatings SET rated_player_id = NULL WHERE rated_player_id = ?', [id]);
+        // await connection.query('UPDATE playerratings SET rater_player_id = NULL WHERE rater_player_id = ?', [id]);
+        // await connection.query('UPDATE playerratings SET rated_player_id = NULL WHERE rated_player_id = ?', [id]);
 
-        // Explicitly delete from TeamPlayers junction table
-        await connection.query('DELETE FROM TeamPlayers WHERE player_id = ?', [id]);
-        console.log(`Deleted TeamPlayers entries for player ${id}`);
+        // Explicitly delete from teamplayers junction table
+        await connection.query('DELETE FROM teamplayers WHERE player_id = ?', [id]);
+        console.log(`Deleted teamplayers entries for player ${id}`);
 
-        // NOTE: Deletion will fail if player has stats in PlayerMatchStats and FK constraint is RESTRICT.
+        // NOTE: Deletion will fail if player has stats in playermatchstats and FK constraint is RESTRICT.
         // Handle this based on your desired behavior (e.g., delete stats too? Disallow player delete?).
 
         // Finally, attempt to delete the player
-        const [result] = await connection.query('DELETE FROM Players WHERE player_id = ?', [id]);
+        const [result] = await connection.query('DELETE FROM players WHERE player_id = ?', [id]);
 
         if (result.affectedRows === 0) {
              await connection.rollback();
@@ -3153,13 +3153,13 @@ const pool = require('../config/db');
  * @route   GET /api/seasons/public
  * @access  Public
  */
-exports.getPublicSeasons = async (req, res, next) => {
+exports.getPublicseasons = async (req, res, next) => {
     try {
         // Select only necessary fields for public view, order by year
-        const [seasons] = await pool.query('SELECT season_id, name, year FROM Seasons ORDER BY year DESC');
+        const [seasons] = await pool.query('SELECT season_id, name, year FROM seasons ORDER BY year DESC');
         res.json(seasons);
     } catch (error) {
-        console.error("Get Public Seasons Error:", error);
+        console.error("Get Public seasons Error:", error);
         next(error);
     }
 };
@@ -3192,14 +3192,14 @@ exports.getStandings = async (req, res, next) => {
 
     try {
         // 1. Get all teams for the season
-        const [teams] = await connection.query('SELECT team_id, name FROM Teams WHERE season_id = ?', [seasonIdNum]);
+        const [teams] = await connection.query('SELECT team_id, name FROM teams WHERE season_id = ?', [seasonIdNum]);
         if (teams.length === 0) {
             return res.json([]); // Return empty array if no teams in the season
         }
 
         // 2. Get all completed OR abandoned matches for the season
         const [matches] = await connection.query(
-            'SELECT match_id, team1_id, team2_id, winner_team_id, decision, toss_winner_team_id, status FROM Matches WHERE season_id = ? AND status IN (?, ?)',
+            'SELECT match_id, team1_id, team2_id, winner_team_id, decision, toss_winner_team_id, status FROM matches WHERE season_id = ? AND status IN (?, ?)',
             [seasonIdNum, 'Completed', 'Abandoned'] // Fetch both Completed and Abandoned
         );
 
@@ -3257,7 +3257,7 @@ exports.getStandings = async (req, res, next) => {
                 // Fetch Ball-by-Ball data
                 const [ballsData] = await connection.query(`
                     SELECT inning_number, runs_scored, extra_runs, is_extra, extra_type, is_bye
-                    FROM BallByBall
+                    FROM ballbyball
                     WHERE match_id = ?
                     ORDER BY inning_number, ball_id
                 `, [match.match_id]);
@@ -3536,7 +3536,7 @@ exports.registerAdmin = async (req, res, next) => {
 const pool = require('../../config/db');
 
 // Helper function to validate team IDs exist for a specific season
-async function validateTeamsForSeason(teamIds, seasonId, connection) {
+async function validateteamsForSeason(teamIds, seasonId, connection) {
     // Ensure inputs are valid before proceeding
     if (!seasonId || isNaN(parseInt(seasonId))) {
         throw new Error('Invalid Season ID provided for team validation.');
@@ -3556,7 +3556,7 @@ async function validateTeamsForSeason(teamIds, seasonId, connection) {
     }
 
     const placeholders = uniqueTeamIds.map(() => '?').join(',');
-    const sql = `SELECT COUNT(DISTINCT team_id) as count FROM Teams WHERE season_id = ? AND team_id IN (${placeholders})`;
+    const sql = `SELECT COUNT(DISTINCT team_id) as count FROM teams WHERE season_id = ? AND team_id IN (${placeholders})`;
     const params = [parseInt(seasonId), ...uniqueTeamIds];
 
     // Use provided connection (if in transaction) or default pool
@@ -3590,20 +3590,20 @@ exports.createMatch = async (req, res, next) => {
         await connection.beginTransaction();
 
         // Validate season exists
-        const [seasonCheck] = await connection.query('SELECT 1 FROM Seasons WHERE season_id = ?', [season_id]);
+        const [seasonCheck] = await connection.query('SELECT 1 FROM seasons WHERE season_id = ?', [season_id]);
         if (seasonCheck.length === 0) {
             throw new Error(`Season with ID ${season_id} not found.`);
         }
 
         // Validate teams exist for this season
-        const teamsValid = await validateTeamsForSeason([team1_id, team2_id], season_id, connection);
+        const teamsValid = await validateteamsForSeason([team1_id, team2_id], season_id, connection);
         if (!teamsValid) {
             throw new Error('One or both Team IDs are invalid or do not belong to the selected season.');
         }
 
         // Insert the match
         const [result] = await connection.query(
-            `INSERT INTO Matches (season_id, team1_id, team2_id, match_datetime, venue, status)
+            `INSERT INTO matches (season_id, team1_id, team2_id, match_datetime, venue, status)
              VALUES (?, ?, ?, ?, ?, 'Scheduled')`,
             [parseInt(season_id), parseInt(team1_id), parseInt(team2_id), match_datetime, venue || 'Metalworks Box Arena']
         );
@@ -3614,9 +3614,9 @@ exports.createMatch = async (req, res, next) => {
         // Fetch the created match with team names to return it
         const [newMatch] = await pool.query(
              `SELECT m.*, t1.name as team1_name, t2.name as team2_name
-              FROM Matches m
-              JOIN Teams t1 ON m.team1_id = t1.team_id
-              JOIN Teams t2 ON m.team2_id = t2.team_id
+              FROM matches m
+              JOIN teams t1 ON m.team1_id = t1.team_id
+              JOIN teams t2 ON m.team2_id = t2.team_id
               WHERE m.match_id = ?`, [newMatchId]);
 
         // Check if the fetch returned the match (it should)
@@ -3642,7 +3642,7 @@ exports.createMatch = async (req, res, next) => {
 // @desc    Get all matches (Admin view, can filter)
 // @route   GET /api/admin/matches?season_id=X&status=Y&team_id=Z
 // @access  Admin
-exports.getAllMatches = async (req, res, next) => {
+exports.getAllmatches = async (req, res, next) => {
     const { season_id, status, team_id } = req.query;
      try {
         let query = `
@@ -3653,12 +3653,12 @@ exports.getAllMatches = async (req, res, next) => {
                 t2.name as team2_name, t2.team_id as team2_id,
                 wt.name as winner_team_name,
                 mom.name as man_of_the_match_name
-            FROM Matches m
-            JOIN Seasons s ON m.season_id = s.season_id
-            JOIN Teams t1 ON m.team1_id = t1.team_id
-            JOIN Teams t2 ON m.team2_id = t2.team_id
-            LEFT JOIN Teams wt ON m.winner_team_id = wt.team_id
-            LEFT JOIN Players mom ON m.man_of_the_match_player_id = mom.player_id
+            FROM matches m
+            JOIN seasons s ON m.season_id = s.season_id
+            JOIN teams t1 ON m.team1_id = t1.team_id
+            JOIN teams t2 ON m.team2_id = t2.team_id
+            LEFT JOIN teams wt ON m.winner_team_id = wt.team_id
+            LEFT JOIN players mom ON m.man_of_the_match_player_id = mom.player_id
         `;
         const params = [];
         const conditions = [];
@@ -3686,7 +3686,7 @@ exports.getAllMatches = async (req, res, next) => {
         const [matches] = await pool.query(query, params);
         res.json(matches);
     } catch (error) {
-        console.error("Get All Matches (Admin) Controller Error:", error);
+        console.error("Get All matches (Admin) Controller Error:", error);
         next(error); // Pass to global error handler
     }
 };
@@ -3702,10 +3702,10 @@ exports.getAllMatches = async (req, res, next) => {
     try {
          let query = `
             SELECT m.*, s.name as season_name, t1.name as team1_name, t2.name as team2_name
-            FROM Matches m
-            JOIN Seasons s ON m.season_id = s.season_id
-            JOIN Teams t1 ON m.team1_id = t1.team_id
-            JOIN Teams t2 ON m.team2_id = t2.team_id
+            FROM matches m
+            JOIN seasons s ON m.season_id = s.season_id
+            JOIN teams t1 ON m.team1_id = t1.team_id
+            JOIN teams t2 ON m.team2_id = t2.team_id
             WHERE m.match_id = ?`;
         const [matches] = await pool.query(query, [id]);
 
@@ -3753,15 +3753,15 @@ exports.updateMatch = async (req, res, next) => {
         await connection.beginTransaction();
 
         // Fetch existing match for validation
-        const [existingMatches] = await connection.query(
-            'SELECT season_id, status, team1_id as current_team1, team2_id as current_team2 FROM Matches WHERE match_id = ? FOR UPDATE',
+        const [existingmatches] = await connection.query(
+            'SELECT season_id, status, team1_id as current_team1, team2_id as current_team2 FROM matches WHERE match_id = ? FOR UPDATE',
             [matchId]
         );
-        if (existingMatches.length === 0) {
+        if (existingmatches.length === 0) {
             await connection.rollback();
             return res.status(404).json({ message: 'Match not found.' });
         }
-        const { season_id, current_status, current_team1, current_team2 } = existingMatches[0];
+        const { season_id, current_status, current_team1, current_team2 } = existingmatches[0];
 
         // --- Business Logic Validation ---
         if (current_status !== 'Scheduled' && (team1_id !== undefined || team2_id !== undefined || match_datetime !== undefined)) {
@@ -3784,7 +3784,7 @@ exports.updateMatch = async (req, res, next) => {
 
         // Validate teams if any team ID was provided
         if (teamsToValidate.length > 0) {
-             const teamsValid = await validateTeamsForSeason(teamsToValidate, season_id, connection);
+             const teamsValid = await validateteamsForSeason(teamsToValidate, season_id, connection);
              if (!teamsValid) {
                  throw new Error('One or both provided Team IDs are invalid for the match\'s season.');
              }
@@ -3797,7 +3797,7 @@ exports.updateMatch = async (req, res, next) => {
 
         // Proceed with update if there are fields to change
         if (Object.keys(fieldsToUpdate).length > 0) {
-            const [result] = await connection.query('UPDATE Matches SET ? WHERE match_id = ?', [fieldsToUpdate, matchId]);
+            const [result] = await connection.query('UPDATE matches SET ? WHERE match_id = ?', [fieldsToUpdate, matchId]);
             if (result.changedRows === 0 && result.affectedRows > 0){
                  console.log(`Update Match ${matchId}: Data provided was same as existing data.`);
                  // Optionally return 304 Not Modified or proceed to fetch and return 200 OK
@@ -3816,9 +3816,9 @@ exports.updateMatch = async (req, res, next) => {
         // Fetch updated match data with team names to return
         const [updatedMatch] = await pool.query(
             `SELECT m.*, t1.name as team1_name, t2.name as team2_name
-             FROM Matches m
-             JOIN Teams t1 ON m.team1_id = t1.team_id
-             JOIN Teams t2 ON m.team2_id = t2.team_id
+             FROM matches m
+             JOIN teams t1 ON m.team1_id = t1.team_id
+             JOIN teams t2 ON m.team2_id = t2.team_id
              WHERE m.match_id = ?`, [matchId]);
 
         res.json({ message: 'Match updated successfully', match: updatedMatch[0] });
@@ -3847,21 +3847,21 @@ exports.deleteMatch = async (req, res, next) => {
          await connection.beginTransaction();
 
          // Check if match exists and its status before attempting delete
-         const [existingMatches] = await connection.query('SELECT status FROM Matches WHERE match_id = ? FOR UPDATE', [matchId]);
-        if (existingMatches.length === 0) {
+         const [existingmatches] = await connection.query('SELECT status FROM matches WHERE match_id = ? FOR UPDATE', [matchId]);
+        if (existingmatches.length === 0) {
             await connection.rollback();
             return res.status(404).json({ message: 'Match not found.' });
         }
 
          // Business Rule: Only allow deleting 'Scheduled' matches
-         const current_status = existingMatches[0].status;
+         const current_status = existingmatches[0].status;
          if (current_status !== 'Scheduled') {
              await connection.rollback();
              return res.status(400).json({ message: `Cannot delete match. Only 'Scheduled' matches can be deleted (current status: '${current_status}').` });
          }
 
-        // Foreign keys to BallByBall and PlayerMatchStats should have ON DELETE CASCADE set in schema
-        const [result] = await connection.query('DELETE FROM Matches WHERE match_id = ?', [matchId]);
+        // Foreign keys to ballbyball and playermatchstats should have ON DELETE CASCADE set in schema
+        const [result] = await connection.query('DELETE FROM matches WHERE match_id = ?', [matchId]);
 
         if (result.affectedRows === 0) {
             // Should not happen if the SELECT FOR UPDATE found the row
@@ -3922,7 +3922,7 @@ exports.resolveMatch = async (req, res, next) => {
 
         // 1. Fetch Match Details to validate winner/mom IDs if provided
         const [matches] = await connection.query(
-            'SELECT team1_id, team2_id, season_id, status as current_status FROM Matches WHERE match_id = ? FOR UPDATE',
+            'SELECT team1_id, team2_id, season_id, status as current_status FROM matches WHERE match_id = ? FOR UPDATE',
             [matchId]
         );
         if (matches.length === 0) {
@@ -3943,7 +3943,7 @@ exports.resolveMatch = async (req, res, next) => {
         // 3. Validate MoM Player ID (if provided) exists and belongs to one of the teams in the season
         if (momId !== null) {
              const [momPlayerCheck] = await connection.query(
-                `SELECT 1 FROM TeamPlayers tp
+                `SELECT 1 FROM teamplayers tp
                  WHERE tp.player_id = ? AND tp.season_id = ? AND (tp.team_id = ? OR tp.team_id = ?)`,
                 [momId, season_id, team1_id, team2_id]
              );
@@ -3958,7 +3958,7 @@ exports.resolveMatch = async (req, res, next) => {
         const momToSave = status === 'Abandoned' ? null : momId;       // No MoM if abandoned
 
         const [updateResult] = await connection.query(
-            'UPDATE Matches SET status = ?, winner_team_id = ?, result_summary = ?, man_of_the_match_player_id = ? WHERE match_id = ?',
+            'UPDATE matches SET status = ?, winner_team_id = ?, result_summary = ?, man_of_the_match_player_id = ? WHERE match_id = ?',
             [status, winnerToSave, summaryToSave, momToSave, matchId]
         );
 
@@ -3970,7 +3970,7 @@ exports.resolveMatch = async (req, res, next) => {
         await connection.commit();
 
         // Fetch updated record to return
-        const [updatedMatch] = await connection.query('SELECT * FROM Matches WHERE match_id = ?', [matchId]);
+        const [updatedMatch] = await connection.query('SELECT * FROM matches WHERE match_id = ?', [matchId]);
 
         // TODO: Optionally emit a socket event ('matchEnded' or 'matchResolved') ?
         // Depends if live viewers need to see this manual resolution instantly.
@@ -3997,7 +3997,7 @@ exports.resolveMatch = async (req, res, next) => {
 const pool = require('../../config/db');
 
 // --- Helper functions (PLACEHOLDERS - Ensure you have actual implementations) ---
-async function validateTeamsForSeason(teamIds, seasonId, connection) {
+async function validateteamsForSeason(teamIds, seasonId, connection) {
     // Example basic check, replace with your actual validation logic
     if (!seasonId || !Array.isArray(teamIds)) return false;
     console.log(`Placeholder validation for teams ${teamIds.join(',')} in season ${seasonId}`);
@@ -4101,20 +4101,20 @@ function calculateImpactPoints(ballData) {
 // --- End Helper Functions ---
 
 
-// --- getMatchesForSetup (Includes Correct Logging) ---
+// --- getmatchesForSetup (Includes Correct Logging) ---
 /**
  * @desc    Get matches in 'Scheduled' status, ready for setup.
  * @route   GET /api/admin/scoring/setup-list
  * @access  Admin (Protected)
  */
-exports.getMatchesForSetup = async (req, res, next) => {
-    console.log('--- ENTERING getMatchesForSetup ---'); // Log Entry
+exports.getmatchesForSetup = async (req, res, next) => {
+    console.log('--- ENTERING getmatchesForSetup ---'); // Log Entry
     try {
         const query = `
             SELECT m.match_id, m.match_datetime, t1.name as team1_name, t2.name as team2_name, t1.team_id as team1_id, t2.team_id as team2_id
-            FROM Matches m
-            JOIN Teams t1 ON m.team1_id = t1.team_id
-            JOIN Teams t2 ON m.team2_id = t2.team_id
+            FROM matches m
+            JOIN teams t1 ON m.team1_id = t1.team_id
+            JOIN teams t2 ON m.team2_id = t2.team_id
             WHERE m.status = 'Scheduled'
             ORDER BY m.match_datetime ASC
         `;
@@ -4122,10 +4122,10 @@ exports.getMatchesForSetup = async (req, res, next) => {
         const [matches] = await pool.query(query);
         console.log(`--- Query finished, found ${matches.length} matches ---`); // Log Query Result
         res.json(matches);
-        console.log('--- Response sent from getMatchesForSetup ---'); // Log Response Sent
+        console.log('--- Response sent from getmatchesForSetup ---'); // Log Response Sent
     } catch (error) {
-        console.error("Get Matches for Setup Error:", error); // Log Error Details
-        console.log('--- Error in getMatchesForSetup, calling next() ---'); // Log Error Handling
+        console.error("Get matches for Setup Error:", error); // Log Error Details
+        console.log('--- Error in getmatchesForSetup, calling next() ---'); // Log Error Handling
         next(error);
     }
 };
@@ -4152,7 +4152,7 @@ exports.submitMatchSetup = async (req, res, next) => {
         console.log(`--- Starting Setup for Match ${matchId} ---`);
 
         // 1. Check Match Status & Get Details
-        const [matchCheck] = await connection.query('SELECT status, team1_id, team2_id, season_id FROM Matches WHERE match_id = ? FOR UPDATE', [matchId]);
+        const [matchCheck] = await connection.query('SELECT status, team1_id, team2_id, season_id FROM matches WHERE match_id = ? FOR UPDATE', [matchId]);
         if (matchCheck.length === 0) throw new Error('Match not found.');
         if (matchCheck[0].status !== 'Scheduled') throw new Error(`Match cannot be set up. Current status: ${matchCheck[0].status}`);
         const { team1_id, team2_id, season_id } = matchCheck[0];
@@ -4163,30 +4163,30 @@ exports.submitMatchSetup = async (req, res, next) => {
         // 3. Update Match Table
         console.log(`--- Updating Match ${matchId} status to Setup ---`);
         await connection.query(
-            'UPDATE Matches SET status = ?, toss_winner_team_id = ?, decision = ?, super_over_number = ? WHERE match_id = ?',
+            'UPDATE matches SET status = ?, toss_winner_team_id = ?, decision = ?, super_over_number = ? WHERE match_id = ?',
             ['Setup', parseInt(toss_winner_team_id), decision, parseInt(super_over_number), matchId]
         );
 
-        // 4. Create initial PlayerMatchStats entries
+        // 4. Create initial playermatchstats entries
         console.log(`--- Fetching players for teams ${team1_id} and ${team2_id} ---`);
-        const [team1Players] = await connection.query('SELECT player_id FROM TeamPlayers WHERE team_id = ? AND season_id = ?', [team1_id, season_id]);
-        const [team2Players] = await connection.query('SELECT player_id FROM TeamPlayers WHERE team_id = ? AND season_id = ?', [team2_id, season_id]);
-        const allPlayers = [
-            ...team1Players.map(p => ({ player_id: p.player_id, team_id: team1_id })),
-            ...team2Players.map(p => ({ player_id: p.player_id, team_id: team2_id }))
+        const [team1players] = await connection.query('SELECT player_id FROM teamplayers WHERE team_id = ? AND season_id = ?', [team1_id, season_id]);
+        const [team2players] = await connection.query('SELECT player_id FROM teamplayers WHERE team_id = ? AND season_id = ?', [team2_id, season_id]);
+        const allplayers = [
+            ...team1players.map(p => ({ player_id: p.player_id, team_id: team1_id })),
+            ...team2players.map(p => ({ player_id: p.player_id, team_id: team2_id }))
         ];
 
-        if (allPlayers.length === 0) {
-            console.warn(`Match ${matchId} setup: No players found assigned. Skipping PlayerMatchStats initialization.`);
+        if (allplayers.length === 0) {
+            console.warn(`Match ${matchId} setup: No players found assigned. Skipping playermatchstats initialization.`);
         } else {
-            console.log(`--- Initializing PlayerMatchStats for ${allPlayers.length} players ---`);
-            const statsInsertPromises = allPlayers.map(p =>
+            console.log(`--- Initializing playermatchstats for ${allplayers.length} players ---`);
+            const statsInsertPromises = allplayers.map(p =>
                 // MODIFIED: Add impact points initialized to 0
-                connection.query('INSERT INTO PlayerMatchStats (match_id, player_id, team_id, batting_impact_points, bowling_impact_points, fielding_impact_points) VALUES (?, ?, ?, 0, 0, 0)', [matchId, p.player_id, p.team_id])
-                    .catch(err => { if (err.code === 'ER_DUP_ENTRY') { console.warn(`PlayerMatchStats entry exists for match ${matchId}, player ${p.player_id}. Ignoring.`); return null; } throw err; })
+                connection.query('INSERT INTO playermatchstats (match_id, player_id, team_id, batting_impact_points, bowling_impact_points, fielding_impact_points) VALUES (?, ?, ?, 0, 0, 0)', [matchId, p.player_id, p.team_id])
+                    .catch(err => { if (err.code === 'ER_DUP_ENTRY') { console.warn(`playermatchstats entry exists for match ${matchId}, player ${p.player_id}. Ignoring.`); return null; } throw err; })
             );
             await Promise.all(statsInsertPromises);
-            console.log(`--- PlayerMatchStats initialization complete ---`);
+            console.log(`--- playermatchstats initialization complete ---`);
         }
 
         // 5. Commit
@@ -4194,9 +4194,9 @@ exports.submitMatchSetup = async (req, res, next) => {
         console.log(`--- Match ${matchId} setup committed ---`);
 
         // 6. Prepare Initial State for Frontend/Sockets
-        const fetchPlayerNames = async (playerIds) => { if (!playerIds || playerIds.length === 0) return []; const placeholders = playerIds.map(() => '?').join(','); const [names] = await pool.query(`SELECT player_id, name FROM Players WHERE player_id IN (${placeholders})`, playerIds.map(p => p.player_id)); return names; };
-        const battingTeamDbList = (decision === 'Bat' && toss_winner_team_id == team1_id) || (decision === 'Bowl' && toss_winner_team_id != team1_id) ? team1Players : team2Players;
-        const bowlingTeamDbList = (decision === 'Bat' && toss_winner_team_id == team1_id) || (decision === 'Bowl' && toss_winner_team_id != team1_id) ? team2Players : team1Players;
+        const fetchPlayerNames = async (playerIds) => { if (!playerIds || playerIds.length === 0) return []; const placeholders = playerIds.map(() => '?').join(','); const [names] = await pool.query(`SELECT player_id, name FROM players WHERE player_id IN (${placeholders})`, playerIds.map(p => p.player_id)); return names; };
+        const battingTeamDbList = (decision === 'Bat' && toss_winner_team_id == team1_id) || (decision === 'Bowl' && toss_winner_team_id != team1_id) ? team1players : team2players;
+        const bowlingTeamDbList = (decision === 'Bat' && toss_winner_team_id == team1_id) || (decision === 'Bowl' && toss_winner_team_id != team1_id) ? team2players : team1players;
         const battingTeamPlayerDetails = await fetchPlayerNames(battingTeamDbList);
         const bowlingTeamPlayerDetails = await fetchPlayerNames(bowlingTeamDbList);
 
@@ -4236,7 +4236,7 @@ exports.getLiveMatchState = async (req, res, next) => {
 
     try {
         // --- 1. Fetch Basic Match Details ---
-        const [matches] = await pool.query('SELECT * FROM Matches WHERE match_id = ?', [matchId]);
+        const [matches] = await pool.query('SELECT * FROM matches WHERE match_id = ?', [matchId]);
         if (matches.length === 0) {
             console.log(`--- getLiveMatchState: Match ${matchId} not found ---`);
             return res.status(404).json({ message: 'Match not found.' });
@@ -4248,8 +4248,8 @@ exports.getLiveMatchState = async (req, res, next) => {
         // --- Handle simple statuses first (Scheduled, Abandoned) ---
         if (status === 'Scheduled' || status === 'Abandoned') {
             console.log(`--- getLiveMatchState: Returning minimal state for status ${status} ---`);
-            const [team1Data] = await pool.query('SELECT name FROM Teams WHERE team_id = ?', [team1_id]);
-            const [team2Data] = await pool.query('SELECT name FROM Teams WHERE team_id = ?', [team2_id]);
+            const [team1Data] = await pool.query('SELECT name FROM teams WHERE team_id = ?', [team1_id]);
+            const [team2Data] = await pool.query('SELECT name FROM teams WHERE team_id = ?', [team2_id]);
             return res.json({
                 matchId: matchId, status: status, seasonId: season_id, superOver: super_over_number,
                 team1_id: team1_id, team2_id: team2_id,
@@ -4257,7 +4257,7 @@ exports.getLiveMatchState = async (req, res, next) => {
             });
         }
 
-        // --- 2. Determine Current Inning & Teams (for Setup, Live, InningsBreak, Completed) ---
+        // --- 2. Determine Current Inning & teams (for Setup, Live, InningsBreak, Completed) ---
         
                 let inningNumber = 1; // Default to 1
 
@@ -4266,7 +4266,7 @@ exports.getLiveMatchState = async (req, res, next) => {
                     inningNumber = 2;
                 } else if (status === 'Live') {
                     // If live, check the inning of the last recorded ball
-                    const [lastBall] = await pool.query('SELECT inning_number FROM BallByBall WHERE match_id = ? ORDER BY ball_id DESC LIMIT 1', [matchId]);
+                    const [lastBall] = await pool.query('SELECT inning_number FROM ballbyball WHERE match_id = ? ORDER BY ball_id DESC LIMIT 1', [matchId]);
                     if (lastBall.length > 0) {
                         // Trust the inning number of the last ball bowled if status is Live
                         inningNumber = lastBall[0].inning_number;
@@ -4291,7 +4291,7 @@ exports.getLiveMatchState = async (req, res, next) => {
         if (status === 'InningsBreak' || status === 'Completed') {
             inningNumber = 2;
         } else if (status === 'Live') {
-            const [lastBall] = await pool.query('SELECT inning_number FROM BallByBall WHERE match_id = ? ORDER BY ball_id DESC LIMIT 1', [matchId]);
+            const [lastBall] = await pool.query('SELECT inning_number FROM ballbyball WHERE match_id = ? ORDER BY ball_id DESC LIMIT 1', [matchId]);
             if (lastBall.length > 0) {
                 inningNumber = lastBall[0].inning_number;
                 // If last ball was inning 1, check if inning 1 should have ended
@@ -4301,9 +4301,9 @@ exports.getLiveMatchState = async (req, res, next) => {
                         SELECT
                             COUNT(CASE WHEN pms.is_out = TRUE THEN 1 END) as wickets,
                             MAX(b.over_number) as last_over_num,
-                            (SELECT COUNT(*) FROM BallByBall b2 WHERE b2.match_id = ? AND b2.inning_number = 1 AND b2.over_number = MAX(b.over_number) AND (b2.is_extra = false OR b2.extra_type = 'NoBall')) as balls_in_last_over
-                        FROM PlayerMatchStats pms
-                        LEFT JOIN BallByBall b ON pms.match_id = b.match_id AND pms.team_id = ? AND b.inning_number = 1
+                            (SELECT COUNT(*) FROM ballbyball b2 WHERE b2.match_id = ? AND b2.inning_number = 1 AND b2.over_number = MAX(b.over_number) AND (b2.is_extra = false OR b2.extra_type = 'NoBall')) as balls_in_last_over
+                        FROM playermatchstats pms
+                        LEFT JOIN ballbyball b ON pms.match_id = b.match_id AND pms.team_id = ? AND b.inning_number = 1
                         WHERE pms.match_id = ? AND pms.team_id = ?
                      `, [matchId, (decision === 'Bat' ? toss_winner_team_id : (toss_winner_team_id == team1_id ? team2_id : team1_id)), matchId, (decision === 'Bat' ? toss_winner_team_id : (toss_winner_team_id == team1_id ? team2_id : team1_id))]);
 
@@ -4330,8 +4330,8 @@ exports.getLiveMatchState = async (req, res, next) => {
         console.log(`--- getLiveMatchState: Determined Inning=${inningNumber}, Batting=${battingTeamId}, Bowling=${bowlingTeamId} ---`);
         */
         // --- 3. Calculate Current Score, Wickets, Overs, Target ---
-        const [summaryScoreData] = await pool.query(`SELECT SUM(runs_scored + extra_runs) as totalScore FROM BallByBall WHERE match_id = ? AND inning_number = ?`, [matchId, inningNumber]);
-        const [summaryWicketData] = await pool.query(`SELECT COUNT(*) as totalWickets FROM PlayerMatchStats WHERE match_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, battingTeamId]);
+        const [summaryScoreData] = await pool.query(`SELECT SUM(runs_scored + extra_runs) as totalScore FROM ballbyball WHERE match_id = ? AND inning_number = ?`, [matchId, inningNumber]);
+        const [summaryWicketData] = await pool.query(`SELECT COUNT(*) as totalWickets FROM playermatchstats WHERE match_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, battingTeamId]);
         const score = summaryScoreData[0]?.totalScore || 0;
         const wickets = summaryWicketData[0]?.totalWickets || 0;
 
@@ -4341,7 +4341,7 @@ exports.getLiveMatchState = async (req, res, next) => {
         let displayBall = 0;
         const [overProgressData] = await pool.query(`
              SELECT over_number, COUNT(*) as legal_balls
-             FROM BallByBall
+             FROM ballbyball
              WHERE match_id = ? AND inning_number = ? AND (is_extra = false OR extra_type = 'NoBall')
              GROUP BY over_number ORDER BY over_number DESC LIMIT 1
          `, [matchId, inningNumber]);
@@ -4367,28 +4367,28 @@ exports.getLiveMatchState = async (req, res, next) => {
 
         let targetScore = null;
         if (inningNumber === 2 || status === 'InningsBreak' || status === 'Completed') {
-            const [scoreDataInning1] = await pool.query(`SELECT SUM(runs_scored + extra_runs) as score FROM BallByBall WHERE match_id = ? AND inning_number = 1`, [matchId]);
+            const [scoreDataInning1] = await pool.query(`SELECT SUM(runs_scored + extra_runs) as score FROM ballbyball WHERE match_id = ? AND inning_number = 1`, [matchId]);
             targetScore = Number((scoreDataInning1[0]?.score || 0)) + 1;
             console.log(`--- getLiveMatchState: Target Score = ${targetScore} ---`);
         }
 
         // --- 4. Fetch Player Lists, Out Batsmen, Bowler Stats ---
-        const fetchPlayerNames = async (playerIds) => { if (!playerIds || playerIds.length === 0) return []; const placeholders = playerIds.map(() => '?').join(','); const [names] = await pool.query(`SELECT player_id, name FROM Players WHERE player_id IN (${placeholders})`, playerIds.map(p => p.player_id || p)); return names; };
-        const [team1PlayersDb] = await pool.query('SELECT player_id FROM TeamPlayers WHERE team_id = ? AND season_id = ?', [team1_id, season_id]);
-        const [team2PlayersDb] = await pool.query('SELECT player_id FROM TeamPlayers WHERE team_id = ? AND season_id = ?', [team2_id, season_id]);
-        const team1PlayerDetails = await fetchPlayerNames(team1PlayersDb);
-        const team2PlayerDetails = await fetchPlayerNames(team2PlayersDb);
-        const battingPlayersList = battingTeamId === team1_id ? team1PlayerDetails : team2PlayerDetails;
-        const bowlingPlayersList = bowlingTeamId === team1_id ? team1PlayerDetails : team2PlayerDetails;
+        const fetchPlayerNames = async (playerIds) => { if (!playerIds || playerIds.length === 0) return []; const placeholders = playerIds.map(() => '?').join(','); const [names] = await pool.query(`SELECT player_id, name FROM players WHERE player_id IN (${placeholders})`, playerIds.map(p => p.player_id || p)); return names; };
+        const [team1playersDb] = await pool.query('SELECT player_id FROM teamplayers WHERE team_id = ? AND season_id = ?', [team1_id, season_id]);
+        const [team2playersDb] = await pool.query('SELECT player_id FROM teamplayers WHERE team_id = ? AND season_id = ?', [team2_id, season_id]);
+        const team1PlayerDetails = await fetchPlayerNames(team1playersDb);
+        const team2PlayerDetails = await fetchPlayerNames(team2playersDb);
+        const battingplayersList = battingTeamId === team1_id ? team1PlayerDetails : team2PlayerDetails;
+        const bowlingplayersList = bowlingTeamId === team1_id ? team1PlayerDetails : team2PlayerDetails;
 
-        const [batsmenOutStats] = await pool.query(`SELECT player_id FROM PlayerMatchStats WHERE match_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, battingTeamId]);
+        const [batsmenOutStats] = await pool.query(`SELECT player_id FROM playermatchstats WHERE match_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, battingTeamId]);
         const batsmenOutIds = batsmenOutStats.map(b => b.player_id);
 
-        const [currentBowlerStats] = await pool.query(`SELECT player_id, FLOOR(overs_bowled) as completed_overs FROM PlayerMatchStats WHERE match_id = ? AND team_id = ? AND overs_bowled > 0`, [matchId, bowlingTeamId]);
+        const [currentBowlerStats] = await pool.query(`SELECT player_id, FLOOR(overs_bowled) as completed_overs FROM playermatchstats WHERE match_id = ? AND team_id = ? AND overs_bowled > 0`, [matchId, bowlingTeamId]);
         console.log(`--- getLiveMatchState: Fetched ${batsmenOutIds.length} out batsmen, ${currentBowlerStats.length} bowlers with stats ---`);
 
         // --- 5. Fetch Recent Commentary ---
-        const [recentCommentaryData] = await pool.query(`SELECT ball_id, commentary_text FROM BallByBall WHERE match_id = ? ORDER BY ball_id DESC LIMIT 10`, [matchId]);
+        const [recentCommentaryData] = await pool.query(`SELECT ball_id, commentary_text FROM ballbyball WHERE match_id = ? ORDER BY ball_id DESC LIMIT 10`, [matchId]);
         const recentBallsSummary = recentCommentaryData.length > 0 ? recentCommentaryData.slice().reverse().map(b => b.commentary_text?.split(':')[0] || '?').join(', ') : '';
         const lastBallCommentary = recentCommentaryData[0]?.commentary_text || (status === 'Setup' ? 'Match setup complete. Select opening players.' : 'No commentary yet.');
         console.log(`--- getLiveMatchState: Last commentary event: ${lastBallCommentary} ---`);
@@ -4401,7 +4401,7 @@ exports.getLiveMatchState = async (req, res, next) => {
             battingTeamId: battingTeamId, bowlingTeamId: bowlingTeamId,
             lastBallCommentary: lastBallCommentary, recentBallsSummary: recentBallsSummary,
             bowlerStats: currentBowlerStats, batsmenOutIds: batsmenOutIds,
-            playersBattingTeam: battingPlayersList, playersBowlingTeam: bowlingPlayersList,
+            playersBattingTeam: battingplayersList, playersBowlingTeam: bowlingplayersList,
             seasonId: season_id,
             resultSummary: match.result_summary, winnerTeamId: match.winner_team_id
         };
@@ -4423,7 +4423,7 @@ exports.getLiveMatchState = async (req, res, next) => {
  */
 exports.submitFinalMatchScore = async (req, res, next) => {
     const matchId = parseInt(req.params.matchId);
-    const { winner_team_id, result_summary, man_of_the_match_player_id, playerStats } = req.body;
+    const { winner_team_id, result_summary, man_of_the_match_player_id, playerstats } = req.body;
 
     if (isNaN(matchId)) return res.status(400).json({ message: 'Invalid Match ID.' });
 
@@ -4436,7 +4436,7 @@ exports.submitFinalMatchScore = async (req, res, next) => {
         let finalManOfTheMatchPlayerId = man_of_the_match_player_id || null; // Use provided if exists
         if (!finalManOfTheMatchPlayerId) {
             console.log(`--- MoM not provided for finalize, calculating... ---`);
-            const [impactStats] = await connection.query(`SELECT player_id, team_id, (batting_impact_points + bowling_impact_points + fielding_impact_points) as total_impact FROM PlayerMatchStats WHERE match_id = ? ORDER BY total_impact DESC`, [matchId]);
+            const [impactStats] = await connection.query(`SELECT player_id, team_id, (batting_impact_points + bowling_impact_points + fielding_impact_points) as total_impact FROM playermatchstats WHERE match_id = ? ORDER BY total_impact DESC`, [matchId]);
             if (impactStats.length > 0) {
                 const highestImpact = impactStats[0].total_impact;
                 let potentialMoms = impactStats.filter(p => p.total_impact === highestImpact);
@@ -4454,19 +4454,19 @@ exports.submitFinalMatchScore = async (req, res, next) => {
 
         // 1. Update Match status, winner, result, MoM
         console.log(`--- Updating Match ${matchId} status to Completed ---`);
-        await connection.query( 'UPDATE Matches SET status = ?, winner_team_id = ?, result_summary = ?, man_of_the_match_player_id = ? WHERE match_id = ?', ['Completed', winner_team_id || null, result_summary || null, finalManOfTheMatchPlayerId, matchId] ); 
+        await connection.query( 'UPDATE matches SET status = ?, winner_team_id = ?, result_summary = ?, man_of_the_match_player_id = ? WHERE match_id = ?', ['Completed', winner_team_id || null, result_summary || null, finalManOfTheMatchPlayerId, matchId] ); 
 
-        // 2. Update PlayerMatchStats
-        if (playerStats && Array.isArray(playerStats)) {
-            console.log(`--- Updating PlayerMatchStats for ${playerStats.length} players ---`);
-            const updatePromises = playerStats.map(stat => {
+        // 2. Update playermatchstats
+        if (playerstats && Array.isArray(playerstats)) {
+            console.log(`--- Updating playermatchstats for ${playerstats.length} players ---`);
+            const updatePromises = playerstats.map(stat => {
                 const { player_id, team_id, ...statsToUpdate } = stat;
                 const numericFields = ['runs_scored', 'balls_faced', 'fours', 'sixes', 'wickets_taken', 'runs_conceded', 'overs_bowled', 'maidens', 'wides', 'no_balls', 'catches', 'stumps', 'run_outs'];
                 numericFields.forEach(field => { statsToUpdate[field] = statsToUpdate[field] ?? 0; });
                 statsToUpdate.is_out = statsToUpdate.is_out ?? false;
                 statsToUpdate.how_out = statsToUpdate.how_out || null;
                 return connection.query(
-                    `INSERT INTO PlayerMatchStats (match_id, player_id, team_id, runs_scored, balls_faced, fours, sixes, is_out, how_out, wickets_taken, runs_conceded, overs_bowled, maidens, wides, no_balls, catches, stumps, run_outs)
+                    `INSERT INTO playermatchstats (match_id, player_id, team_id, runs_scored, balls_faced, fours, sixes, is_out, how_out, wickets_taken, runs_conceded, overs_bowled, maidens, wides, no_balls, catches, stumps, run_outs)
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                      ON DUPLICATE KEY UPDATE
                      runs_scored = VALUES(runs_scored), balls_faced = VALUES(balls_faced), fours = VALUES(fours), sixes = VALUES(sixes), is_out = VALUES(is_out), how_out = VALUES(how_out), wickets_taken = VALUES(wickets_taken), runs_conceded = VALUES(runs_conceded), overs_bowled = VALUES(overs_bowled), maidens = VALUES(maidens), wides = VALUES(wides), no_balls = VALUES(no_balls), catches = VALUES(catches), stumps = VALUES(stumps), run_outs = VALUES(run_outs)`,
@@ -4474,7 +4474,7 @@ exports.submitFinalMatchScore = async (req, res, next) => {
                 );
             });
             await Promise.all(updatePromises);
-            console.log(`--- PlayerMatchStats updates complete ---`);
+            console.log(`--- playermatchstats updates complete ---`);
         }
 
         await connection.commit();
@@ -4543,8 +4543,8 @@ exports.scoreSingleBall = async (req, res, next) => {
     try {
         await connection.beginTransaction();
 
-        // --- 1. Fetch Match State & Determine Teams ---
-        const [matches] = await connection.query('SELECT status, super_over_number, team1_id, team2_id, toss_winner_team_id, decision, season_id FROM Matches WHERE match_id = ? FOR UPDATE', [matchId]);
+        // --- 1. Fetch Match State & Determine teams ---
+        const [matches] = await connection.query('SELECT status, super_over_number, team1_id, team2_id, toss_winner_team_id, decision, season_id FROM matches WHERE match_id = ? FOR UPDATE', [matchId]);
         if (matches.length === 0) throw new Error('Match not found.');
         const match = matches[0];
         let currentStatus = match.status;
@@ -4553,24 +4553,24 @@ exports.scoreSingleBall = async (req, res, next) => {
         let battingTeamId, bowlingTeamId;
         const { team1_id, team2_id, toss_winner_team_id, decision, season_id } = match;
         if (inningNumber == 1) { battingTeamId = (decision === 'Bat') ? toss_winner_team_id : (toss_winner_team_id == team1_id ? team2_id : team1_id); bowlingTeamId = (battingTeamId == team1_id) ? team2_id : team1_id; }
-        else { bowlingTeamId = (decision === 'Bat') ? toss_winner_team_id : (toss_winner_team_id == team1_id ? team2_id : team1_id); battingTeamId = (bowlingTeamId == team1_id) ? team2_id : team1_id; const [scoreData] = await connection.query(`SELECT SUM(runs_scored + extra_runs) as score FROM BallByBall WHERE match_id = ? AND inning_number = 1`, [matchId]); targetScore = Number((scoreData[0]?.score || 0)) + 1; }
+        else { bowlingTeamId = (decision === 'Bat') ? toss_winner_team_id : (toss_winner_team_id == team1_id ? team2_id : team1_id); battingTeamId = (bowlingTeamId == team1_id) ? team2_id : team1_id; const [scoreData] = await connection.query(`SELECT SUM(runs_scored + extra_runs) as score FROM ballbyball WHERE match_id = ? AND inning_number = 1`, [matchId]); targetScore = Number((scoreData[0]?.score || 0)) + 1; }
         console.log(`--- Scoring Ball: Match ${matchId}, Inning ${inningNumber}, Status ${currentStatus}, Batting ${battingTeamId}, Bowling ${bowlingTeamId} ---`);
 
         // --- 2. Handle Status Transition & Validation ---
         let dbOverNumber = 1; let dbBallNumberInOver = 1; let logicalOver = 0; let logicalBallInOver = 0; let nextInningNumber = inningNumber;
         let previousOverBowlerId = null; // ADDED: Track the bowler of the last ball of the previous over
 
-        if (currentStatus === 'Setup' && inningNumber == 1) { await connection.query("UPDATE Matches SET status = 'Live' WHERE match_id = ?", [matchId]); currentStatus = 'Live'; updatedStatus = 'Live'; console.log(`Match ${matchId}: Status -> Live (Inning 1 Start)`); }
-        else if (currentStatus === 'InningsBreak' && inningNumber == 2) { await connection.query("UPDATE Matches SET status = 'Live' WHERE match_id = ?", [matchId]); currentStatus = 'Live'; updatedStatus = 'Live'; console.log(`Match ${matchId}: Status -> Live (Inning 2 Start). Target: ${targetScore}.`); }
+        if (currentStatus === 'Setup' && inningNumber == 1) { await connection.query("UPDATE matches SET status = 'Live' WHERE match_id = ?", [matchId]); currentStatus = 'Live'; updatedStatus = 'Live'; console.log(`Match ${matchId}: Status -> Live (Inning 1 Start)`); }
+        else if (currentStatus === 'InningsBreak' && inningNumber == 2) { await connection.query("UPDATE matches SET status = 'Live' WHERE match_id = ?", [matchId]); currentStatus = 'Live'; updatedStatus = 'Live'; console.log(`Match ${matchId}: Status -> Live (Inning 2 Start). Target: ${targetScore}.`); }
         else if (currentStatus === 'Live') {
-            const [batsmanOutCheck] = await connection.query(`SELECT 1 FROM PlayerMatchStats WHERE match_id = ? AND player_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, batsmanOnStrikePlayerId, battingTeamId]); if (batsmanOutCheck.length > 0) throw new Error(`Batsman ${batsmanOnStrikePlayerId} is already out.`);
+            const [batsmanOutCheck] = await connection.query(`SELECT 1 FROM playermatchstats WHERE match_id = ? AND player_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, batsmanOnStrikePlayerId, battingTeamId]); if (batsmanOutCheck.length > 0) throw new Error(`Batsman ${batsmanOnStrikePlayerId} is already out.`);
 
             // --- Determine Over/Ball Sequence FIRST ---
             // We need dbOverNumber before checking bowler eligibility for the *new* over
-            const [lastBallInfo] = await connection.query(`SELECT over_number, ball_number_in_over, bowler_player_id FROM BallByBall WHERE match_id = ? AND inning_number = ? ORDER BY ball_id DESC LIMIT 1`, [matchId, inningNumber]); // Fetch bowler_id too
+            const [lastBallInfo] = await connection.query(`SELECT over_number, ball_number_in_over, bowler_player_id FROM ballbyball WHERE match_id = ? AND inning_number = ? ORDER BY ball_id DESC LIMIT 1`, [matchId, inningNumber]); // Fetch bowler_id too
             if (lastBallInfo.length > 0) {
                 const lastBall = lastBallInfo[0];
-                const [legalBallsData] = await connection.query(`SELECT COUNT(*) as count FROM BallByBall WHERE match_id = ? AND inning_number = ? AND over_number = ? AND (is_extra = false OR extra_type = 'NoBall')`, [matchId, inningNumber, lastBall.over_number]);
+                const [legalBallsData] = await connection.query(`SELECT COUNT(*) as count FROM ballbyball WHERE match_id = ? AND inning_number = ? AND over_number = ? AND (is_extra = false OR extra_type = 'NoBall')`, [matchId, inningNumber, lastBall.over_number]);
                 const legalBallsInLastOverCount = legalBallsData[0]?.count || 0;
                 dbBallNumberInOver = lastBall.ball_number_in_over + 1;
                 if (legalBallsInLastOverCount >= 6) { // If starting a NEW over
@@ -4591,7 +4591,7 @@ exports.scoreSingleBall = async (req, res, next) => {
 
 
             // --- Now perform Bowler Eligibility Checks ---
-            const [bowlerOversData] = await connection.query(`SELECT player_id, FLOOR(overs_bowled) as completed_overs FROM PlayerMatchStats WHERE match_id = ? AND team_id = ? AND overs_bowled > 0`, [matchId, bowlingTeamId]);
+            const [bowlerOversData] = await connection.query(`SELECT player_id, FLOOR(overs_bowled) as completed_overs FROM playermatchstats WHERE match_id = ? AND team_id = ? AND overs_bowled > 0`, [matchId, bowlingTeamId]);
             let twoOverBowlerExists = false; let currentBowlerCompletedOvers = 0;
             let didCurrentBowlerBowlSuperOver = false; // ADDED: Check if current bowler bowled the super over
 
@@ -4600,7 +4600,7 @@ exports.scoreSingleBall = async (req, res, next) => {
                 if (b.player_id === bowlerPlayerId) {
                     currentBowlerCompletedOvers = b.completed_overs;
                     // Check if this bowler bowled the designated super over
-                    // We need to query BallByBall again for this specific bowler and super over number
+                    // We need to query ballbyball again for this specific bowler and super over number
                     // This check is done after the loop for clarity
                 }
             });
@@ -4618,8 +4618,8 @@ exports.scoreSingleBall = async (req, res, next) => {
             // Check 4: Super Over bowler limitation (only applies if they completed at least one over)
             // Fetch if this bowler bowled the super over
             const [superOverCheck] = await connection.query( // ADDED CHECK
-                `SELECT 1 FROM BallByBall b
-                 JOIN Matches m ON b.match_id = m.match_id
+                `SELECT 1 FROM ballbyball b
+                 JOIN matches m ON b.match_id = m.match_id
                  WHERE b.match_id = ?
                    AND b.inning_number = ?
                    AND b.bowler_player_id = ?
@@ -4658,29 +4658,29 @@ exports.scoreSingleBall = async (req, res, next) => {
         if (isWicket && wicketType === 'Hit Outside') commentary = `${logicalOver}.${logicalBallDisplay}: Ball. WICKET! (Hit Outside). `;
         commentary = commentary.trim();
 
-        // --- 5. Insert into BallByBall table ---
+        // --- 5. Insert into ballbyball table ---
         const finalFielderId = (isWicket && ['Caught', 'Stumped'].includes(wicketType)) ? fielderPlayerId : null;
         console.log(`--- Inserting Ball: ${commentary} ---`);
-        const [ballResult] = await connection.query(`INSERT INTO BallByBall (match_id, inning_number, over_number, ball_number_in_over, bowler_player_id, batsman_on_strike_player_id, runs_scored, is_bye, is_extra, extra_type, extra_runs, is_wicket, wicket_type, fielder_player_id, commentary_text) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [matchId, inningNumber, dbOverNumber, dbBallNumberInOver, bowlerPlayerId, batsmanOnStrikePlayerId, actualRunsOffBat, isBye || false, isExtra || false, extraType || null, parseInt(extraRuns || 0), isWicket || false, wicketType || null, finalFielderId, commentary]); const newBallId = ballResult.insertId;
+        const [ballResult] = await connection.query(`INSERT INTO ballbyball (match_id, inning_number, over_number, ball_number_in_over, bowler_player_id, batsman_on_strike_player_id, runs_scored, is_bye, is_extra, extra_type, extra_runs, is_wicket, wicket_type, fielder_player_id, commentary_text) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [matchId, inningNumber, dbOverNumber, dbBallNumberInOver, bowlerPlayerId, batsmanOnStrikePlayerId, actualRunsOffBat, isBye || false, isExtra || false, extraType || null, parseInt(extraRuns || 0), isWicket || false, wicketType || null, finalFielderId, commentary]); const newBallId = ballResult.insertId;
 
         // --- 6. Calculate Impact Points --- 
         const impactPoints = calculateImpactPoints({ runs_scored: runsScored, is_extra: isExtra, extra_type: extraType, extra_runs: extraRuns, is_wicket: isWicket, wicket_type: wicketType, is_bye: isBye });
         console.log(`--- Impact Points for ball ${newBallId}: Bat=${impactPoints.batsman}, Bowl=${impactPoints.bowler}, Field=${impactPoints.fielder} ---`);
 
-        // --- 7. Update PlayerMatchStats (MODIFIED for Impact Points) ---
+        // --- 7. Update playermatchstats (MODIFIED for Impact Points) ---
         console.log(`--- Updating Stats: Batsman=${batsmanOnStrikePlayerId}, Bowler=${bowlerPlayerId}, Fielder=${finalFielderId || 'N/A'} ---`);
         // Update Batsman: Add batting_impact_points update
-        await connection.query(`UPDATE PlayerMatchStats SET runs_scored = runs_scored + ?, balls_faced = balls_faced + ?, fours = fours + ?, sixes = sixes + ?, is_out = IF(? = TRUE, TRUE, is_out), how_out = IF(? = TRUE, ?, how_out), batting_impact_points = batting_impact_points + ? WHERE match_id = ? AND player_id = ?`,
+        await connection.query(`UPDATE playermatchstats SET runs_scored = runs_scored + ?, balls_faced = balls_faced + ?, fours = fours + ?, sixes = sixes + ?, is_out = IF(? = TRUE, TRUE, is_out), how_out = IF(? = TRUE, ?, how_out), batting_impact_points = batting_impact_points + ? WHERE match_id = ? AND player_id = ?`,
         [actualRunsOffBat, isLegalDelivery ? 1 : 0, (runsScored == 4 && !isExtra && !isBye) ? 1 : 0, (runsScored == 6 && !isExtra && !isBye) ? 1 : 0, isWicket, isWicket, wicketType || null, impactPoints.batsman, matchId, batsmanOnStrikePlayerId]); // Added impactPoints.batsman
         
         // Update Bowler: Add bowling_impact_points update
-        const [currentBowlerStatsData] = await connection.query('SELECT overs_bowled FROM PlayerMatchStats WHERE match_id = ? AND player_id = ?', [matchId, bowlerPlayerId]); const currentOversDecimal = currentBowlerStatsData[0]?.overs_bowled || 0.0; const newOversDecimal = calculateNewOversDecimal(currentOversDecimal, isLegalDelivery);
-        await connection.query(`UPDATE PlayerMatchStats SET overs_bowled = ?, runs_conceded = runs_conceded + ?, wickets_taken = wickets_taken + ?, wides = wides + ?, no_balls = no_balls + ?, maidens = maidens + ?, bowling_impact_points = bowling_impact_points + ? WHERE match_id = ? AND player_id = ?`,
+        const [currentBowlerStatsData] = await connection.query('SELECT overs_bowled FROM playermatchstats WHERE match_id = ? AND player_id = ?', [matchId, bowlerPlayerId]); const currentOversDecimal = currentBowlerStatsData[0]?.overs_bowled || 0.0; const newOversDecimal = calculateNewOversDecimal(currentOversDecimal, isLegalDelivery);
+        await connection.query(`UPDATE playermatchstats SET overs_bowled = ?, runs_conceded = runs_conceded + ?, wickets_taken = wickets_taken + ?, wides = wides + ?, no_balls = no_balls + ?, maidens = maidens + ?, bowling_impact_points = bowling_impact_points + ? WHERE match_id = ? AND player_id = ?`,
         [newOversDecimal, runsForBowler, (isWicket && !['Run Out'].includes(wicketType)) ? 1 : 0, extraType === 'Wide' ? 1 : 0, extraType === 'NoBall' ? 1 : 0, 0 /* Maiden TBD */, impactPoints.bowler, matchId, bowlerPlayerId]); // Added impactPoints.bowler
         
         // Update Fielder: Add fielding_impact_points update
         if (finalFielderId && impactPoints.fielder !== 0) {
-            await connection.query(`UPDATE PlayerMatchStats SET catches = catches + ?, stumps = stumps + ?, fielding_impact_points = fielding_impact_points + ? WHERE match_id = ? AND player_id = ?`,
+            await connection.query(`UPDATE playermatchstats SET catches = catches + ?, stumps = stumps + ?, fielding_impact_points = fielding_impact_points + ? WHERE match_id = ? AND player_id = ?`,
             [wicketType === 'Caught' ? 1 : 0, wicketType === 'Stumped' ? 1 : 0, impactPoints.fielder, matchId, finalFielderId]); // Added impactPoints.fielder
         }
 
@@ -4691,7 +4691,7 @@ exports.scoreSingleBall = async (req, res, next) => {
         let winnerTeamId = null; 
         const maxOvers = 5; 
         const maxWickets = 5;
-        const [progressInfo] = await connection.query(`SELECT COUNT(*) as wickets_this_inning FROM PlayerMatchStats WHERE match_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, battingTeamId]); const [legalBallsDataCurrent] = await connection.query(`SELECT COUNT(*) as count FROM BallByBall WHERE match_id = ? AND inning_number = ? AND over_number = ? AND (is_extra = false OR extra_type = 'NoBall')`, [matchId, inningNumber, dbOverNumber]);
+        const [progressInfo] = await connection.query(`SELECT COUNT(*) as wickets_this_inning FROM playermatchstats WHERE match_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, battingTeamId]); const [legalBallsDataCurrent] = await connection.query(`SELECT COUNT(*) as count FROM ballbyball WHERE match_id = ? AND inning_number = ? AND over_number = ? AND (is_extra = false OR extra_type = 'NoBall')`, [matchId, inningNumber, dbOverNumber]);
         const totalWicketsThisInning = progressInfo[0].wickets_this_inning || 0; 
         const legalBallsThisOver = legalBallsDataCurrent[0].count || 0;
         let inningsEndReason = null; 
@@ -4713,13 +4713,13 @@ exports.scoreSingleBall = async (req, res, next) => {
 
 
                 // Calculate winner/result
-                const [finalScores] = await connection.query(`SELECT inning_number, SUM(runs_scored + extra_runs) as total_score FROM BallByBall WHERE match_id = ? GROUP BY inning_number ORDER BY inning_number`, [matchId]); const inn1Score = finalScores.find(s => s.inning_number === 1)?.total_score || 0; const inn2Score = finalScores.find(s => s.inning_number === 2)?.total_score || 0;
+                const [finalScores] = await connection.query(`SELECT inning_number, SUM(runs_scored + extra_runs) as total_score FROM ballbyball WHERE match_id = ? GROUP BY inning_number ORDER BY inning_number`, [matchId]); const inn1Score = finalScores.find(s => s.inning_number === 1)?.total_score || 0; const inn2Score = finalScores.find(s => s.inning_number === 2)?.total_score || 0;
                 if (inn2Score >= targetScore) 
                     { 
                         winnerTeamId = battingTeamId; 
                         winnerTeamName = winnerTeamId;
                         try {
-                            const [t1] = await connection.query('SELECT name FROM Teams WHERE team_id = ?', [winnerTeamId]);
+                            const [t1] = await connection.query('SELECT name FROM teams WHERE team_id = ?', [winnerTeamId]);
                             if (t1.length > 0) winnerTeamName = t1[0].name;
                             
                         } catch (nameError) {
@@ -4733,7 +4733,7 @@ exports.scoreSingleBall = async (req, res, next) => {
                         winnerTeamId = bowlingTeamId; 
                         winnerTeamName = winnerTeamId;
                         try {
-                            const [t1] = await connection.query('SELECT name FROM Teams WHERE team_id = ?', [winnerTeamId]);
+                            const [t1] = await connection.query('SELECT name FROM teams WHERE team_id = ?', [winnerTeamId]);
                             if (t1.length > 0) winnerTeamName = t1[0].name;
                             
                         } catch (nameError) {
@@ -4749,7 +4749,7 @@ exports.scoreSingleBall = async (req, res, next) => {
                 console.log(`Match ${matchId}: Innings 2 ended. Status -> Completed. Result: ${resultSummary}`);
             }
         } else if (inningNumber === 2 && targetScore !== null) {
-            const [currentInningScoreData] = await connection.query(`SELECT SUM(runs_scored + extra_runs) as score FROM BallByBall WHERE match_id = ? AND inning_number = 2`, [matchId]); const currentInningScore = currentInningScoreData[0]?.score || 0;
+            const [currentInningScoreData] = await connection.query(`SELECT SUM(runs_scored + extra_runs) as score FROM ballbyball WHERE match_id = ? AND inning_number = 2`, [matchId]); const currentInningScore = currentInningScoreData[0]?.score || 0;
             if (currentInningScore >= targetScore) { inningsEnded = true; matchCompleted = true; updatedStatus = 'Completed'; winnerTeamId = battingTeamId; resultSummary = `Team ${battingTeamId} won by ${maxWickets - totalWicketsThisInning} wickets.`; commentary += ` TARGET ACHIEVED.`; console.log(`Match ${matchId}: Target achieved. Status -> Completed. Result: ${resultSummary}`); }
         }
 
@@ -4758,7 +4758,7 @@ exports.scoreSingleBall = async (req, res, next) => {
             console.log(`--- Match ${matchId} Completed. Calculating Man of the Match ---`);
             const [impactStats] = await connection.query(`
                 SELECT player_id, team_id, (batting_impact_points + bowling_impact_points + fielding_impact_points) as total_impact
-                FROM PlayerMatchStats WHERE match_id = ? ORDER BY total_impact DESC
+                FROM playermatchstats WHERE match_id = ? ORDER BY total_impact DESC
             `, [matchId]);
             if (impactStats.length > 0) {
                 const highestImpact = impactStats[0].total_impact;
@@ -4777,10 +4777,10 @@ exports.scoreSingleBall = async (req, res, next) => {
 
         // Update Match table (MODIFIED to include MoM)
         if (updatedStatus !== currentStatus || matchCompleted) {
-            await connection.query("UPDATE Matches SET status = ?, winner_team_id = ?, result_summary = ?, man_of_the_match_player_id = ? WHERE match_id = ?",
+            await connection.query("UPDATE matches SET status = ?, winner_team_id = ?, result_summary = ?, man_of_the_match_player_id = ? WHERE match_id = ?",
                 [updatedStatus, winnerTeamId, resultSummary, manOfTheMatchPlayerId, matchId]); // Added manOfTheMatchPlayerId
         }
-        if(inningsEnded || matchCompleted) { await connection.query("UPDATE BallByBall SET commentary_text = ? WHERE ball_id = ?", [commentary.trim(), newBallId]); }
+        if(inningsEnded || matchCompleted) { await connection.query("UPDATE ballbyball SET commentary_text = ? WHERE ball_id = ?", [commentary.trim(), newBallId]); }
         // --- 8. Commit Transaction ---
         await connection.commit();
         console.log(`--- Ball ${newBallId} scoring committed ---`);
@@ -4845,7 +4845,7 @@ exports.undoLastBall = async (req, res, next) => {
         console.log(`--- Starting UNDO for Match ${matchId} ---`);
 
         // 1. Find the last ball record
-        const [lastBallArr] = await connection.query(`SELECT * FROM BallByBall WHERE match_id = ? ORDER BY ball_id DESC LIMIT 1 FOR UPDATE`, [matchId]);
+        const [lastBallArr] = await connection.query(`SELECT * FROM ballbyball WHERE match_id = ? ORDER BY ball_id DESC LIMIT 1 FOR UPDATE`, [matchId]);
         if (lastBallArr.length === 0) throw new Error('No balls recorded yet to undo.');
         const lastBall = lastBallArr[0];
         const { ball_id, inningNumber, over_number, bowler_player_id, batsman_on_strike_player_id, runs_scored, is_bye, is_extra, extra_type, extra_runs, is_wicket, wicket_type, fielder_player_id } = lastBall;
@@ -4858,7 +4858,7 @@ exports.undoLastBall = async (req, res, next) => {
         console.log(`--- Undoing Ball ID: ${ball_id}, Inning: ${inningNumber}, Over: ${over_number} ---`);
 
         // 2. Fetch Match state & details
-        const [matches] = await connection.query('SELECT status, team1_id, team2_id, toss_winner_team_id, decision, season_id, winner_team_id, result_summary, super_over_number FROM Matches WHERE match_id = ? FOR UPDATE', [matchId]);
+        const [matches] = await connection.query('SELECT status, team1_id, team2_id, toss_winner_team_id, decision, season_id, winner_team_id, result_summary, super_over_number FROM matches WHERE match_id = ? FOR UPDATE', [matchId]);
         if (matches.length === 0) throw new Error('Match not found.');
         const match = matches[0];
         let currentStatus = match.status;
@@ -4875,21 +4875,21 @@ exports.undoLastBall = async (req, res, next) => {
         console.log(`--- Reversing Impact: Bat=${impactPointsToReverse.batsman}, Bowl=${impactPointsToReverse.bowler}, Field=${impactPointsToReverse.fielder} ---`);
 
          // Revert Batsman: Subtract batting_impact_points
-         await connection.query(`UPDATE PlayerMatchStats SET runs_scored = GREATEST(0, runs_scored - ?), balls_faced = GREATEST(0, balls_faced - ?), fours = GREATEST(0, fours - ?), sixes = GREATEST(0, sixes - ?), is_out = IF(? = TRUE AND how_out = ?, FALSE, is_out), how_out = IF(? = TRUE AND how_out = ?, NULL, how_out), batting_impact_points = batting_impact_points - ? WHERE match_id = ? AND player_id = ?`,
+         await connection.query(`UPDATE playermatchstats SET runs_scored = GREATEST(0, runs_scored - ?), balls_faced = GREATEST(0, balls_faced - ?), fours = GREATEST(0, fours - ?), sixes = GREATEST(0, sixes - ?), is_out = IF(? = TRUE AND how_out = ?, FALSE, is_out), how_out = IF(? = TRUE AND how_out = ?, NULL, how_out), batting_impact_points = batting_impact_points - ? WHERE match_id = ? AND player_id = ?`,
              [actualRunsOffBat, isLegalDelivery ? 1 : 0, (lastBall.runs_scored == 4 && !lastBall.is_extra && !lastBall.is_bye) ? 1 : 0, (lastBall.runs_scored == 6 && !lastBall.is_extra && !lastBall.is_bye) ? 1 : 0, lastBall.is_wicket, lastBall.wicket_type, lastBall.is_wicket, lastBall.wicket_type, impactPointsToReverse.batsman, matchId, lastBall.batsman_on_strike_player_id ]); // Subtracted impact
 
          // Revert Bowler: Subtract bowling_impact_points
          // ... (calculate previousOversDecimal as before) ...
-         await connection.query(`UPDATE PlayerMatchStats SET overs_bowled = ?, runs_conceded = GREATEST(0, runs_conceded - ?), wickets_taken = GREATEST(0, wickets_taken - ?), wides = GREATEST(0, wides - ?), no_balls = GREATEST(0, no_balls - ?), bowling_impact_points = bowling_impact_points - ? WHERE match_id = ? AND player_id = ?`,
+         await connection.query(`UPDATE playermatchstats SET overs_bowled = ?, runs_conceded = GREATEST(0, runs_conceded - ?), wickets_taken = GREATEST(0, wickets_taken - ?), wides = GREATEST(0, wides - ?), no_balls = GREATEST(0, no_balls - ?), bowling_impact_points = bowling_impact_points - ? WHERE match_id = ? AND player_id = ?`,
              [Math.max(0, previousOversDecimal), runsForBowler, (lastBall.is_wicket && !['Run Out'].includes(lastBall.wicket_type)) ? 1 : 0, lastBall.extra_type === 'Wide' ? 1 : 0, lastBall.extra_type === 'NoBall' ? 1 : 0, impactPointsToReverse.bowler, matchId, lastBall.bowler_player_id]); // Subtracted impact
 
          // Revert Fielder: Subtract fielding_impact_points
          if (lastBall.is_wicket && fielder_player_id && impactPointsToReverse.fielder !== 0) {
-             await connection.query(`UPDATE PlayerMatchStats SET catches = GREATEST(0, catches - ?), stumps = GREATEST(0, stumps - ?), fielding_impact_points = fielding_impact_points - ? WHERE match_id = ? AND player_id = ?`,
+             await connection.query(`UPDATE playermatchstats SET catches = GREATEST(0, catches - ?), stumps = GREATEST(0, stumps - ?), fielding_impact_points = fielding_impact_points - ? WHERE match_id = ? AND player_id = ?`,
                 [lastBall.wicket_type === 'Caught' ? 1 : 0, lastBall.wicket_type === 'Stumped' ? 1 : 0, impactPointsToReverse.fielder, matchId, fielder_player_id]); // Subtracted impact
          }
 
-        // --- 3. Reverse PlayerMatchStats changes ---
+        // --- 3. Reverse playermatchstats changes ---
         console.log(`--- Reverting Player Stats ---`);
         let isLegalDelivery = !(isExtra && extraType === 'Wide');
         let actualRunsOffBat = (!isBye && !isExtra) ? runs_scored : ((!isBye && isExtra && extraType === 'NoBall') ? runs_scored : 0);
@@ -4897,24 +4897,24 @@ exports.undoLastBall = async (req, res, next) => {
         if (isSuperOverBall && !isExtra && !isBye && actualRunsOffBat > 0) actualRunsOffBat /= 2; // Revert double runs
         const runsForBowler = actualRunsOffBat + (parseInt(extraRuns) || 0);
         // Revert Batsman
-        await connection.query(`UPDATE PlayerMatchStats SET runs_scored = GREATEST(0, runs_scored - ?), balls_faced = GREATEST(0, balls_faced - ?), fours = GREATEST(0, fours - ?), sixes = GREATEST(0, sixes - ?), is_out = IF(? = TRUE AND how_out = ?, FALSE, is_out), how_out = IF(? = TRUE AND how_out = ?, NULL, how_out) WHERE match_id = ? AND player_id = ?`, [actualRunsOffBat, isLegalDelivery ? 1 : 0, (runs_scored == 4 && !isExtra && !isBye) ? 1 : 0, (runs_scored == 6 && !isExtra && !isBye) ? 1 : 0, isWicket, wicketType, isWicket, wicketType, matchId, batsman_on_strike_player_id]);
+        await connection.query(`UPDATE playermatchstats SET runs_scored = GREATEST(0, runs_scored - ?), balls_faced = GREATEST(0, balls_faced - ?), fours = GREATEST(0, fours - ?), sixes = GREATEST(0, sixes - ?), is_out = IF(? = TRUE AND how_out = ?, FALSE, is_out), how_out = IF(? = TRUE AND how_out = ?, NULL, how_out) WHERE match_id = ? AND player_id = ?`, [actualRunsOffBat, isLegalDelivery ? 1 : 0, (runs_scored == 4 && !isExtra && !isBye) ? 1 : 0, (runs_scored == 6 && !isExtra && !isBye) ? 1 : 0, isWicket, wicketType, isWicket, wicketType, matchId, batsman_on_strike_player_id]);
         // Revert Bowler (using accurate reversal logic)
-        const [bowlerStatsData] = await connection.query('SELECT overs_bowled FROM PlayerMatchStats WHERE match_id = ? AND player_id = ?', [matchId, bowler_player_id]);
+        const [bowlerStatsData] = await connection.query('SELECT overs_bowled FROM playermatchstats WHERE match_id = ? AND player_id = ?', [matchId, bowler_player_id]);
         const currentOversDecimal = bowlerStatsData.length > 0 ? (bowlerStatsData[0].overs_bowled || 0) : 0;
         let previousOversDecimal = currentOversDecimal; if (isLegalDelivery && currentOversDecimal > 0) { const currentOvers = Math.floor(currentOversDecimal); const currentBalls = Math.round((currentOversDecimal - currentOvers) * 10); if (currentBalls === 1 && currentOvers > 0) { previousOversDecimal = parseFloat(`${currentOvers - 1}.5`); } else if (currentBalls > 0) { previousOversDecimal = parseFloat(`${currentOvers}.${currentBalls - 1}`); } else { /* Edge case 0.0 remains 0.0 */ previousOversDecimal = 0.0; } }
-        await connection.query(`UPDATE PlayerMatchStats SET overs_bowled = ?, runs_conceded = GREATEST(0, runs_conceded - ?), wickets_taken = GREATEST(0, wickets_taken - ?), wides = GREATEST(0, wides - ?), no_balls = GREATEST(0, no_balls - ?) WHERE match_id = ? AND player_id = ?`, [Math.max(0, previousOversDecimal), runsForBowler, (isWicket && !['Run Out'].includes(wicketType)) ? 1 : 0, extraType === 'Wide' ? 1 : 0, extraType === 'NoBall' ? 1 : 0, matchId, bowler_player_id]);
+        await connection.query(`UPDATE playermatchstats SET overs_bowled = ?, runs_conceded = GREATEST(0, runs_conceded - ?), wickets_taken = GREATEST(0, wickets_taken - ?), wides = GREATEST(0, wides - ?), no_balls = GREATEST(0, no_balls - ?) WHERE match_id = ? AND player_id = ?`, [Math.max(0, previousOversDecimal), runsForBowler, (isWicket && !['Run Out'].includes(wicketType)) ? 1 : 0, extraType === 'Wide' ? 1 : 0, extraType === 'NoBall' ? 1 : 0, matchId, bowler_player_id]);
         // Revert Fielder
-        if (isWicket && fielder_player_id) { await connection.query(`UPDATE PlayerMatchStats SET catches = GREATEST(0, catches - ?), stumps = GREATEST(0, stumps - ?) WHERE match_id = ? AND player_id = ?`, [wicketType === 'Caught' ? 1 : 0, wicketType === 'Stumped' ? 1 : 0, matchId, fielder_player_id]); }
+        if (isWicket && fielder_player_id) { await connection.query(`UPDATE playermatchstats SET catches = GREATEST(0, catches - ?), stumps = GREATEST(0, stumps - ?) WHERE match_id = ? AND player_id = ?`, [wicketType === 'Caught' ? 1 : 0, wicketType === 'Stumped' ? 1 : 0, matchId, fielder_player_id]); }
         console.log(`--- Player Stats Reverted ---`);
 
-        // --- 4. Delete the last BallByBall record ---
+        // --- 4. Delete the last ballbyball record ---
         console.log(`--- Deleting Ball ID: ${ball_id} ---`);
-        await connection.query("DELETE FROM BallByBall WHERE ball_id = ?", [ball_id]);
+        await connection.query("DELETE FROM ballbyball WHERE ball_id = ?", [ball_id]);
 
         // --- 5. Revert Match Status if necessary ---
         let newStatus = currentStatus; let revertStatus = false; const maxOvers = 5; const maxWickets = 5;
-        const [prevProgressInfo] = await connection.query(`SELECT COUNT(*) as wickets_this_inning FROM PlayerMatchStats WHERE match_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, battingTeamId]);
-        const [prevOverProgress] = await pool.query(`SELECT over_number, COUNT(*) as legal_balls FROM BallByBall WHERE match_id = ? AND inning_number = ? AND (is_extra = false OR extra_type = 'NoBall') GROUP BY over_number ORDER BY over_number DESC LIMIT 1`, [matchId, inningNumber]);
+        const [prevProgressInfo] = await connection.query(`SELECT COUNT(*) as wickets_this_inning FROM playermatchstats WHERE match_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, battingTeamId]);
+        const [prevOverProgress] = await pool.query(`SELECT over_number, COUNT(*) as legal_balls FROM ballbyball WHERE match_id = ? AND inning_number = ? AND (is_extra = false OR extra_type = 'NoBall') GROUP BY over_number ORDER BY over_number DESC LIMIT 1`, [matchId, inningNumber]);
         const prevLastLegalOverNum = prevOverProgress[0]?.over_number || 0;
         const ballsInPrevLastLegalOver = prevOverProgress[0]?.legal_balls || 0;
 
@@ -4926,21 +4926,21 @@ exports.undoLastBall = async (req, res, next) => {
         else if (currentStatus === 'Completed' && inningNumber === 2) {
             let wasTargetAchievedBefore = false;
             if (!prevInningsEndReason) { // Check target achievement only if innings didn't end for other reasons
-                const [prevInn2ScoreData] = await connection.query(`SELECT SUM(runs_scored + extra_runs) as score FROM BallByBall WHERE match_id = ? AND inning_number = 2`, [matchId]); // Score AFTER deleting ball
+                const [prevInn2ScoreData] = await connection.query(`SELECT SUM(runs_scored + extra_runs) as score FROM ballbyball WHERE match_id = ? AND inning_number = 2`, [matchId]); // Score AFTER deleting ball
                 const prevInn2Score = prevInn2ScoreData[0]?.score || 0;
-                const [inn1ScoreData] = await connection.query(`SELECT SUM(runs_scored + extra_runs) as score FROM BallByBall WHERE match_id = ? AND inning_number = 1`, [matchId]);
+                const [inn1ScoreData] = await connection.query(`SELECT SUM(runs_scored + extra_runs) as score FROM ballbyball WHERE match_id = ? AND inning_number = 1`, [matchId]);
                 const targetScore = Number((inn1ScoreData[0]?.score || 0)) + 1;
                 wasTargetAchievedBefore = prevInn2Score >= targetScore;
             }
             if (!prevInningsEndReason && !wasTargetAchievedBefore) { revertStatus = true; }
         }
 
-        //if (revertStatus) { newStatus = 'Live'; console.log(`--- Reverting Match Status from ${currentStatus} to Live ---`); await connection.query("UPDATE Matches SET status = 'Live', winner_team_id = NULL, result_summary = NULL, man_of_the_match_player_id = NULL WHERE match_id = ?", [matchId]); }
+        //if (revertStatus) { newStatus = 'Live'; console.log(`--- Reverting Match Status from ${currentStatus} to Live ---`); await connection.query("UPDATE matches SET status = 'Live', winner_team_id = NULL, result_summary = NULL, man_of_the_match_player_id = NULL WHERE match_id = ?", [matchId]); }
 
         if (revertStatus) {
             newStatus = 'Live'; console.log(`--- Reverting Match Status from ${currentStatus} to Live ---`);
             // set MoM to NULL as well
-            await connection.query("UPDATE Matches SET status = 'Live', winner_team_id = NULL, result_summary = NULL, man_of_the_match_player_id = NULL WHERE match_id = ?", [matchId]);
+            await connection.query("UPDATE matches SET status = 'Live', winner_team_id = NULL, result_summary = NULL, man_of_the_match_player_id = NULL WHERE match_id = ?", [matchId]);
         }
 
         
@@ -5004,13 +5004,13 @@ exports.createSeason = async (req, res, next) => {
 
     try {
         const [result] = await pool.query(
-            'INSERT INTO Seasons (year, name, start_date, end_date, status) VALUES (?, ?, ?, ?, ?)',
+            'INSERT INTO seasons (year, name, start_date, end_date, status) VALUES (?, ?, ?, ?, ?)',
             // Provide null for optional fields if they are empty strings or undefined
             [year, name, start_date || null, end_date || null, status || 'Planned']
         );
         const seasonId = result.insertId;
         // Fetch the newly created season to return it in the response
-        const [newSeason] = await pool.query('SELECT * FROM Seasons WHERE season_id = ?', [seasonId]);
+        const [newSeason] = await pool.query('SELECT * FROM seasons WHERE season_id = ?', [seasonId]);
 
         if (newSeason.length === 0) {
             // Should not happen if insert was successful
@@ -5033,13 +5033,13 @@ exports.createSeason = async (req, res, next) => {
  * @route   GET /api/admin/seasons
  * @access  Admin (Protected)
  */
-exports.getSeasons = async (req, res, next) => {
+exports.getseasons = async (req, res, next) => {
     try {
         // Order by year descending to show most recent first
-        const [seasons] = await pool.query('SELECT * FROM Seasons ORDER BY year DESC');
+        const [seasons] = await pool.query('SELECT * FROM seasons ORDER BY year DESC');
         res.json(seasons);
     } catch (error) {
-        console.error("Get Seasons Error:", error);
+        console.error("Get seasons Error:", error);
         next(error);
     }
 };
@@ -5056,7 +5056,7 @@ exports.getSeasonById = async (req, res, next) => {
     }
 
     try {
-        const [seasons] = await pool.query('SELECT * FROM Seasons WHERE season_id = ?', [id]);
+        const [seasons] = await pool.query('SELECT * FROM seasons WHERE season_id = ?', [id]);
         if (seasons.length === 0) {
             return res.status(404).json({ message: 'Season not found.' });
         }
@@ -5094,7 +5094,7 @@ exports.updateSeason = async (req, res, next) => {
 
     try {
         // Check if the season exists before attempting to update
-        const [existing] = await pool.query('SELECT season_id FROM Seasons WHERE season_id = ?', [id]);
+        const [existing] = await pool.query('SELECT season_id FROM seasons WHERE season_id = ?', [id]);
         if (existing.length === 0) {
             return res.status(404).json({ message: 'Season not found.' });
         }
@@ -5108,19 +5108,19 @@ exports.updateSeason = async (req, res, next) => {
         if (status) fieldsToUpdate.status = status;
 
         // Perform the update query
-        const [result] = await pool.query('UPDATE Seasons SET ? WHERE season_id = ?', [fieldsToUpdate, id]);
+        const [result] = await pool.query('UPDATE seasons SET ? WHERE season_id = ?', [fieldsToUpdate, id]);
 
          if (result.affectedRows === 0) {
              // This might happen if the data submitted was the same as existing data
              console.warn(`Update Season ${id}: Affected rows was 0. Data might be unchanged.`);
               // Fetch current data to confirm if it matches request or if ID was wrong despite check
-             const [currentSeason] = await pool.query('SELECT * FROM Seasons WHERE season_id = ?', [id]);
+             const [currentSeason] = await pool.query('SELECT * FROM seasons WHERE season_id = ?', [id]);
              return res.json({ message: 'Season data unchanged.', season: currentSeason[0] });
 
          }
 
         // Fetch the updated season data to return in the response
-        const [updatedSeason] = await pool.query('SELECT * FROM Seasons WHERE season_id = ?', [id]);
+        const [updatedSeason] = await pool.query('SELECT * FROM seasons WHERE season_id = ?', [id]);
         res.json({ message: 'Season updated successfully', season: updatedSeason[0] });
 
     } catch (error) {
@@ -5144,13 +5144,13 @@ exports.updateSeason = async (req, res, next) => {
 //     // depending on your FOREIGN KEY constraints (ON DELETE CASCADE). Double-check schema.
 //     // Consider logical deletion (setting an 'is_deleted' flag) instead of physical deletion.
 //     try {
-//          const [existing] = await pool.query('SELECT season_id FROM Seasons WHERE season_id = ?', [id]);
+//          const [existing] = await pool.query('SELECT season_id FROM seasons WHERE season_id = ?', [id]);
 //         if (existing.length === 0) {
 //             return res.status(404).json({ message: 'Season not found.' });
 //         }
 
 //         // Perform deletion
-//         const [result] = await pool.query('DELETE FROM Seasons WHERE season_id = ?', [id]);
+//         const [result] = await pool.query('DELETE FROM seasons WHERE season_id = ?', [id]);
 
 //          if (result.affectedRows === 0) {
 //              return res.status(404).json({ message: 'Season not found or already deleted.' });
@@ -5196,7 +5196,7 @@ exports.addTeamToSeason = async (req, res, next) => {
         await connection.beginTransaction();
 
         // Check if season exists
-        const [seasonCheck] = await connection.query('SELECT 1 FROM Seasons WHERE season_id = ?', [season_id]);
+        const [seasonCheck] = await connection.query('SELECT 1 FROM seasons WHERE season_id = ?', [season_id]);
         if (seasonCheck.length === 0) {
             await connection.rollback();
             return res.status(400).json({ message: `Season with ID ${season_id} does not exist.` });
@@ -5204,7 +5204,7 @@ exports.addTeamToSeason = async (req, res, next) => {
 
         // Optional: Check if captain player exists if ID is provided
         if (captain_player_id) {
-             const [playerCheck] = await connection.query('SELECT 1 FROM Players WHERE player_id = ?', [captain_player_id]);
+             const [playerCheck] = await connection.query('SELECT 1 FROM players WHERE player_id = ?', [captain_player_id]);
              if (playerCheck.length === 0) {
                 await connection.rollback();
                 return res.status(400).json({ message: `Captain Player with ID ${captain_player_id} does not exist.` });
@@ -5214,13 +5214,13 @@ exports.addTeamToSeason = async (req, res, next) => {
 
         // Insert the new team
         const [result] = await connection.query(
-            'INSERT INTO Teams (season_id, name, captain_player_id, budget) VALUES (?, ?, ?, ?)',
+            'INSERT INTO teams (season_id, name, captain_player_id, budget) VALUES (?, ?, ?, ?)',
             [season_id, name, captain_player_id || null, budget === undefined || budget === null ? 10000.00 : budget] // Default budget if not provided
         );
         const teamId = result.insertId;
 
         // Fetch the newly created team to return
-        const [newTeam] = await connection.query('SELECT * FROM Teams WHERE team_id = ?', [teamId]);
+        const [newTeam] = await connection.query('SELECT * FROM teams WHERE team_id = ?', [teamId]);
 
         await connection.commit();
         res.status(201).json({ message: 'Team added successfully', team: newTeam[0] });
@@ -5243,16 +5243,16 @@ exports.addTeamToSeason = async (req, res, next) => {
  * @route   GET /api/admin/teams?season_id=X
  * @access  Admin (Protected)
  */
-exports.getTeamsForSeason = async (req, res, next) => {
+exports.getteamsForSeason = async (req, res, next) => {
     const { season_id } = req.query; // Get season_id if provided
 
     try {
         // Base query including season and captain info
         let query = `
           SELECT t.*, s.name as season_name, p.name as captain_name
-          FROM Teams t
-          JOIN Seasons s ON t.season_id = s.season_id
-          LEFT JOIN Players p ON t.captain_player_id = p.player_id
+          FROM teams t
+          JOIN seasons s ON t.season_id = s.season_id
+          LEFT JOIN players p ON t.captain_player_id = p.player_id
           `;
         const params = [];
 
@@ -5272,7 +5272,7 @@ exports.getTeamsForSeason = async (req, res, next) => {
         const [teams] = await pool.query(query, params);
         res.json(teams);
     } catch (error) {
-        console.error("Get Teams Error:", error);
+        console.error("Get teams Error:", error);
         next(error);
     }
 };
@@ -5297,8 +5297,8 @@ exports.getTeamDetails = async (req, res, next) => {
         // Fetch team details
         const [teams] = await pool.query(
             `SELECT t.*, p.name as captain_name
-             FROM Teams t
-             LEFT JOIN Players p ON t.captain_player_id = p.player_id
+             FROM teams t
+             LEFT JOIN players p ON t.captain_player_id = p.player_id
              WHERE t.team_id = ? AND t.season_id = ?`, // Ensure team belongs to the requested season
             [id, season_id]
         );
@@ -5309,13 +5309,13 @@ exports.getTeamDetails = async (req, res, next) => {
         }
         const teamDetails = teams[0];
 
-        // Fetch players associated with this team FOR THIS SPECIFIC SEASON from TeamPlayers
+        // Fetch players associated with this team FOR THIS SPECIFIC SEASON from teamplayers
         const [players] = await pool.query(
             `SELECT
                 p.player_id, p.name, p.role,
                 tp.team_player_id, tp.purchase_price, tp.is_captain
-             FROM Players p
-             JOIN TeamPlayers tp ON p.player_id = tp.player_id
+             FROM players p
+             JOIN teamplayers tp ON p.player_id = tp.player_id
              WHERE tp.team_id = ? AND tp.season_id = ?
              ORDER BY p.name`,
             [id, season_id]
@@ -5354,14 +5354,14 @@ exports.updateTeam = async (req, res, next) => {
          await connection.beginTransaction();
 
          // Get current team info, especially season_id
-         const [existingTeamArr] = await connection.query('SELECT team_id, season_id FROM Teams WHERE team_id = ?', [id]);
+         const [existingTeamArr] = await connection.query('SELECT team_id, season_id FROM teams WHERE team_id = ?', [id]);
          if (existingTeamArr.length === 0) {
              await connection.rollback();
              return res.status(404).json({ message: 'Team not found.' });
          }
-         const teamSeasonId = existingTeamArr[0].season_id;
+         const teamseasonId = existingTeamArr[0].season_id;
 
-         // Prepare fields for the main Teams table update
+         // Prepare fields for the main teams table update
          const teamFieldsToUpdate = {};
          if (name !== undefined) teamFieldsToUpdate.name = name;
          if (budget !== undefined) teamFieldsToUpdate.budget = budget;
@@ -5374,41 +5374,41 @@ exports.updateTeam = async (req, res, next) => {
              // If setting a new captain (not null)
              if (newCaptainId !== null) {
                  // 1. Check if the new captain player exists
-                 const [playerCheck] = await connection.query('SELECT 1 FROM Players WHERE player_id = ?', [newCaptainId]);
+                 const [playerCheck] = await connection.query('SELECT 1 FROM players WHERE player_id = ?', [newCaptainId]);
                  if (playerCheck.length === 0) {
                      await connection.rollback();
                      return res.status(400).json({ message: `Player ID ${newCaptainId} does not exist.` });
                  }
                  // 2. Check if the new captain is actually ON THIS TEAM for THIS SEASON
                  const [teamPlayerCheck] = await connection.query(
-                     'SELECT 1 FROM TeamPlayers WHERE team_id = ? AND player_id = ? AND season_id = ?',
-                     [id, newCaptainId, teamSeasonId]
+                     'SELECT 1 FROM teamplayers WHERE team_id = ? AND player_id = ? AND season_id = ?',
+                     [id, newCaptainId, teamseasonId]
                  );
                  if (teamPlayerCheck.length === 0) {
                      await connection.rollback();
-                     return res.status(400).json({ message: `Player ID ${newCaptainId} is not assigned to this team (ID ${id}) for season ${teamSeasonId}. Cannot set as captain.` });
+                     return res.status(400).json({ message: `Player ID ${newCaptainId} is not assigned to this team (ID ${id}) for season ${teamseasonId}. Cannot set as captain.` });
                  }
-                 // 3. Update the captain_player_id in the Teams table
+                 // 3. Update the captain_player_id in the teams table
                  teamFieldsToUpdate.captain_player_id = newCaptainId;
-                 // 4. Update the is_captain flag in TeamPlayers (set new captain, unset old)
-                 await connection.query('UPDATE TeamPlayers SET is_captain = FALSE WHERE team_id = ? AND season_id = ?', [id, teamSeasonId]);
-                 await connection.query('UPDATE TeamPlayers SET is_captain = TRUE WHERE team_id = ? AND player_id = ? AND season_id = ?', [id, newCaptainId, teamSeasonId]);
+                 // 4. Update the is_captain flag in teamplayers (set new captain, unset old)
+                 await connection.query('UPDATE teamplayers SET is_captain = FALSE WHERE team_id = ? AND season_id = ?', [id, teamseasonId]);
+                 await connection.query('UPDATE teamplayers SET is_captain = TRUE WHERE team_id = ? AND player_id = ? AND season_id = ?', [id, newCaptainId, teamseasonId]);
              } else {
                  // Setting captain to NULL
                  teamFieldsToUpdate.captain_player_id = null;
-                  // 4. Ensure no player is marked as captain in TeamPlayers
-                 await connection.query('UPDATE TeamPlayers SET is_captain = FALSE WHERE team_id = ? AND season_id = ?', [id, teamSeasonId]);
+                  // 4. Ensure no player is marked as captain in teamplayers
+                 await connection.query('UPDATE teamplayers SET is_captain = FALSE WHERE team_id = ? AND season_id = ?', [id, teamseasonId]);
              }
          } // End of captain handling
 
 
-         // Update the Teams table if there are fields to update
+         // Update the teams table if there are fields to update
          if (Object.keys(teamFieldsToUpdate).length > 0) {
-             const [updateResult] = await connection.query('UPDATE Teams SET ? WHERE team_id = ?', [teamFieldsToUpdate, id]);
+             const [updateResult] = await connection.query('UPDATE teams SET ? WHERE team_id = ?', [teamFieldsToUpdate, id]);
              if (updateResult.affectedRows === 0) {
-                 // This might happen if only captain was changed (as it doesn't affect Teams row directly if already set)
+                 // This might happen if only captain was changed (as it doesn't affect teams row directly if already set)
                  // Or if data was identical. Log a warning.
-                 console.warn(`Update Team ${id}: Affected rows was 0 for Teams table update.`);
+                 console.warn(`Update Team ${id}: Affected rows was 0 for teams table update.`);
              }
          }
 
@@ -5417,8 +5417,8 @@ exports.updateTeam = async (req, res, next) => {
          // Fetch the final updated team details to return
          const [finalTeam] = await connection.query(
              `SELECT t.*, p.name as captain_name
-              FROM Teams t
-              LEFT JOIN Players p ON t.captain_player_id = p.player_id
+              FROM teams t
+              LEFT JOIN players p ON t.captain_player_id = p.player_id
               WHERE t.team_id = ?`, [id]
           );
 
@@ -5438,7 +5438,7 @@ exports.updateTeam = async (req, res, next) => {
 
 
 /**
- * @desc    Add a player to a team for a specific season (creates TeamPlayers entry)
+ * @desc    Add a player to a team for a specific season (creates teamplayers entry)
  * @route   POST /api/admin/teams/players
  * @access  Admin (Protected)
  */
@@ -5452,21 +5452,21 @@ exports.addPlayerToTeam = async (req, res, next) => {
     try {
         await connection.beginTransaction();
         // Pre-checks (team exists, player exists, player not already assigned) - Keep as before
-        const [teamCheck] = await connection.query('SELECT 1 FROM Teams WHERE team_id = ? AND season_id = ?', [team_id, season_id]); if (teamCheck.length === 0) { await connection.rollback(); return res.status(400).json({ message: `Team ID ${team_id} not found for season ${season_id}.` }); }
-        const [playerCheck] = await connection.query('SELECT 1 FROM Players WHERE player_id = ?', [player_id]); if (playerCheck.length === 0) { await connection.rollback(); return res.status(400).json({ message: `Player ID ${player_id} does not exist.` }); }
-        const [existingAssignment] = await connection.query('SELECT team_id FROM TeamPlayers WHERE player_id = ? AND season_id = ?', [player_id, season_id]); if (existingAssignment.length > 0) { await connection.rollback(); return res.status(400).json({ message: `Player ${player_id} is already assigned to team ${existingAssignment[0].team_id} for season ${season_id}. Remove them first.` }); }
+        const [teamCheck] = await connection.query('SELECT 1 FROM teams WHERE team_id = ? AND season_id = ?', [team_id, season_id]); if (teamCheck.length === 0) { await connection.rollback(); return res.status(400).json({ message: `Team ID ${team_id} not found for season ${season_id}.` }); }
+        const [playerCheck] = await connection.query('SELECT 1 FROM players WHERE player_id = ?', [player_id]); if (playerCheck.length === 0) { await connection.rollback(); return res.status(400).json({ message: `Player ID ${player_id} does not exist.` }); }
+        const [existingAssignment] = await connection.query('SELECT team_id FROM teamplayers WHERE player_id = ? AND season_id = ?', [player_id, season_id]); if (existingAssignment.length > 0) { await connection.rollback(); return res.status(400).json({ message: `Player ${player_id} is already assigned to team ${existingAssignment[0].team_id} for season ${season_id}. Remove them first.` }); }
 
         // Captain handling (Keep as before)
-        if (is_captain) { await connection.query('UPDATE TeamPlayers SET is_captain = FALSE WHERE team_id = ? AND season_id = ?', [team_id, season_id]); await connection.query('UPDATE Teams SET captain_player_id = ? WHERE team_id = ?', [player_id, team_id]); }
+        if (is_captain) { await connection.query('UPDATE teamplayers SET is_captain = FALSE WHERE team_id = ? AND season_id = ?', [team_id, season_id]); await connection.query('UPDATE teams SET captain_player_id = ? WHERE team_id = ?', [player_id, team_id]); }
 
-        // Insert into TeamPlayers (Keep as before)
-        const [result] = await connection.query( 'INSERT INTO TeamPlayers (team_id, player_id, season_id, purchase_price, is_captain) VALUES (?, ?, ?, ?, ?)', [team_id, player_id, season_id, purchase_price === undefined ? null : purchase_price, is_captain || false] );
+        // Insert into teamplayers (Keep as before)
+        const [result] = await connection.query( 'INSERT INTO teamplayers (team_id, player_id, season_id, purchase_price, is_captain) VALUES (?, ?, ?, ?, ?)', [team_id, player_id, season_id, purchase_price === undefined ? null : purchase_price, is_captain || false] );
         const teamPlayerId = result.insertId;
 
         // MODIFIED: Update the player's current_team_id
         // Consider if you only want the *latest* season's team assignment to set this.
         // This logic sets it regardless of season order. Adjust if needed.
-        await connection.query('UPDATE Players SET current_team_id = ? WHERE player_id = ?', [team_id, player_id]);
+        await connection.query('UPDATE players SET current_team_id = ? WHERE player_id = ?', [team_id, player_id]);
         console.log(`Updated player ${player_id}'s current_team_id to ${team_id}`);
 
         await connection.commit();
@@ -5477,7 +5477,7 @@ exports.addPlayerToTeam = async (req, res, next) => {
 };
 
 /**
- * @desc    Remove a player from a team for a specific season (deletes TeamPlayers entry)
+ * @desc    Remove a player from a team for a specific season (deletes teamplayers entry)
  * @route   DELETE /api/admin/teams/players/:teamPlayerId
  * @access  Admin (Protected)
  */
@@ -5490,19 +5490,19 @@ exports.removePlayerFromTeam = async (req, res, next) => {
     try {
         await connection.beginTransaction();
         // Get assignment details (Keep as before)
-        const [assignmentInfo] = await connection.query(`SELECT tp.player_id, tp.team_id, t.captain_player_id FROM TeamPlayers tp JOIN Teams t ON tp.team_id = t.team_id WHERE tp.team_player_id = ?`, [teamPlayerId]);
+        const [assignmentInfo] = await connection.query(`SELECT tp.player_id, tp.team_id, t.captain_player_id FROM teamplayers tp JOIN teams t ON tp.team_id = t.team_id WHERE tp.team_player_id = ?`, [teamPlayerId]);
         if (assignmentInfo.length === 0) { await connection.rollback(); return res.status(404).json({ message: 'Team player assignment not found.' }); }
         const { player_id, team_id, captain_player_id } = assignmentInfo[0];
 
         // Delete assignment (Keep as before)
-        const [deleteResult] = await connection.query('DELETE FROM TeamPlayers WHERE team_player_id = ?', [teamPlayerId]);
+        const [deleteResult] = await connection.query('DELETE FROM teamplayers WHERE team_player_id = ?', [teamPlayerId]);
         if (deleteResult.affectedRows === 0) { await connection.rollback(); return res.status(404).json({ message: 'Team player assignment could not be deleted (not found?).' }); }
 
         // Handle captain (Keep as before)
-        if (player_id === captain_player_id) { await connection.query('UPDATE Teams SET captain_player_id = NULL WHERE team_id = ?', [team_id]); }
+        if (player_id === captain_player_id) { await connection.query('UPDATE teams SET captain_player_id = NULL WHERE team_id = ?', [team_id]); }
 
         // MODIFIED: Clear player's current_team_id ONLY if it matched the team they were removed from
-        await connection.query('UPDATE Players SET current_team_id = NULL WHERE player_id = ? AND current_team_id = ?', [player_id, team_id]);
+        await connection.query('UPDATE players SET current_team_id = NULL WHERE player_id = ? AND current_team_id = ?', [player_id, team_id]);
         console.log(`Cleared current_team_id for player ${player_id} if it was ${team_id}`);
 
         await connection.commit();
@@ -5522,24 +5522,24 @@ exports.removePlayerFromTeam = async (req, res, next) => {
 //     if (isNaN(parseInt(id))) {
 //         return res.status(400).json({ message: 'Invalid Team ID.' });
 //     }
-//     // WARNING: Deleting a team will likely cascade delete TeamPlayers,
-//     // and might fail if the team is involved in Matches unless those have ON DELETE SET NULL/CASCADE.
+//     // WARNING: Deleting a team will likely cascade delete teamplayers,
+//     // and might fail if the team is involved in matches unless those have ON DELETE SET NULL/CASCADE.
 //     // CHECK YOUR SCHEMA CONSTRAINTS CAREFULLY!
 //     try {
 //         // Check existence first
-//         const [existing] = await pool.query('SELECT team_id FROM Teams WHERE team_id = ?', [id]);
+//         const [existing] = await pool.query('SELECT team_id FROM teams WHERE team_id = ?', [id]);
 //         if (existing.length === 0) {
 //             return res.status(404).json({ message: 'Team not found.' });
 //         }
 //         // Perform delete
-//         const [result] = await pool.query('DELETE FROM Teams WHERE team_id = ?', [id]);
+//         const [result] = await pool.query('DELETE FROM teams WHERE team_id = ?', [id]);
 //         if (result.affectedRows === 0) {
 //              return res.status(404).json({ message: 'Team not found or could not be deleted.' });
 //         }
 //         res.status(200).json({ message: 'Team deleted successfully.' });
 //     } catch (error) {
 //         console.error("Delete Team Error:", error);
-//         // Handle FK constraint errors (e.g., if team is in use in Matches table)
+//         // Handle FK constraint errors (e.g., if team is in use in matches table)
 //         if (error.code === 'ER_ROW_IS_REFERENCED_2') {
 //             return res.status(400).json({ message: 'Cannot delete team. It is referenced in existing matches or other records.' });
 //         }
@@ -5608,7 +5608,7 @@ exports.protect = async (req, res, next) => {
 // Placeholder for Player Authentication (if needed later for features like player rating)
 // exports.protectPlayer = async (req, res, next) => {
 //     // Similar logic, but verify player token and fetch player details
-//     // from the Players table instead of Admins table.
+//     // from the players table instead of Admins table.
 // };
 
 
@@ -5682,9 +5682,9 @@ module.exports = router;
 const express = require('express');
 const {
     registerPlayer,
-    getAllPlayers,
+    getAllplayers,
     getPlayerById,
-    getPlayerStats,
+    getplayerstats,
     updatePlayer, // Assuming implementation exists
     deletePlayer // Assuming implementation exists
 } = require('../controllers/playerController');
@@ -5695,13 +5695,13 @@ const router = express.Router();
 // --- Public Routes ---
 
 // GET /api/players - Get a list of all registered players
-router.get('/', getAllPlayers);
+router.get('/', getAllplayers);
 
 // GET /api/players/:id - Get details of a specific player by ID
 router.get('/:id', getPlayerById);
 
 // GET /api/players/:id/stats?season_id=X - Get stats for a player (career or specific season)
-router.get('/:id/stats', getPlayerStats);
+router.get('/:id/stats', getplayerstats);
 
 
 // --- Potentially Public or Protected Routes ---
@@ -5732,14 +5732,14 @@ module.exports = router;
 // mpl-backend/routes/seasons.js
 const express = require('express');
 // Correctly import from the new controller file
-const { getPublicSeasons } = require('../controllers/publicSeasonController');
+const { getPublicseasons } = require('../controllers/publicSeasonController');
 
 const router = express.Router();
 
 // Public route to get basic season list
 // The path here is relative to where it's mounted in server.js (/api/seasons)
 // So this handles GET /api/seasons/public
-router.get('/public', getPublicSeasons);
+router.get('/public', getPublicseasons);
 
 module.exports = router;
 
@@ -5798,7 +5798,7 @@ module.exports = router;
 const express = require('express');
 const {
     createMatch,
-    getAllMatches, // Can reuse logic from public controller if desired
+    getAllmatches, // Can reuse logic from public controller if desired
     getMatchById,
     updateMatch,
     deleteMatch,
@@ -5811,7 +5811,7 @@ const router = express.Router();
 
 router.route('/')
     .post(createMatch)
-    .get(getAllMatches); // List matches with filters for admin view
+    .get(getAllmatches); // List matches with filters for admin view
 
 router.route('/:id')
     .get(getMatchById) // Get specific match details for editing
@@ -5831,7 +5831,7 @@ module.exports = router;
 // mpl-project/mpl-backend/routes/admin/scoring.js
 const express = require('express');
 const {
-    getMatchesForSetup,
+    getmatchesForSetup,
     submitMatchSetup,
     scoreSingleBall,
     submitFinalMatchScore, // Keep if manual final entry/correction is needed
@@ -5845,7 +5845,7 @@ const router = express.Router();
 
 // GET /api/admin/scoring/setup-list
 // Get matches in 'Scheduled' state, ready for toss/setup
-router.get('/setup-list', getMatchesForSetup);
+router.get('/setup-list', getmatchesForSetup);
 
 // POST /api/admin/scoring/matches/:matchId/setup
 // Submit toss winner, decision (Bat/Bowl), and Super Over number.
@@ -5883,7 +5883,7 @@ module.exports = router;
 const express = require('express');
 const {
     createSeason,
-    getSeasons,
+    getseasons,
     getSeasonById,
     updateSeason,
     // deleteSeason // Uncomment if implemented
@@ -5896,7 +5896,7 @@ const router = express.Router();
 // Base route: /api/admin/seasons
 router.route('/')
     .post(createSeason) // POST /api/admin/seasons - Create a new season
-    .get(getSeasons);   // GET /api/admin/seasons - Get all seasons
+    .get(getseasons);   // GET /api/admin/seasons - Get all seasons
 
 // Route for specific season by ID: /api/admin/seasons/:id
 router.route('/:id')
@@ -5916,7 +5916,7 @@ module.exports = router;
 const express = require('express');
 const {
     addTeamToSeason,
-    getTeamsForSeason,
+    getteamsForSeason,
     updateTeam,
     getTeamDetails,
     addPlayerToTeam,
@@ -5936,7 +5936,7 @@ router.post('/', addTeamToSeason);
 
 // GET /api/admin/teams?season_id=X
 // Get teams, requires filtering by season_id query parameter
-router.get('/', getTeamsForSeason);
+router.get('/', getteamsForSeason);
 
 // GET /api/admin/teams/:id?season_id=X
 // Get details of a specific team AND its players for a specific season
@@ -5958,7 +5958,7 @@ router.put('/:id', updateTeam);
 router.post('/players', addPlayerToTeam);
 
 // DELETE /api/admin/teams/players/:teamPlayerId
-// Remove a player assignment using the unique ID from the TeamPlayers table
+// Remove a player assignment using the unique ID from the teamplayers table
 router.delete('/players/:teamPlayerId', removePlayerFromTeam);
 
 
@@ -5975,9 +5975,9 @@ const pool = require('../config/db');
 
 // WARNING: In-memory store is simple for development but NOT suitable for production.
 // Consider Redis or another external store for managing live match states.
-let liveMatchesState = {};
+let livematchesState = {};
 // Structure Example (Will be updated by backend API emits now):
-// liveMatchesState = {
+// livematchesState = {
 //   "match_1": { // Keyed by matchId
 //     matchId: 1, seasonId: 1, status: 'Live', innings: 1, score: 45, wickets: 1, overs: 4, balls: 6, // Note: overs/balls represent *completed*
 //     battingTeamId: 1, bowlingTeamId: 2, superOver: 3, target: null,
@@ -5986,7 +5986,7 @@ let liveMatchesState = {};
 //     batsmanStrike: { id: 101, name: 'Rohit Sharma', runs: 35, balls: 20 }, // Might be simplified or part of players list
 //     bowler: { id: 110, name: 'Yuzvendra Chahal', oversDecimal: 0.0, runs: 8, wickets: 0 }, // Simplified
 //     lastEvent: "Ball 4.6: WICKET! Caught (Hit Six). Innings End.",
-//     lastBallCommentary: "Over 4.6: Chahal to Rohit Sharma, WICKET! Caught by Kohli (Hit Six!)", // From BallByBall table via backend emit
+//     lastBallCommentary: "Over 4.6: Chahal to Rohit Sharma, WICKET! Caught by Kohli (Hit Six!)", // From ballbyball table via backend emit
 //     recentCommentary: ["Over 4.6: ...", "Over 4.5: ..."] // Array of recent commentary strings
 //   },
 //   ...
@@ -6010,8 +6010,8 @@ function initializeSocket(io) {
             console.log(`[Socket Join] ${socket.id} joined room: ${roomName}`);
 
             // Send the current cached state of the match *to the user who just joined*
-            if (liveMatchesState[matchId]) {
-                socket.emit('updateScore', liveMatchesState[matchId]); // Send the last known full state
+            if (livematchesState[matchId]) {
+                socket.emit('updateScore', livematchesState[matchId]); // Send the last known full state
                 console.log(`[Socket State] Sent cached state of match ${matchId} to ${socket.id}`);
             } else {
                  console.log(`[Socket State] No cached state found for match ${matchId} to send on join.`);
@@ -6052,7 +6052,7 @@ function initializeSocket(io) {
 
             // Initialize or overwrite the live state in memory
             // This state will be updated by 'updateScore' events triggered by the backend API
-            liveMatchesState[matchId] = {
+            livematchesState[matchId] = {
                 ...initialState, // Contains teams, players, superOver etc. from setup API response
                 status: 'Live', // Explicitly set status to Live
                 score: 0,
@@ -6071,14 +6071,14 @@ function initializeSocket(io) {
 
             // Broadcast to everyone in the room that the match is now live with its initial state
             const roomName = `match_${matchId}`;
-            io.to(roomName).emit('matchLive', liveMatchesState[matchId]); // Signal the match is officially live
-            io.to(roomName).emit('updateScore', liveMatchesState[matchId]); // Send the initial full state
+            io.to(roomName).emit('matchLive', livematchesState[matchId]); // Signal the match is officially live
+            io.to(roomName).emit('updateScore', livematchesState[matchId]); // Send the initial full state
             console.log(`[Socket Start] Match ${matchId} initialized to Live state. State broadcasted.`);
         });
 
 
         // --- IMPORTANT: 'scoreBall' listener is REMOVED ---
-        // The logic for processing a ball, updating the database (BallByBall, PlayerMatchStats),
+        // The logic for processing a ball, updating the database (ballbyball, playermatchstats),
         // calculating the new state, and determining end of over/innings/match
         // now resides in the backend HTTP endpoint controller: `controllers/admin/scoringController.js -> scoreSingleBall`.
         // That controller function, AFTER successfully committing database changes,
@@ -6094,7 +6094,7 @@ function initializeSocket(io) {
         // --- Disconnect Handling ---
         socket.on('disconnect', (reason) => {
             console.log(`[Socket Disconnect] ID: ${socket.id}, Reason: ${reason}`);
-            // No specific cleanup needed for liveMatchesState here unless tracking individual user sessions
+            // No specific cleanup needed for livematchesState here unless tracking individual user sessions
         });
 
         // --- Connection Error Handling ---
@@ -9586,7 +9586,7 @@ import LoadingFallback from './components/LoadingFallback'; // Loading indicator
 // --- Lazy Load Pages (improves initial load time) ---
 // Public Pages
 const HomePage = lazy(() => import('./pages/HomePage'));
-const PlayersPage = lazy(() => import('./pages/PlayersPage'));
+const playersPage = lazy(() => import('./pages/playersPage'));
 const PlayerDetailPage = lazy(() => import('./pages/PlayerDetailPage'));
 const SchedulePage = lazy(() => import('./pages/SchedulePage'));
 const StandingsPage = lazy(() => import('./pages/StandingsPage'));
@@ -9596,13 +9596,13 @@ const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
 // Admin Pages
 const AdminLoginPage = lazy(() => import('./pages/admin/AdminLoginPage'));
 const AdminDashboardPage = lazy(() => import('./pages/admin/AdminDashboardPage'));
-const AdminSeasonsPage = lazy(() => import('./pages/admin/AdminSeasonsPage'));
-const AdminTeamsPage = lazy(() => import('./pages/admin/AdminTeamsPage'));
+const AdminseasonsPage = lazy(() => import('./pages/admin/AdminseasonsPage'));
+const AdminteamsPage = lazy(() => import('./pages/admin/AdminteamsPage'));
 const AdminMatchSetupPage = lazy(() => import('./pages/admin/AdminMatchSetupPage'));
 const AdminLiveScoringPage = lazy(() => import('./pages/admin/AdminLiveScoringPage'));
-const AdminPlayersPage = lazy(() => import('./pages/admin/AdminPlayersPage'));
+const AdminplayersPage = lazy(() => import('./pages/admin/AdminplayersPage'));
 const AdminResolveMatchPage = lazy(() => import('./pages/admin/AdminResolveMatchPage'));
-// TODO: Import other admin pages (e.g., AdminPaymentsPage, AdminPlayerManagementPage) when created
+// TODO: Import other admin pages (e.g., AdminpaymentsPage, AdminPlayerManagementPage) when created
 
 // Not Found Page
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
@@ -9619,7 +9619,7 @@ function App() {
 
                         {/* --- Public Routes --- */}
                         <Route path="/" element={<HomePage />} />
-                        <Route path="/players" element={<PlayersPage />} />
+                        <Route path="/players" element={<playersPage />} />
                         <Route path="/players/:id" element={<PlayerDetailPage />} />
                         <Route path="/schedule" element={<SchedulePage />} />
                         <Route path="/standings" element={<StandingsPage />} />
@@ -9636,17 +9636,17 @@ function App() {
                             {/* Redirect /admin to /admin/dashboard */}
                             <Route index element={<Navigate to="dashboard" replace />} />
                             <Route path="dashboard" element={<AdminDashboardPage />} />
-                            <Route path="seasons" element={<AdminSeasonsPage />} />
+                            <Route path="seasons" element={<AdminseasonsPage />} />
                             {/* TODO: Define routes for managing teams within a season?
-                                Maybe '/admin/seasons/:seasonId/teams' or handle season selection within AdminTeamsPage */}
-                            <Route path="teams" element={<AdminTeamsPage />} />
+                                Maybe '/admin/seasons/:seasonId/teams' or handle season selection within AdminteamsPage */}
+                            <Route path="teams" element={<AdminteamsPage />} />
                             <Route path="schedule" element={<AdminSchedulePage />} />
-                            <Route path="players" element={<AdminPlayersPage />} />
+                            <Route path="players" element={<AdminplayersPage />} />
                             <Route path="scoring/setup" element={<AdminMatchSetupPage />} />
                             <Route path="scoring/live/:matchId" element={<AdminLiveScoringPage />} />
                             <Route path="resolve" element={<AdminResolveMatchPage />} />
                             {/* Add other protected admin routes here */}
-                            {/* Example: <Route path="payments" element={<AdminPaymentsPage />} /> */}
+                            {/* Example: <Route path="payments" element={<AdminpaymentsPage />} /> */}
                         </Route>
 
                         {/* --- Catch-all 404 Not Found Route --- */}
@@ -10279,7 +10279,7 @@ function Navbar() {
         <nav>
            {/* Use NavLink for automatic 'active' class */}
             <NavLink to="/" className={({ isActive }) => isActive ? 'active' : ''}>Home</NavLink>
-            <NavLink to="/players" className={({ isActive }) => isActive ? 'active' : ''}>Players</NavLink>
+            <NavLink to="/players" className={({ isActive }) => isActive ? 'active' : ''}>players</NavLink>
             <NavLink to="/schedule" className={({ isActive }) => isActive ? 'active' : ''}>Schedule</NavLink>
             <NavLink to="/standings" className={({ isActive }) => isActive ? 'active' : ''}>Standings</NavLink> 
             <NavLink to="/leaderboard" className={({ isActive }) => isActive ? 'active' : ''}>Leaderboard</NavLink> 
@@ -10952,8 +10952,8 @@ function HomePage() {
 
                 if (isMounted) {
                     if (data && data.length > 0) {
-                        const sortedMatches = data.sort((a, b) => new Date(a.match_datetime) - new Date(b.match_datetime));
-                        setNextMatch(sortedMatches[0]);
+                        const sortedmatches = data.sort((a, b) => new Date(a.match_datetime) - new Date(b.match_datetime));
+                        setNextMatch(sortedmatches[0]);
                     } else {
                         setNextMatch(null);
                     }
@@ -11017,7 +11017,7 @@ function HomePage() {
                      <li><Link to="/schedule">View Full Schedule & Results</Link></li>
                      <li><Link to="/standings">View Team Standings</Link></li>
                      <li><Link to="/leaderboard">View Player Leaderboards</Link></li>
-                     <li><Link to="/players">Browse Players</Link></li>
+                     <li><Link to="/players">Browse players</Link></li>
                      {/* Add link to rules page if you create one */}
                  </ul>
             </section>
@@ -11248,28 +11248,28 @@ const LeaderboardTable = ({ title, data, columns }) => {
 };
 
 function LeaderboardPage() {
-    const [seasons, setSeasons] = useState([]);
+    const [seasons, setseasons] = useState([]);
     const [selectedSeason, setSelectedSeason] = useState('');
     const [leaderboardData, setLeaderboardData] = useState({ batting: null, bowling: null, impact: null });
-    const [loadingSeasons, setLoadingSeasons] = useState(true);
+    const [loadingseasons, setLoadingseasons] = useState(true);
     const [loadingData, setLoadingData] = useState(false);
     const [error, setError] = useState('');
     const [activeTab, setActiveTab] = useState('batting'); // 'batting', 'bowling', 'impact'
 
-    // Fetch Seasons
+    // Fetch seasons
     useEffect(() => {
-        const fetchSeasons = async () => {
-            setLoadingSeasons(true);
+        const fetchseasons = async () => {
+            setLoadingseasons(true);
             try {
                 const { data } = await api.get('/seasons/public'); // Use admin route to get all seasons
-                setSeasons(data);
+                setseasons(data);
                 if (data.length > 0) {
                     setSelectedSeason(data[0].season_id); // Default to first/latest season
                 }
             } catch (err) { setError('Failed to load seasons.'); }
-            finally { setLoadingSeasons(false); }
+            finally { setLoadingseasons(false); }
         };
-        fetchSeasons();
+        fetchseasons();
     }, []);
 
     // Fetch Leaderboard Data when season changes
@@ -11332,7 +11332,7 @@ function LeaderboardPage() {
         <div className="leaderboard-page">
             <h2>Season Leaderboards</h2>
 
-            {loadingSeasons ? <LoadingFallback /> : (
+            {loadingseasons ? <LoadingFallback /> : (
                 <div className="filter-section">
                     <label htmlFor="season-select-leaderboard">Select Season:</label>
                     <select
@@ -11366,7 +11366,7 @@ function LeaderboardPage() {
                             <>
                                 {activeTab === 'batting' && <LeaderboardTable title="Top Run Scorers" data={leaderboardData.batting} columns={battingColumns} />}
                                 {activeTab === 'bowling' && <LeaderboardTable title="Top Wicket Takers" data={leaderboardData.bowling} columns={bowlingColumns} />}
-                                {activeTab === 'impact' && <LeaderboardTable title="Top Impact Players" data={leaderboardData.impact} columns={impactColumns} />}
+                                {activeTab === 'impact' && <LeaderboardTable title="Top Impact players" data={leaderboardData.impact} columns={impactColumns} />}
                             </>
                         )}
                     </div>
@@ -11776,15 +11776,15 @@ const MatchDetailPage = () => {
         return `${completedOvers}.${ballsInPartialOver}`;
     };
 
-    if (matchDetails?.status === 'Completed' && matchDetails?.playerStats?.length > 0) {
+    if (matchDetails?.status === 'Completed' && matchDetails?.playerstats?.length > 0) {
         const inn1BatTeamId = (matchDetails.decision === 'Bat') ? matchDetails.toss_winner_team_id : (matchDetails.toss_winner_team_id === matchDetails.team1_id ? matchDetails.team2_id : matchDetails.team1_id);
         const inn2BatTeamId = (inn1BatTeamId === matchDetails.team1_id) ? matchDetails.team2_id : matchDetails.team1_id;
         innings1TeamName = inn1BatTeamId === matchDetails.team1_id ? matchDetails.team1_name : matchDetails.team2_name;
         innings2TeamName = inn2BatTeamId === matchDetails.team1_id ? matchDetails.team1_name : matchDetails.team2_name;
-        innings1BatStats = matchDetails.playerStats.filter(stat => stat.team_id === inn1BatTeamId);
-        innings2BatStats = matchDetails.playerStats.filter(stat => stat.team_id === inn2BatTeamId);
-        innings1BowlStats = matchDetails.playerStats.filter(stat => stat.team_id === inn2BatTeamId && stat.overs_bowled > 0);
-        innings2BowlStats = matchDetails.playerStats.filter(stat => stat.team_id === inn1BatTeamId && stat.overs_bowled > 0);
+        innings1BatStats = matchDetails.playerstats.filter(stat => stat.team_id === inn1BatTeamId);
+        innings2BatStats = matchDetails.playerstats.filter(stat => stat.team_id === inn2BatTeamId);
+        innings1BowlStats = matchDetails.playerstats.filter(stat => stat.team_id === inn2BatTeamId && stat.overs_bowled > 0);
+        innings2BowlStats = matchDetails.playerstats.filter(stat => stat.team_id === inn1BatTeamId && stat.overs_bowled > 0);
         const calculateInningsSummary = (batStats) => { let score = 0; let wickets = 0; batStats.forEach(stat => { score += stat.runs_scored ?? 0; if (stat.is_out) wickets += 1; }); return { score, wickets }; };
         const summary1 = calculateInningsSummary(innings1BatStats);
         const summary2 = calculateInningsSummary(innings2BatStats);
@@ -12282,7 +12282,7 @@ function PlayerDetailPage() {
                  </div>
             </div>
 
-            <Link to="/players" className="back-link">â† Back to Players List</Link>
+            <Link to="/players" className="back-link">â† Back to players List</Link>
        </div>
    );
 }
@@ -12292,29 +12292,29 @@ export default PlayerDetailPage;
 
 
 
---- File: mpl-frontend\src\pages\PlayersPage.jsx ---
+--- File: mpl-frontend\src\pages\playersPage.jsx ---
 
 
-// mpl-project/mpl-frontend/src/pages/PlayersPage.jsx
+// mpl-project/mpl-frontend/src/pages/playersPage.jsx
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api'; // Your configured Axios instance
 import LoadingFallback from '../components/LoadingFallback';
 
-function PlayersPage() {
-    const [players, setPlayers] = useState([]);
+function playersPage() {
+    const [players, setplayers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
     useEffect(() => {
-        const fetchPlayers = async () => {
+        const fetchplayers = async () => {
             setLoading(true);
             setError('');
             try {
                 console.log("Fetching players list...");
                 const { data } = await api.get('/players'); // API call to get player list
-                setPlayers(data);
-                console.log("Players fetched:", data.length);
+                setplayers(data);
+                console.log("players fetched:", data.length);
             } catch (err) {
                 console.error("Failed to fetch players:", err);
                 const errorMessage = typeof err === 'string' ? err : (err.message || 'Failed to load players list.');
@@ -12324,7 +12324,7 @@ function PlayersPage() {
             }
         };
 
-        fetchPlayers();
+        fetchplayers();
     }, []); // Empty dependency array ensures this runs only once on mount
 
     if (loading) return <LoadingFallback />;
@@ -12332,7 +12332,7 @@ function PlayersPage() {
 
     return (
         <div>
-            <h1>MPL Players</h1>
+            <h1>MPL players</h1>
             {/* Optional: Add search/filter functionality here */}
             {players.length > 0 ? (
                 <table>
@@ -12363,7 +12363,7 @@ function PlayersPage() {
     );
 }
 
-export default PlayersPage;
+export default playersPage;
 
 
 
@@ -12379,7 +12379,7 @@ import LoadingFallback from '../components/LoadingFallback';
 
 function SchedulePage() {
     const [fixtures, setFixtures] = useState([]);
-    const [seasons, setSeasons] = useState([]);
+    const [seasons, setseasons] = useState([]);
     const [selectedSeason, setSelectedSeason] = useState('');
     const [selectedStatus, setSelectedStatus] = useState(''); // 'Scheduled', 'Live', 'Completed' etc.
     const [loading, setLoading] = useState(true);
@@ -12387,10 +12387,10 @@ function SchedulePage() {
 
     // Fetch available seasons for dropdown
     useEffect(() => {
-        const fetchSeasons = async () => {
+        const fetchseasons = async () => {
             try {
                 const { data } = await api.get('/seasons/public'); //New public season api call
-                setSeasons(data);
+                setseasons(data);
                 // Optionally set the default selectedSeason to the latest one
                 if (data.length > 0) {
                    // Find the most recent year or highest ID? Assuming sorted by year desc
@@ -12401,7 +12401,7 @@ function SchedulePage() {
                 // Don't necessarily block fixture loading if seasons fail
             }
         };
-        fetchSeasons();
+        fetchseasons();
     }, []);
 
     // Fetch fixtures based on selected filters
@@ -12444,7 +12444,7 @@ function SchedulePage() {
                             value={selectedSeason}
                             onChange={(e) => setSelectedSeason(e.target.value)}
                         >
-                            <option value="">All Seasons</option>
+                            <option value="">All seasons</option>
                             {seasons.map(season => (
                                 <option key={season.season_id} value={season.season_id}>
                                     {season.name} ({season.year})
@@ -12646,27 +12646,27 @@ import LoadingFallback from '../components/LoadingFallback';
 import './StandingsPage.css'; // Create this CSS file
 
 function StandingsPage() {
-    const [seasons, setSeasons] = useState([]);
+    const [seasons, setseasons] = useState([]);
     const [selectedSeason, setSelectedSeason] = useState('');
     const [standings, setStandings] = useState([]);
-    const [loadingSeasons, setLoadingSeasons] = useState(true);
+    const [loadingseasons, setLoadingseasons] = useState(true);
     const [loadingData, setLoadingData] = useState(false);
     const [error, setError] = useState('');
 
-    // Fetch Seasons
+    // Fetch seasons
     useEffect(() => {
-        const fetchSeasons = async () => {
-            setLoadingSeasons(true);
+        const fetchseasons = async () => {
+            setLoadingseasons(true);
             try {
                 const { data } = await api.get('/seasons/public'); // Fetch all seasons
-                setSeasons(data);
+                setseasons(data);
                 if (data.length > 0) {
                     setSelectedSeason(data[0].season_id); // Default to latest
                 }
             } catch (err) { setError('Failed to load seasons.'); }
-            finally { setLoadingSeasons(false); }
+            finally { setLoadingseasons(false); }
         };
-        fetchSeasons();
+        fetchseasons();
     }, []);
 
     // Fetch Standings when season changes
@@ -12697,7 +12697,7 @@ function StandingsPage() {
         <div className="standings-page">
             <h2>Team Standings</h2>
 
-            {loadingSeasons ? <LoadingFallback /> : (
+            {loadingseasons ? <LoadingFallback /> : (
                 <div className="filter-section">
                     <label htmlFor="season-select-standings">Select Season:</label>
                     <select
@@ -12791,18 +12791,18 @@ function AdminDashboardPage() {
             <ul style={{ listStyle: 'none', paddingLeft: 0, marginTop: '1.5rem' }}>
                 <li style={{ marginBottom: '0.8rem' }}>
                     <Link to="/admin/seasons">
-                        <button style={{ width: '250px', textAlign: 'left' }}>Manage Seasons</button>
+                        <button style={{ width: '250px', textAlign: 'left' }}>Manage seasons</button>
                     </Link>
                 </li>
                 <li style={{ marginBottom: '0.8rem' }}>
                      <Link to="/admin/teams">
-                        <button style={{ width: '250px', textAlign: 'left' }}>Manage Teams / Players</button>
+                        <button style={{ width: '250px', textAlign: 'left' }}>Manage teams / players</button>
                      </Link>
                       {/* Could link to /admin/players directly too */}
                 </li>
                 
                 <li style={{ marginBottom: '0.8rem' }}> {/* <-- ADD THIS LI BLOCK --> */}
-                    <Link to="/admin/players"><button style={{ width: '250px', textAlign: 'left' }}>Manage Players (Register/Edit)</button></Link>
+                    <Link to="/admin/players"><button style={{ width: '250px', textAlign: 'left' }}>Manage players (Register/Edit)</button></Link>
                 </li>
                  
                 <li style={{ marginBottom: '0.8rem' }}>
@@ -12822,11 +12822,11 @@ function AdminDashboardPage() {
                     </Link>
                 </li>
                 
-                 {/* Add links to Manage Payments, Approve Registrations etc. */}
+                 {/* Add links to Manage payments, Approve Registrations etc. */}
                  {/* Example:
                  <li style={{ marginBottom: '0.8rem' }}>
                     <Link to="/admin/payments">
-                        <button style={{ width: '250px', textAlign: 'left' }}>Manage Payments</button>
+                        <button style={{ width: '250px', textAlign: 'left' }}>Manage payments</button>
                     </Link>
                 </li>
                  */}
@@ -13081,7 +13081,7 @@ function AdminLiveScoringPage() {
     }, [socket, isConnected, matchId, isLoading, matchState, connectSocket, joinMatchRoom, leaveMatchRoom]);
 
 
-    // --- Calculate Eligible Players ---
+    // --- Calculate Eligible players ---
      const eligibleBowlers = useMemo(() => {
         if (!matchState?.playersBowlingTeam) return [];
         const bowlerStatsMap = new Map(matchState.bowlerStats?.map(s => [s.player_id, s.completed_overs || 0]) || []);
@@ -13310,7 +13310,7 @@ console.log("matchState====>",matchState)
                     {/* Fieldset handles disabling based on CORRECTED controlsDisabled */}
                     <fieldset disabled={controlsDisabled}>
                         <legend style={{fontWeight: 'bold', color: selectionRequiredNow ? 'red': 'inherit'}}>
-                            {selectionRequiredNow ? 'Select Players Above!' : 'Choose Event:'}
+                            {selectionRequiredNow ? 'Select players Above!' : 'Choose Event:'}
                         </legend>
                         {/* Buttons are only rendered *inside* the fieldset if players ARE selected */}
                         {!selectionRequiredNow && ( <> {/* Legal Runs / Byes */} <div style={buttonGroupStyle}> <span style={labelStyle}>Runs/Byes:</span> {[0, 1, 2, 4].map(r => (<button type="button" key={`run-${r}`} onClick={() => handleLegalBall(r)} style={buttonStyle}>{r}</button>))} <button type="button" key="bye-1" onClick={() => handleBye(1)} style={buttonStyle}>1b</button> </div> {/* Extras */} <div style={buttonGroupStyle}> <span style={labelStyle}>Extras:</span> <button type="button" onClick={handleWideClick} style={buttonStyle}>WD</button> <button type="button" onClick={() => handleWideByeClick(1)} style={buttonStyle}>WD+1b</button> <button type="button" onClick={() => handleNoBallClick(0)} style={buttonStyle}>NB+0</button> <button type="button" onClick={() => handleNoBallByeClick(1)} style={buttonStyle}>NB+1b</button> {[1, 2, 4].map(r => (<button type="button" key={`nb-${r}`} onClick={() => handleNoBallClick(r)} style={buttonStyle}>NB+{r}</button>))} </div> {/* Wicket Toggle & Details */} <div style={{ margin: '1rem 0' }}> <button type="button" onClick={() => setIsWicketEvent(!isWicketEvent)} style={{backgroundColor: isWicketEvent ? '#d1ecf1' : '#ffc107', marginRight: '1rem', padding: '0.5em 1em'}}>{isWicketEvent ? 'Cancel Wicket' : 'Record Wicket'}</button> {isWicketEvent && ( <div style={{border: '1px dashed gray', padding: '1rem', marginTop: '0.5rem', display: 'inline-block', verticalAlign: 'top'}}> <label htmlFor="wicket-type">Type:* </label> <select id="wicket-type" value={selectedWicketType} onChange={e => {setSelectedWicketType(e.target.value); if(!['Caught', 'Stumped'].includes(e.target.value)) setSelectedFielderId('');}}> <option value="">--Select--</option> <option value="Bowled">Bowled</option><option value="Caught">Caught</option><option value="Stumped">Stumped</option><option value="Hit Outside">Hit Outside</option><option value="Hit Wicket">Hit Wicket</option> </select> {(selectedWicketType === 'Caught' || selectedWicketType === 'Stumped') && ( <div style={{marginTop: '0.5rem'}}> <label htmlFor="fielder-select">Fielder:* </label> <select id="fielder-select" value={selectedFielderId} onChange={e => setSelectedFielderId(e.target.value)}> <option value="">--Select Fielder--</option> {matchState?.playersBowlingTeam?.map(p => <option key={`field-${p.player_id}`} value={p.player_id}>{p.name}</option>)} </select> </div> )} <button type="button" onClick={handleWicketConfirm} disabled={!selectedWicketType || (['Caught','Stumped'].includes(selectedWicketType) && !selectedFielderId)} style={{backgroundColor: '#dc3545', marginTop: '1rem'}}>Confirm Wicket</button> </div> )} </div> </> )}
@@ -13457,7 +13457,7 @@ import api from '../../services/api';
 import LoadingFallback from '../../components/LoadingFallback';
 
 function AdminMatchSetupPage() {
-    const [matches, setMatches] = useState([]); // Matches in 'Scheduled' state
+    const [matches, setmatches] = useState([]); // matches in 'Scheduled' state
     const [selectedMatchId, setSelectedMatchId] = useState('');
     const [selectedMatchDetails, setSelectedMatchDetails] = useState(null); // Holds { team1_id, team1_name, team2_id, team2_name }
 
@@ -13475,12 +13475,12 @@ function AdminMatchSetupPage() {
 
     // Fetch scheduled matches on component mount
     useEffect(() => {
-        const fetchScheduledMatches = async () => {
+        const fetchScheduledmatches = async () => {
             setLoading(true);
             setError('');
             try {
                 const { data } = await api.get('/admin/scoring/setup-list');
-                setMatches(data);
+                setmatches(data);
                 // Reset selection if list reloads? Optional.
                 // setSelectedMatchId('');
                 // setSelectedMatchDetails(null);
@@ -13491,7 +13491,7 @@ function AdminMatchSetupPage() {
                 setLoading(false);
             }
         };
-        fetchScheduledMatches();
+        fetchScheduledmatches();
     }, []); // Run only once on mount
 
     // Update selected match details when dropdown changes
@@ -13666,10 +13666,10 @@ export default AdminMatchSetupPage;
 
 
 
---- File: mpl-frontend\src\pages\admin\AdminPlayersPage.jsx ---
+--- File: mpl-frontend\src\pages\admin\AdminplayersPage.jsx ---
 
 
-// src/pages/admin/AdminPlayersPage.jsx
+// src/pages/admin/AdminplayersPage.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import LoadingFallback from '../../components/LoadingFallback';
@@ -13735,26 +13735,26 @@ const PlayerForm = ({ onSubmit, initialData = {}, loading, onCancel }) => {
 
 
 // Main Page Component
-function AdminPlayersPage() {
-    const [players, setPlayers] = useState([]);
+function AdminplayersPage() {
+    const [players, setplayers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [formLoading, setFormLoading] = useState(false);
     const [error, setError] = useState('');
     const [editingPlayer, setEditingPlayer] = useState(null);
     const [showAddForm, setShowAddForm] = useState(false);
 
-    const fetchPlayers = useCallback(async () => {
+    const fetchplayers = useCallback(async () => {
         setLoading(true); setError('');
         try {
             const { data } = await api.get('/players'); // Use public route to get list
-            setPlayers(data);
+            setplayers(data);
         } catch (err) { setError(typeof err === 'string' ? err : 'Failed to load players.'); }
         finally { setLoading(false); }
     }, []);
 
     useEffect(() => {
-        fetchPlayers();
-    }, [fetchPlayers]);
+        fetchplayers();
+    }, [fetchplayers]);
 
     const handleFormSubmit = async (payload) => {
         setFormLoading(true); setError('');
@@ -13764,7 +13764,7 @@ function AdminPlayersPage() {
             } else {
                 await api.post('/players', payload); // Use protected POST
             }
-            setEditingPlayer(null); setShowAddForm(false); fetchPlayers(); // Refresh list
+            setEditingPlayer(null); setShowAddForm(false); fetchplayers(); // Refresh list
         } catch (err) { setError(typeof err === 'string' ? err : `Failed to ${editingPlayer ? 'update' : 'add'} player.`); }
         finally { setFormLoading(false); }
     };
@@ -13783,13 +13783,13 @@ function AdminPlayersPage() {
         setLoading(true); setError(''); // Use main loading indicator
         try {
             await api.delete(`/players/${playerId}`); // Use protected DELETE
-            fetchPlayers(); // Refresh
+            fetchplayers(); // Refresh
         } catch (err) { setError(typeof err === 'string' ? err : 'Failed to delete player.'); setLoading(false); }
     };
 
     return (
         <div>
-            <h2>Manage Players</h2>
+            <h2>Manage players</h2>
             {error && <p className="error-message">{error}</p>}
 
             <div style={{ marginBottom: '1rem', textAlign: 'right' }}>
@@ -13839,7 +13839,7 @@ function AdminPlayersPage() {
     );
 }
 
-export default AdminPlayersPage;
+export default AdminplayersPage;
 
 
 
@@ -13879,12 +13879,12 @@ import api from '../../services/api';
 import LoadingFallback from '../../components/LoadingFallback';
 
 function AdminResolveMatchPage() {
-    const [seasons, setSeasons] = useState([]);
+    const [seasons, setseasons] = useState([]);
     const [selectedSeason, setSelectedSeason] = useState('');
-    const [matches, setMatches] = useState([]); // Matches needing resolution
+    const [matches, setmatches] = useState([]); // matches needing resolution
     const [selectedMatch, setSelectedMatch] = useState(null); // Full details of the selected match
-    const [loadingSeasons, setLoadingSeasons] = useState(true);
-    const [loadingMatches, setLoadingMatches] = useState(false);
+    const [loadingseasons, setLoadingseasons] = useState(true);
+    const [loadingmatches, setLoadingmatches] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
 
@@ -13894,26 +13894,26 @@ function AdminResolveMatchPage() {
     const [resultSummary, setResultSummary] = useState('');
     const [momPlayerId, setMomPlayerId] = useState(''); // Optional
 
-    // Fetch Seasons
+    // Fetch seasons
     useEffect(() => {
-        const fetchSeasons = async () => {
-            setLoadingSeasons(true);
+        const fetchseasons = async () => {
+            setLoadingseasons(true);
             try {
                 const { data } = await api.get('/admin/seasons');
-                setSeasons(data);
+                setseasons(data);
                 if (data.length > 0) setSelectedSeason(data[0].season_id);
             } catch (err) { setError('Failed to load seasons.'); }
-            finally { setLoadingSeasons(false); }
+            finally { setLoadingseasons(false); }
         };
-        fetchSeasons();
+        fetchseasons();
     }, []);
 
-    // Fetch Matches needing resolution when season changes
-    const fetchMatchesToResolve = useCallback(async () => {
+    // Fetch matches needing resolution when season changes
+    const fetchmatchesToResolve = useCallback(async () => {
         if (!selectedSeason) {
-            setMatches([]); return;
+            setmatches([]); return;
         }
-        setLoadingMatches(true); setError(''); setMatches([]); setSelectedMatch(null); // Reset
+        setLoadingmatches(true); setError(''); setmatches([]); setSelectedMatch(null); // Reset
         try {
             // Fetch matches that are Tied (winner is NULL but status is Completed) OR Abandoned OR maybe Stuck in Live/Break?
             // Adjust the statuses based on what you want admins to be able to resolve
@@ -13927,7 +13927,7 @@ function AdminResolveMatchPage() {
              const { data } = await api.get('/admin/matches', { params });
 
              // Filter for matches that might need resolution
-             const filteredMatches = data.filter(m =>
+             const filteredmatches = data.filter(m =>
                 (m.status === 'Completed' && m.winner_team_id === null) || // Tied matches
                  m.status === 'Abandoned' || // Already abandoned
                  m.status === 'Live' || // Stuck Live?
@@ -13935,15 +13935,15 @@ function AdminResolveMatchPage() {
                  m.status === 'Setup' // Stuck in Setup?
                 // Add any other statuses you want to allow resolution for
              );
-             setMatches(filteredMatches);
+             setmatches(filteredmatches);
 
         } catch (err) { setError(typeof err === 'string' ? err : 'Failed to load matches.'); }
-        finally { setLoadingMatches(false); }
+        finally { setLoadingmatches(false); }
     }, [selectedSeason]);
 
     useEffect(() => {
-        fetchMatchesToResolve();
-    }, [fetchMatchesToResolve]);
+        fetchmatchesToResolve();
+    }, [fetchmatchesToResolve]);
 
     // Handle match selection
     const handleMatchSelect = (matchId) => {
@@ -13989,7 +13989,7 @@ function AdminResolveMatchPage() {
             await api.put(`/admin/matches/${selectedMatch.match_id}/resolve`, payload);
             alert('Match resolved successfully!');
             setSelectedMatch(null); // Clear selection
-            fetchMatchesToResolve(); // Refresh the list
+            fetchmatchesToResolve(); // Refresh the list
         } catch (err) {
             setError(typeof err === 'string' ? err : 'Failed to resolve match.');
         } finally {
@@ -14001,10 +14001,10 @@ function AdminResolveMatchPage() {
         <div className="admin-resolve-match-page">
             <h2>Resolve Match Result</h2>
 
-            {loadingSeasons ? <LoadingFallback /> : (
+            {loadingseasons ? <LoadingFallback /> : (
                 <div className="filter-section">
                     <label htmlFor="season-select-resolve">Select Season:</label>
-                    <select id="season-select-resolve" value={selectedSeason} onChange={(e) => setSelectedSeason(e.target.value)} disabled={loadingMatches || submitting}>
+                    <select id="season-select-resolve" value={selectedSeason} onChange={(e) => setSelectedSeason(e.target.value)} disabled={loadingmatches || submitting}>
                         <option value="">-- Select Season --</option>
                         {seasons.map(s => (<option key={s.season_id} value={s.season_id}>{s.name} ({s.year})</option>))}
                     </select>
@@ -14013,13 +14013,13 @@ function AdminResolveMatchPage() {
 
             {error && <p className="error-message">{error}</p>}
 
-            {loadingMatches && <LoadingFallback message="Loading matches..." />}
+            {loadingmatches && <LoadingFallback message="Loading matches..." />}
 
-            {!loadingMatches && selectedSeason && matches.length === 0 && (
+            {!loadingmatches && selectedSeason && matches.length === 0 && (
                 <p>No matches found needing resolution for this season.</p>
             )}
 
-            {!loadingMatches && matches.length > 0 && (
+            {!loadingmatches && matches.length > 0 && (
                 <div style={{ marginBottom: '1.5rem' }}>
                     <label htmlFor="match-select-resolve">Select Match to Resolve:</label>
                     <select id="match-select-resolve" value={selectedMatch?.match_id || ''} onChange={(e) => handleMatchSelect(e.target.value)} disabled={submitting}>
@@ -14102,7 +14102,7 @@ const MatchForm = ({ onSubmit, initialData = {}, seasons = [], teams = [], loadi
         venue: 'Metalworks Box Arena',
         // status: 'Scheduled' // Status generally not editable here
     });
-     const [filteredTeams, setFilteredTeams] = useState([]);
+     const [filteredteams, setFilteredteams] = useState([]);
 
     // Effect to initialize form when initialData or seasons change
     useEffect(() => {
@@ -14120,17 +14120,17 @@ const MatchForm = ({ onSubmit, initialData = {}, seasons = [], teams = [], loadi
      // Effect to update available teams when selected season changes
      useEffect(() => {
          if (formData.season_id) {
-            const seasonTeams = teams.filter(t => t.season_id === parseInt(formData.season_id));
-            setFilteredTeams(seasonTeams);
+            const seasonteams = teams.filter(t => t.season_id === parseInt(formData.season_id));
+            setFilteredteams(seasonteams);
              // Reset team selections if the currently selected teams are not in the newly selected season
-             if (formData.team1_id && !seasonTeams.some(t => t.team_id === parseInt(formData.team1_id))) {
+             if (formData.team1_id && !seasonteams.some(t => t.team_id === parseInt(formData.team1_id))) {
                 setFormData(prev => ({ ...prev, team1_id: '' }));
              }
-              if (formData.team2_id && !seasonTeams.some(t => t.team_id === parseInt(formData.team2_id))) {
+              if (formData.team2_id && !seasonteams.some(t => t.team_id === parseInt(formData.team2_id))) {
                 setFormData(prev => ({ ...prev, team2_id: '' }));
              }
          } else {
-             setFilteredTeams([]);
+             setFilteredteams([]);
               setFormData(prev => ({ ...prev, team1_id: '', team2_id: '' })); // Clear teams if no season
          }
      }, [formData.season_id, teams]);
@@ -14180,7 +14180,7 @@ const MatchForm = ({ onSubmit, initialData = {}, seasons = [], teams = [], loadi
                  <label htmlFor="team1_id">Team 1:*</label>
                  <select id="team1_id" name="team1_id" value={formData.team1_id} onChange={handleChange} required disabled={loading || !formData.season_id || (isEditing && formData.status !== 'Scheduled')}>
                      <option value="">-- Select Team 1 --</option>
-                     {filteredTeams.map(t => <option key={'t1-'+t.team_id} value={t.team_id}>{t.name}</option>)}
+                     {filteredteams.map(t => <option key={'t1-'+t.team_id} value={t.team_id}>{t.name}</option>)}
                  </select>
              </div>
              <div>
@@ -14188,7 +14188,7 @@ const MatchForm = ({ onSubmit, initialData = {}, seasons = [], teams = [], loadi
                  <select id="team2_id" name="team2_id" value={formData.team2_id} onChange={handleChange} required disabled={loading || !formData.season_id || (isEditing && formData.status !== 'Scheduled')}>
                      <option value="">-- Select Team 2 --</option>
                       {/* Filter out selected team 1 */}
-                     {filteredTeams.filter(t => t.team_id !== parseInt(formData.team1_id)).map(t => <option key={'t2-'+t.team_id} value={t.team_id}>{t.name}</option>)}
+                     {filteredteams.filter(t => t.team_id !== parseInt(formData.team1_id)).map(t => <option key={'t2-'+t.team_id} value={t.team_id}>{t.name}</option>)}
                  </select>
              </div>
              <div>
@@ -14236,9 +14236,9 @@ const MatchForm = ({ onSubmit, initialData = {}, seasons = [], teams = [], loadi
 
 // --- Main Page Component ---
 function AdminSchedulePage() {
-    const [seasons, setSeasons] = useState([]);
-    const [allTeams, setAllTeams] = useState([]); // Fetch all teams for form dropdowns
-    const [matches, setMatches] = useState([]); // Matches displayed in the list
+    const [seasons, setseasons] = useState([]);
+    const [allteams, setAllteams] = useState([]); // Fetch all teams for form dropdowns
+    const [matches, setmatches] = useState([]); // matches displayed in the list
     const [selectedSeasonFilter, setSelectedSeasonFilter] = useState(''); // Filter list by season
     const [editingMatch, setEditingMatch] = useState(null); // Holds match object if editing
     const [loading, setLoading] = useState(true); // Combined loading state
@@ -14255,32 +14255,32 @@ function AdminSchedulePage() {
                 api.get('/admin/seasons'), // Use admin route if different access needed
                 api.get('/admin/teams') // Fetch all teams across all seasons for the form
              ]);
-            setSeasons(seasonsRes.data || []);
-            setAllTeams(teamsRes.data || []);
+            setseasons(seasonsRes.data || []);
+            setAllteams(teamsRes.data || []);
 
              // Set default filter to the first season if available
              if (seasonsRes.data?.length > 0 && !selectedSeasonFilter) {
                  setSelectedSeasonFilter(seasonsRes.data[0].season_id);
              } else if (seasonsRes.data?.length > 0 && selectedSeasonFilter) {
                  // If a filter was already set, fetch matches for it
-                 fetchMatches(selectedSeasonFilter);
+                 fetchmatches(selectedSeasonFilter);
              } else {
                  // No seasons or no filter, load empty matches
-                 setMatches([]);
+                 setmatches([]);
                  setLoading(false); // Stop loading if no season to fetch matches for
              }
 
         } catch (err) {
             console.error("Failed to load initial data:", err);
-            setError(typeof err === 'string' ? err : 'Failed to load necessary data (Seasons/Teams).');
+            setError(typeof err === 'string' ? err : 'Failed to load necessary data (seasons/teams).');
              setLoading(false);
         }
-        // Loading is set to false inside fetchMatches or above if no matches fetched
+        // Loading is set to false inside fetchmatches or above if no matches fetched
     }, [selectedSeasonFilter]); // Include filter
 
-    const fetchMatches = useCallback(async (seasonId) => {
+    const fetchmatches = useCallback(async (seasonId) => {
          if (!seasonId) {
-             setMatches([]);
+             setmatches([]);
              setLoading(false); // Ensure loading stops if no season is selected
              return;
          };
@@ -14289,7 +14289,7 @@ function AdminSchedulePage() {
          setError('');
         try {
             const { data } = await api.get(`/admin/matches?season_id=${seasonId}`);
-            setMatches(data);
+            setmatches(data);
         } catch (err) {
             console.error(`Failed to fetch matches for season ${seasonId}:`, err);
             setError(typeof err === 'string' ? err : 'Failed to load match schedule.');
@@ -14307,12 +14307,12 @@ function AdminSchedulePage() {
      useEffect(() => {
         if (selectedSeasonFilter) {
              setLoading(true); // Show loading when filter changes
-             fetchMatches(selectedSeasonFilter);
+             fetchmatches(selectedSeasonFilter);
         } else {
-             setMatches([]); // Clear matches if no season selected
+             setmatches([]); // Clear matches if no season selected
              setLoading(false); // Stop loading if no filter selected after initial load
         }
-    }, [selectedSeasonFilter, fetchMatches]);
+    }, [selectedSeasonFilter, fetchmatches]);
 
     // --- Handlers ---
     const handleFormSubmit = async (payload) => {
@@ -14328,7 +14328,7 @@ function AdminSchedulePage() {
             }
             setEditingMatch(null); // Close form
             setShowAddForm(false); // Close add form if open
-            fetchMatches(selectedSeasonFilter || payload.season_id); // Refresh list for current/new season
+            fetchmatches(selectedSeasonFilter || payload.season_id); // Refresh list for current/new season
         } catch (err) {
              setError(typeof err === 'string' ? err : `Failed to ${editingMatch ? 'update' : 'add'} match.`);
         } finally {
@@ -14353,12 +14353,12 @@ function AdminSchedulePage() {
         setLoading(true); // Use main loading indicator for delete
         try {
             await api.delete(`/api/admin/matches/${matchId}`);
-            fetchMatches(selectedSeasonFilter); // Refresh list
+            fetchmatches(selectedSeasonFilter); // Refresh list
         } catch (err) {
              setError(typeof err === 'string' ? err : 'Failed to delete match. It might have already started or been completed.');
              setLoading(false); // Stop loading on error
         }
-        // setLoading(false) will be called by fetchMatches on success
+        // setLoading(false) will be called by fetchmatches on success
     };
 
 
@@ -14393,13 +14393,13 @@ function AdminSchedulePage() {
                      onSubmit={handleFormSubmit}
                      initialData={editingMatch || {}} // Pass empty object if adding
                      seasons={seasons}
-                     teams={allTeams} // Pass all teams
+                     teams={allteams} // Pass all teams
                      loading={formLoading}
                      onCancel={handleCancelEdit}
                  />
             )}
 
-             {/* Matches List */}
+             {/* matches List */}
             <h3>Match List {selectedSeasonFilter ? `(${seasons.find(s=>s.season_id==selectedSeasonFilter)?.name})` : ''}</h3>
             {loading && <LoadingFallback message="Loading matches..." />}
              {!loading && matches.length === 0 && selectedSeasonFilter && <p>No matches scheduled for this season yet.</p>}
@@ -14460,27 +14460,27 @@ export default AdminSchedulePage;
 
 
 
---- File: mpl-frontend\src\pages\admin\AdminSeasonsPage.jsx ---
+--- File: mpl-frontend\src\pages\admin\AdminseasonsPage.jsx ---
 
 
-// mpl-project/mpl-frontend/src/pages/admin/AdminSeasonsPage.jsx
+// mpl-project/mpl-frontend/src/pages/admin/AdminseasonsPage.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import LoadingFallback from '../../components/LoadingFallback';
 
-function AdminSeasonsPage() {
-    const [seasons, setSeasons] = useState([]);
+function AdminseasonsPage() {
+    const [seasons, setseasons] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [isEditing, setIsEditing] = useState(null); // Holds season_id if editing, else null
     const [formData, setFormData] = useState({ year: '', name: '', start_date: '', end_date: '', status: 'Planned' });
 
-    const fetchSeasons = useCallback(async () => {
+    const fetchseasons = useCallback(async () => {
         setLoading(true);
         setError('');
         try {
             const { data } = await api.get('/admin/seasons');
-            setSeasons(data);
+            setseasons(data);
         } catch (err) {
             console.error("Failed to fetch seasons:", err);
             setError(typeof err === 'string' ? err : 'Failed to load seasons.');
@@ -14490,8 +14490,8 @@ function AdminSeasonsPage() {
     }, []);
 
     useEffect(() => {
-        fetchSeasons();
-    }, [fetchSeasons]);
+        fetchseasons();
+    }, [fetchseasons]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -14545,7 +14545,7 @@ function AdminSeasonsPage() {
                 console.log("Season created successfully");
             }
             resetForm();
-            fetchSeasons(); // Refresh the list
+            fetchseasons(); // Refresh the list
         } catch (err) {
              console.error(`Failed to ${isEditing ? 'update' : 'create'} season:`, err);
              setError(typeof err === 'string' ? err : `Failed to ${isEditing ? 'update' : 'create'} season.`);
@@ -14558,7 +14558,7 @@ function AdminSeasonsPage() {
 
     return (
         <div>
-            <h2>Manage Seasons</h2>
+            <h2>Manage seasons</h2>
 
             {/* Add/Edit Form */}
             <form onSubmit={handleSubmit} style={{ marginBottom: '2rem', padding: '1rem', border: '1px solid #ccc', borderRadius: '5px' }}>
@@ -14624,8 +14624,8 @@ function AdminSeasonsPage() {
             </form>
 
 
-            {/* Seasons List */}
-            <h3>Existing Seasons</h3>
+            {/* seasons List */}
+            <h3>Existing seasons</h3>
              {loading && seasons.length === 0 && <LoadingFallback message="Loading seasons..." />} {/* Show loading only if list is empty */}
 
             {seasons.length > 0 ? (
@@ -14664,15 +14664,15 @@ function AdminSeasonsPage() {
     );
 }
 
-export default AdminSeasonsPage;
+export default AdminseasonsPage;
 
 
 
 
---- File: mpl-frontend\src\pages\admin\AdminTeamsPage.jsx ---
+--- File: mpl-frontend\src\pages\admin\AdminteamsPage.jsx ---
 
 
-// mpl-project/mpl-frontend/src/pages/admin/AdminTeamsPage.jsx
+// mpl-project/mpl-frontend/src/pages/admin/AdminteamsPage.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom'; // If linking to team details page
 import api from '../../services/api';
@@ -14742,7 +14742,7 @@ const TeamForm = ({ onSubmit, initialData = {}, seasons = [], loading }) => {
     );
 };
 
-const PlayerAssignment = ({ teamId, seasonId, teamPlayers = [], availablePlayers = [], onAssign, onRemove, loading }) => {
+const PlayerAssignment = ({ teamId, seasonId, teamplayers = [], availableplayers = [], onAssign, onRemove, loading }) => {
      const [selectedPlayerId, setSelectedPlayerId] = useState('');
      const [purchasePrice, setPurchasePrice] = useState('');
 
@@ -14762,11 +14762,11 @@ const PlayerAssignment = ({ teamId, seasonId, teamPlayers = [], availablePlayers
 
     return (
         <div style={{ marginTop: '1.5rem', borderTop: '1px solid #eee', paddingTop: '1rem' }}>
-             <h4>Manage Players for this Team ({teamPlayers.length} assigned)</h4>
-             {/* List Assigned Players */}
-            {teamPlayers.length > 0 ? (
+             <h4>Manage players for this Team ({teamplayers.length} assigned)</h4>
+             {/* List Assigned players */}
+            {teamplayers.length > 0 ? (
                  <ul>
-                    {teamPlayers.map(p => (
+                    {teamplayers.map(p => (
                         <li key={p.team_player_id} style={{ marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span>
                                 <Link to={`/players/${p.player_id}`}>{p.name}</Link>
@@ -14787,10 +14787,10 @@ const PlayerAssignment = ({ teamId, seasonId, teamPlayers = [], availablePlayers
 
             {/* Assign Player Form */}
              <form onSubmit={handleAssign} style={{ marginTop: '1rem' }}>
-                <select value={selectedPlayerId} onChange={(e) => setSelectedPlayerId(e.target.value)} required disabled={loading || availablePlayers.length === 0}>
+                <select value={selectedPlayerId} onChange={(e) => setSelectedPlayerId(e.target.value)} required disabled={loading || availableplayers.length === 0}>
                     <option value="">Select Player to Add</option>
                      {/* Only show players NOT already in ANY team for this season */}
-                     {availablePlayers.map(p => <option key={p.player_id} value={p.player_id}>{p.name} ({p.player_id})</option>)}
+                     {availableplayers.map(p => <option key={p.player_id} value={p.player_id}>{p.name} ({p.player_id})</option>)}
                  </select>
                  <input
                      type="number"
@@ -14810,26 +14810,26 @@ const PlayerAssignment = ({ teamId, seasonId, teamPlayers = [], availablePlayers
 
 
 // --- Main Page Component ---
-function AdminTeamsPage() {
-    const [seasons, setSeasons] = useState([]);
+function AdminteamsPage() {
+    const [seasons, setseasons] = useState([]);
     const [selectedSeasonId, setSelectedSeasonId] = useState('');
-    const [teams, setTeams] = useState([]);
-    const [allPlayers, setAllPlayers] = useState([]); // All registered players
+    const [teams, setteams] = useState([]);
+    const [allplayers, setAllplayers] = useState([]); // All registered players
     const [assignedPlayerIds, setAssignedPlayerIds] = useState(new Set()); // Set of player IDs already in a team for the selected season
-    const [loadingSeasons, setLoadingSeasons] = useState(true);
-    const [loadingTeams, setLoadingTeams] = useState(false);
-    const [loadingPlayers, setLoadingPlayers] = useState(false);
+    const [loadingseasons, setLoadingseasons] = useState(true);
+    const [loadingteams, setLoadingteams] = useState(false);
+    const [loadingplayers, setLoadingplayers] = useState(false);
     const [error, setError] = useState('');
 
     const [editingTeam, setEditingTeam] = useState(null); // Holds team object if editing
 
     // Fetch seasons on mount
     useEffect(() => {
-        const fetchSeasons = async () => {
-            setLoadingSeasons(true);
+        const fetchseasons = async () => {
+            setLoadingseasons(true);
             try {
                 const { data } = await api.get('/admin/seasons?status=Ongoing'); // Fetch seasons (maybe filter active/planned?)
-                setSeasons(data);
+                setseasons(data);
                 if (data.length > 0) {
                     // Automatically select the first season in the list initially
                     setSelectedSeasonId(data[0].season_id);
@@ -14837,43 +14837,43 @@ function AdminTeamsPage() {
             } catch (err) {
                 setError(typeof err === 'string' ? err : 'Failed to load seasons.');
             } finally {
-                setLoadingSeasons(false);
+                setLoadingseasons(false);
             }
         };
-        fetchSeasons();
+        fetchseasons();
     }, []);
 
     // Fetch all players (needed for assignment dropdown)
      useEffect(() => {
-        const fetchAllPlayers = async () => {
-            setLoadingPlayers(true);
+        const fetchAllplayers = async () => {
+            setLoadingplayers(true);
             try {
                 const { data } = await api.get('/players'); // Fetch all players
-                setAllPlayers(data);
+                setAllplayers(data);
             } catch (err) {
                 setError(typeof err === 'string' ? err : 'Failed to load player list.');
             } finally {
-                setLoadingPlayers(false);
+                setLoadingplayers(false);
             }
         };
-        fetchAllPlayers();
+        fetchAllplayers();
     }, []);
 
 
     // Fetch teams and player assignments when selectedSeasonId changes
-    const fetchTeamsAndAssignments = useCallback(async () => {
+    const fetchteamsAndAssignments = useCallback(async () => {
         if (!selectedSeasonId) {
-            setTeams([]);
+            setteams([]);
             setAssignedPlayerIds(new Set());
             return;
         }
-        setLoadingTeams(true);
+        setLoadingteams(true);
         setError('');
         setEditingTeam(null); // Clear editing state when season changes
         try {
             // Fetch teams for the selected season
             const { data: teamsData } = await api.get(`/admin/teams?season_id=${selectedSeasonId}`);
-            setTeams(teamsData);
+            setteams(teamsData);
 
             // Fetch ALL player assignments for this season to know who is available
             let allAssignmentsForSeason = [];
@@ -14881,41 +14881,41 @@ function AdminTeamsPage() {
             // Assuming an endpoint /api/admin/seasons/:seasonId/assignments exists (adjust as needed)
             // const { data: assignmentData } = await api.get(`/admin/seasons/${selectedSeasonId}/assignments`);
             // For now, let's derive from the teamsData if possible, or make multiple calls (less efficient)
-            const playerIdsInTeams = new Set();
+            const playerIdsInteams = new Set();
             for (const team of teamsData) {
                 try {
-                     // Use the existing getTeamDetails endpoint (or modify getTeamsForSeason to include players)
+                     // Use the existing getTeamDetails endpoint (or modify getteamsForSeason to include players)
                      const { data: teamDetails } = await api.get(`/admin/teams/${team.team_id}?season_id=${selectedSeasonId}`);
-                     teamDetails.players.forEach(p => playerIdsInTeams.add(p.player_id));
+                     teamDetails.players.forEach(p => playerIdsInteams.add(p.player_id));
                      // Find the team in state and update its players list (important for PlayerAssignment component)
-                     setTeams(currentTeams => currentTeams.map(t => t.team_id === team.team_id ? { ...t, players: teamDetails.players } : t));
+                     setteams(currentteams => currentteams.map(t => t.team_id === team.team_id ? { ...t, players: teamDetails.players } : t));
 
                 } catch (detailErr) {
                     console.error(`Failed to get player details for team ${team.team_id}`, detailErr);
                     // Continue fetching other teams
                 }
             }
-            setAssignedPlayerIds(playerIdsInTeams);
+            setAssignedPlayerIds(playerIdsInteams);
 
 
         } catch (err) {
             console.error("Failed to fetch teams or assignments:", err);
             setError(typeof err === 'string' ? err : 'Failed to load teams for the selected season.');
-            setTeams([]);
+            setteams([]);
              setAssignedPlayerIds(new Set());
         } finally {
-            setLoadingTeams(false);
+            setLoadingteams(false);
         }
     }, [selectedSeasonId]);
 
     useEffect(() => {
-        fetchTeamsAndAssignments();
-    }, [fetchTeamsAndAssignments]);
+        fetchteamsAndAssignments();
+    }, [fetchteamsAndAssignments]);
 
 
     // --- Handler Functions ---
-    const handleTeamSubmit = async (payload) => {
-        setLoadingTeams(true); // Use main loading flag?
+    const handleteamsubmit = async (payload) => {
+        setLoadingteams(true); // Use main loading flag?
         setError('');
         try {
             if (editingTeam) {
@@ -14926,54 +14926,54 @@ function AdminTeamsPage() {
                 await api.post(`/admin/teams`, payload);
             }
             setEditingTeam(null); // Reset editing state
-            fetchTeamsAndAssignments(); // Refresh list
+            fetchteamsAndAssignments(); // Refresh list
         } catch (err) {
              setError(typeof err === 'string' ? err : `Failed to ${editingTeam ? 'update' : 'add'} team.`);
         } finally {
-            setLoadingTeams(false);
+            setLoadingteams(false);
         }
     };
 
     const handleAssignPlayer = async (assignmentData) => {
-         setLoadingTeams(true); // Indicate loading
+         setLoadingteams(true); // Indicate loading
          setError('');
         try {
             await api.post('/admin/teams/players', assignmentData);
-            fetchTeamsAndAssignments(); // Refresh assignments and team player lists
+            fetchteamsAndAssignments(); // Refresh assignments and team player lists
         } catch (err) {
              setError(typeof err === 'string' ? err : 'Failed to assign player.');
         } finally {
-             setLoadingTeams(false);
+             setLoadingteams(false);
         }
     };
 
     const handleRemovePlayer = async (teamPlayerId) => {
          if (!window.confirm("Are you sure you want to remove this player from the team?")) return;
-         setLoadingTeams(true);
+         setLoadingteams(true);
          setError('');
         try {
             await api.delete(`/admin/teams/players/${teamPlayerId}`);
-            fetchTeamsAndAssignments(); // Refresh assignments and team player lists
+            fetchteamsAndAssignments(); // Refresh assignments and team player lists
         } catch (err) {
             setError(typeof err === 'string' ? err : 'Failed to remove player.');
         } finally {
-             setLoadingTeams(false);
+             setLoadingteams(false);
         }
     };
 
 
-    // --- Calculate Available Players ---
-    const availablePlayersForAssignment = allPlayers.filter(
+    // --- Calculate Available players ---
+    const availableplayersForAssignment = allplayers.filter(
         p => !assignedPlayerIds.has(p.player_id)
     );
 
 
     // --- Render ---
-    if (loadingSeasons) return <LoadingFallback message="Loading seasons..." />;
+    if (loadingseasons) return <LoadingFallback message="Loading seasons..." />;
 
     return (
         <div>
-            <h2>Manage Teams & Player Assignments</h2>
+            <h2>Manage teams & Player Assignments</h2>
 
             {/* Season Selector */}
             <div style={{ marginBottom: '1rem' }}>
@@ -14982,7 +14982,7 @@ function AdminTeamsPage() {
                     id="season-select-teams"
                     value={selectedSeasonId}
                     onChange={(e) => setSelectedSeasonId(e.target.value)}
-                    disabled={loadingTeams}
+                    disabled={loadingteams}
                 >
                     <option value="">-- Select a Season --</option>
                     {seasons.map(s => <option key={s.season_id} value={s.season_id}>{s.name} ({s.year})</option>)}
@@ -14996,23 +14996,23 @@ function AdminTeamsPage() {
                  <div style={{ marginBottom: '2rem', padding: '1rem', border: '1px solid #eee', borderRadius: '5px' }}>
                      <h3>{editingTeam ? `Editing Team: ${editingTeam.name}` : 'Add New Team'}</h3>
                      <TeamForm
-                         onSubmit={handleTeamSubmit}
+                         onSubmit={handleteamsubmit}
                          initialData={editingTeam ? { ...editingTeam, season_id: selectedSeasonId } : { season_id: selectedSeasonId } } // Pass season_id
                          seasons={seasons} // Pass seasons for the dropdown (only used if adding)
-                         loading={loadingTeams}
+                         loading={loadingteams}
                      />
                      {editingTeam && <button onClick={() => setEditingTeam(null)} style={{marginTop: '0.5rem', backgroundColor: '#6c757d'}}>Cancel Edit</button>}
                  </div>
              )}
 
 
-            {/* Teams List for Selected Season */}
-            {selectedSeasonId && loadingTeams && <LoadingFallback message="Loading teams..." />}
-            {selectedSeasonId && !loadingTeams && teams.length === 0 && <p>No teams found for this season. Add one above.</p>}
+            {/* teams List for Selected Season */}
+            {selectedSeasonId && loadingteams && <LoadingFallback message="Loading teams..." />}
+            {selectedSeasonId && !loadingteams && teams.length === 0 && <p>No teams found for this season. Add one above.</p>}
 
-            {selectedSeasonId && !loadingTeams && teams.length > 0 && (
+            {selectedSeasonId && !loadingteams && teams.length > 0 && (
                 <div>
-                    <h3>Teams in Selected Season</h3>
+                    <h3>teams in Selected Season</h3>
                     {teams.map(team => (
                         <div key={team.team_id} style={{ border: '1px solid #ccc', padding: '1rem', marginBottom: '1rem', borderRadius: '5px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -15022,7 +15022,7 @@ function AdminTeamsPage() {
                                     <p>Budget: ${team.budget ? parseFloat(team.budget).toFixed(2) : 'N/A'}</p>
                                 </div>
                                 <div>
-                                     <button onClick={() => setEditingTeam(team)} disabled={loadingTeams || !!editingTeam}>Edit Team</button>
+                                     <button onClick={() => setEditingTeam(team)} disabled={loadingteams || !!editingTeam}>Edit Team</button>
                                      {/* TODO: Add delete team button */}
                                 </div>
                             </div>
@@ -15031,11 +15031,11 @@ function AdminTeamsPage() {
                              <PlayerAssignment
                                 teamId={team.team_id}
                                 seasonId={parseInt(selectedSeasonId)}
-                                teamPlayers={team.players || []} // Ensure players array exists
-                                availablePlayers={availablePlayersForAssignment}
+                                teamplayers={team.players || []} // Ensure players array exists
+                                availableplayers={availableplayersForAssignment}
                                 onAssign={handleAssignPlayer}
                                 onRemove={handleRemovePlayer}
-                                loading={loadingTeams || loadingPlayers}
+                                loading={loadingteams || loadingplayers}
                              />
                          </div>
                     ))}
@@ -15046,7 +15046,7 @@ function AdminTeamsPage() {
     );
 }
 
-export default AdminTeamsPage;
+export default AdminteamsPage;
 
 
 

@@ -5,27 +5,27 @@ import LoadingFallback from '../components/LoadingFallback';
 import './StandingsPage.css'; // Create this CSS file
 
 function StandingsPage() {
-    const [seasons, setSeasons] = useState([]);
+    const [seasons, setseasons] = useState([]);
     const [selectedSeason, setSelectedSeason] = useState('');
     const [standings, setStandings] = useState([]);
-    const [loadingSeasons, setLoadingSeasons] = useState(true);
+    const [loadingseasons, setLoadingseasons] = useState(true);
     const [loadingData, setLoadingData] = useState(false);
     const [error, setError] = useState('');
 
-    // Fetch Seasons
+    // Fetch seasons
     useEffect(() => {
-        const fetchSeasons = async () => {
-            setLoadingSeasons(true);
+        const fetchseasons = async () => {
+            setLoadingseasons(true);
             try {
                 const { data } = await api.get('/seasons/public'); // Fetch all seasons
-                setSeasons(data);
+                setseasons(data);
                 if (data.length > 0) {
                     setSelectedSeason(data[0].season_id); // Default to latest
                 }
             } catch (err) { setError('Failed to load seasons.'); }
-            finally { setLoadingSeasons(false); }
+            finally { setLoadingseasons(false); }
         };
-        fetchSeasons();
+        fetchseasons();
     }, []);
 
     // Fetch Standings when season changes
@@ -56,7 +56,7 @@ function StandingsPage() {
         <div className="standings-page">
             <h2>Team Standings</h2>
 
-            {loadingSeasons ? <LoadingFallback /> : (
+            {loadingseasons ? <LoadingFallback /> : (
                 <div className="filter-section">
                     <label htmlFor="season-select-standings">Select Season:</label>
                     <select

@@ -1,4 +1,4 @@
-// src/pages/admin/AdminPlayersPage.jsx
+// src/pages/admin/AdminplayersPage.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import LoadingFallback from '../../components/LoadingFallback';
@@ -64,26 +64,26 @@ const PlayerForm = ({ onSubmit, initialData = {}, loading, onCancel }) => {
 
 
 // Main Page Component
-function AdminPlayersPage() {
-    const [players, setPlayers] = useState([]);
+function AdminplayersPage() {
+    const [players, setplayers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [formLoading, setFormLoading] = useState(false);
     const [error, setError] = useState('');
     const [editingPlayer, setEditingPlayer] = useState(null);
     const [showAddForm, setShowAddForm] = useState(false);
 
-    const fetchPlayers = useCallback(async () => {
+    const fetchplayers = useCallback(async () => {
         setLoading(true); setError('');
         try {
             const { data } = await api.get('/players'); // Use public route to get list
-            setPlayers(data);
+            setplayers(data);
         } catch (err) { setError(typeof err === 'string' ? err : 'Failed to load players.'); }
         finally { setLoading(false); }
     }, []);
 
     useEffect(() => {
-        fetchPlayers();
-    }, [fetchPlayers]);
+        fetchplayers();
+    }, [fetchplayers]);
 
     const handleFormSubmit = async (payload) => {
         setFormLoading(true); setError('');
@@ -93,7 +93,7 @@ function AdminPlayersPage() {
             } else {
                 await api.post('/players', payload); // Use protected POST
             }
-            setEditingPlayer(null); setShowAddForm(false); fetchPlayers(); // Refresh list
+            setEditingPlayer(null); setShowAddForm(false); fetchplayers(); // Refresh list
         } catch (err) { setError(typeof err === 'string' ? err : `Failed to ${editingPlayer ? 'update' : 'add'} player.`); }
         finally { setFormLoading(false); }
     };
@@ -112,13 +112,13 @@ function AdminPlayersPage() {
         setLoading(true); setError(''); // Use main loading indicator
         try {
             await api.delete(`/players/${playerId}`); // Use protected DELETE
-            fetchPlayers(); // Refresh
+            fetchplayers(); // Refresh
         } catch (err) { setError(typeof err === 'string' ? err : 'Failed to delete player.'); setLoading(false); }
     };
 
     return (
         <div>
-            <h2>Manage Players</h2>
+            <h2>Manage players</h2>
             {error && <p className="error-message">{error}</p>}
 
             <div style={{ marginBottom: '1rem', textAlign: 'right' }}>
@@ -168,5 +168,5 @@ function AdminPlayersPage() {
     );
 }
 
-export default AdminPlayersPage;
+export default AdminplayersPage;
 

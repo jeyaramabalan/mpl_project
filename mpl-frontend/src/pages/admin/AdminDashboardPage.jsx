@@ -21,18 +21,18 @@ function AdminDashboardPage() {
             <ul style={{ listStyle: 'none', paddingLeft: 0, marginTop: '1.5rem' }}>
                 <li style={{ marginBottom: '0.8rem' }}>
                     <Link to="/admin/seasons">
-                        <button style={{ width: '250px', textAlign: 'left' }}>Manage Seasons</button>
+                        <button style={{ width: '250px', textAlign: 'left' }}>Manage seasons</button>
                     </Link>
                 </li>
                 <li style={{ marginBottom: '0.8rem' }}>
                      <Link to="/admin/teams">
-                        <button style={{ width: '250px', textAlign: 'left' }}>Manage Teams / Players</button>
+                        <button style={{ width: '250px', textAlign: 'left' }}>Manage teams / players</button>
                      </Link>
                       {/* Could link to /admin/players directly too */}
                 </li>
                 
                 <li style={{ marginBottom: '0.8rem' }}> {/* <-- ADD THIS LI BLOCK --> */}
-                    <Link to="/admin/players"><button style={{ width: '250px', textAlign: 'left' }}>Manage Players (Register/Edit)</button></Link>
+                    <Link to="/admin/players"><button style={{ width: '250px', textAlign: 'left' }}>Manage players (Register/Edit)</button></Link>
                 </li>
                  
                 <li style={{ marginBottom: '0.8rem' }}>
@@ -52,11 +52,11 @@ function AdminDashboardPage() {
                     </Link>
                 </li>
                 
-                 {/* Add links to Manage Payments, Approve Registrations etc. */}
+                 {/* Add links to Manage payments, Approve Registrations etc. */}
                  {/* Example:
                  <li style={{ marginBottom: '0.8rem' }}>
                     <Link to="/admin/payments">
-                        <button style={{ width: '250px', textAlign: 'left' }}>Manage Payments</button>
+                        <button style={{ width: '250px', textAlign: 'left' }}>Manage payments</button>
                     </Link>
                 </li>
                  */}

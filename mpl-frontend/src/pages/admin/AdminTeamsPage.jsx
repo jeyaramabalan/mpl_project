@@ -1,4 +1,4 @@
-// mpl-project/mpl-frontend/src/pages/admin/AdminTeamsPage.jsx
+// mpl-project/mpl-frontend/src/pages/admin/AdminteamsPage.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom'; // If linking to team details page
 import api from '../../services/api';
@@ -68,7 +68,7 @@ const TeamForm = ({ onSubmit, initialData = {}, seasons = [], loading }) => {
     );
 };
 
-const PlayerAssignment = ({ teamId, seasonId, teamPlayers = [], availablePlayers = [], onAssign, onRemove, loading }) => {
+const PlayerAssignment = ({ teamId, seasonId, teamplayers = [], availableplayers = [], onAssign, onRemove, loading }) => {
      const [selectedPlayerId, setSelectedPlayerId] = useState('');
      const [purchasePrice, setPurchasePrice] = useState('');
 
@@ -88,11 +88,11 @@ const PlayerAssignment = ({ teamId, seasonId, teamPlayers = [], availablePlayers
 
     return (
         <div style={{ marginTop: '1.5rem', borderTop: '1px solid #eee', paddingTop: '1rem' }}>
-             <h4>Manage Players for this Team ({teamPlayers.length} assigned)</h4>
-             {/* List Assigned Players */}
-            {teamPlayers.length > 0 ? (
+             <h4>Manage players for this Team ({teamplayers.length} assigned)</h4>
+             {/* List Assigned players */}
+            {teamplayers.length > 0 ? (
                  <ul>
-                    {teamPlayers.map(p => (
+                    {teamplayers.map(p => (
                         <li key={p.team_player_id} style={{ marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span>
                                 <Link to={`/players/${p.player_id}`}>{p.name}</Link>
@@ -113,10 +113,10 @@ const PlayerAssignment = ({ teamId, seasonId, teamPlayers = [], availablePlayers
 
             {/* Assign Player Form */}
              <form onSubmit={handleAssign} style={{ marginTop: '1rem' }}>
-                <select value={selectedPlayerId} onChange={(e) => setSelectedPlayerId(e.target.value)} required disabled={loading || availablePlayers.length === 0}>
+                <select value={selectedPlayerId} onChange={(e) => setSelectedPlayerId(e.target.value)} required disabled={loading || availableplayers.length === 0}>
                     <option value="">Select Player to Add</option>
                      {/* Only show players NOT already in ANY team for this season */}
-                     {availablePlayers.map(p => <option key={p.player_id} value={p.player_id}>{p.name} ({p.player_id})</option>)}
+                     {availableplayers.map(p => <option key={p.player_id} value={p.player_id}>{p.name} ({p.player_id})</option>)}
                  </select>
                  <input
                      type="number"
@@ -136,26 +136,26 @@ const PlayerAssignment = ({ teamId, seasonId, teamPlayers = [], availablePlayers
 
 
 // --- Main Page Component ---
-function AdminTeamsPage() {
-    const [seasons, setSeasons] = useState([]);
+function AdminteamsPage() {
+    const [seasons, setseasons] = useState([]);
     const [selectedSeasonId, setSelectedSeasonId] = useState('');
-    const [teams, setTeams] = useState([]);
-    const [allPlayers, setAllPlayers] = useState([]); // All registered players
+    const [teams, setteams] = useState([]);
+    const [allplayers, setAllplayers] = useState([]); // All registered players
     const [assignedPlayerIds, setAssignedPlayerIds] = useState(new Set()); // Set of player IDs already in a team for the selected season
-    const [loadingSeasons, setLoadingSeasons] = useState(true);
-    const [loadingTeams, setLoadingTeams] = useState(false);
-    const [loadingPlayers, setLoadingPlayers] = useState(false);
+    const [loadingseasons, setLoadingseasons] = useState(true);
+    const [loadingteams, setLoadingteams] = useState(false);
+    const [loadingplayers, setLoadingplayers] = useState(false);
     const [error, setError] = useState('');
 
     const [editingTeam, setEditingTeam] = useState(null); // Holds team object if editing
 
     // Fetch seasons on mount
     useEffect(() => {
-        const fetchSeasons = async () => {
-            setLoadingSeasons(true);
+        const fetchseasons = async () => {
+            setLoadingseasons(true);
             try {
                 const { data } = await api.get('/admin/seasons?status=Ongoing'); // Fetch seasons (maybe filter active/planned?)
-                setSeasons(data);
+                setseasons(data);
                 if (data.length > 0) {
                     // Automatically select the first season in the list initially
                     setSelectedSeasonId(data[0].season_id);
@@ -163,43 +163,43 @@ function AdminTeamsPage() {
             } catch (err) {
                 setError(typeof err === 'string' ? err : 'Failed to load seasons.');
             } finally {
-                setLoadingSeasons(false);
+                setLoadingseasons(false);
             }
         };
-        fetchSeasons();
+        fetchseasons();
     }, []);
 
     // Fetch all players (needed for assignment dropdown)
      useEffect(() => {
-        const fetchAllPlayers = async () => {
-            setLoadingPlayers(true);
+        const fetchAllplayers = async () => {
+            setLoadingplayers(true);
             try {
                 const { data } = await api.get('/players'); // Fetch all players
-                setAllPlayers(data);
+                setAllplayers(data);
             } catch (err) {
                 setError(typeof err === 'string' ? err : 'Failed to load player list.');
             } finally {
-                setLoadingPlayers(false);
+                setLoadingplayers(false);
             }
         };
-        fetchAllPlayers();
+        fetchAllplayers();
     }, []);
 
 
     // Fetch teams and player assignments when selectedSeasonId changes
-    const fetchTeamsAndAssignments = useCallback(async () => {
+    const fetchteamsAndAssignments = useCallback(async () => {
         if (!selectedSeasonId) {
-            setTeams([]);
+            setteams([]);
             setAssignedPlayerIds(new Set());
             return;
         }
-        setLoadingTeams(true);
+        setLoadingteams(true);
         setError('');
         setEditingTeam(null); // Clear editing state when season changes
         try {
             // Fetch teams for the selected season
             const { data: teamsData } = await api.get(`/admin/teams?season_id=${selectedSeasonId}`);
-            setTeams(teamsData);
+            setteams(teamsData);
 
             // Fetch ALL player assignments for this season to know who is available
             let allAssignmentsForSeason = [];
@@ -207,41 +207,41 @@ function AdminTeamsPage() {
             // Assuming an endpoint /api/admin/seasons/:seasonId/assignments exists (adjust as needed)
             // const { data: assignmentData } = await api.get(`/admin/seasons/${selectedSeasonId}/assignments`);
             // For now, let's derive from the teamsData if possible, or make multiple calls (less efficient)
-            const playerIdsInTeams = new Set();
+            const playerIdsInteams = new Set();
             for (const team of teamsData) {
                 try {
-                     // Use the existing getTeamDetails endpoint (or modify getTeamsForSeason to include players)
+                     // Use the existing getTeamDetails endpoint (or modify getteamsForSeason to include players)
                      const { data: teamDetails } = await api.get(`/admin/teams/${team.team_id}?season_id=${selectedSeasonId}`);
-                     teamDetails.players.forEach(p => playerIdsInTeams.add(p.player_id));
+                     teamDetails.players.forEach(p => playerIdsInteams.add(p.player_id));
                      // Find the team in state and update its players list (important for PlayerAssignment component)
-                     setTeams(currentTeams => currentTeams.map(t => t.team_id === team.team_id ? { ...t, players: teamDetails.players } : t));
+                     setteams(currentteams => currentteams.map(t => t.team_id === team.team_id ? { ...t, players: teamDetails.players } : t));
 
                 } catch (detailErr) {
                     console.error(`Failed to get player details for team ${team.team_id}`, detailErr);
                     // Continue fetching other teams
                 }
             }
-            setAssignedPlayerIds(playerIdsInTeams);
+            setAssignedPlayerIds(playerIdsInteams);
 
 
         } catch (err) {
             console.error("Failed to fetch teams or assignments:", err);
             setError(typeof err === 'string' ? err : 'Failed to load teams for the selected season.');
-            setTeams([]);
+            setteams([]);
              setAssignedPlayerIds(new Set());
         } finally {
-            setLoadingTeams(false);
+            setLoadingteams(false);
         }
     }, [selectedSeasonId]);
 
     useEffect(() => {
-        fetchTeamsAndAssignments();
-    }, [fetchTeamsAndAssignments]);
+        fetchteamsAndAssignments();
+    }, [fetchteamsAndAssignments]);
 
 
     // --- Handler Functions ---
-    const handleTeamSubmit = async (payload) => {
-        setLoadingTeams(true); // Use main loading flag?
+    const handleteamsubmit = async (payload) => {
+        setLoadingteams(true); // Use main loading flag?
         setError('');
         try {
             if (editingTeam) {
@@ -252,54 +252,54 @@ function AdminTeamsPage() {
                 await api.post(`/admin/teams`, payload);
             }
             setEditingTeam(null); // Reset editing state
-            fetchTeamsAndAssignments(); // Refresh list
+            fetchteamsAndAssignments(); // Refresh list
         } catch (err) {
              setError(typeof err === 'string' ? err : `Failed to ${editingTeam ? 'update' : 'add'} team.`);
         } finally {
-            setLoadingTeams(false);
+            setLoadingteams(false);
         }
     };
 
     const handleAssignPlayer = async (assignmentData) => {
-         setLoadingTeams(true); // Indicate loading
+         setLoadingteams(true); // Indicate loading
          setError('');
         try {
             await api.post('/admin/teams/players', assignmentData);
-            fetchTeamsAndAssignments(); // Refresh assignments and team player lists
+            fetchteamsAndAssignments(); // Refresh assignments and team player lists
         } catch (err) {
              setError(typeof err === 'string' ? err : 'Failed to assign player.');
         } finally {
-             setLoadingTeams(false);
+             setLoadingteams(false);
         }
     };
 
     const handleRemovePlayer = async (teamPlayerId) => {
          if (!window.confirm("Are you sure you want to remove this player from the team?")) return;
-         setLoadingTeams(true);
+         setLoadingteams(true);
          setError('');
         try {
             await api.delete(`/admin/teams/players/${teamPlayerId}`);
-            fetchTeamsAndAssignments(); // Refresh assignments and team player lists
+            fetchteamsAndAssignments(); // Refresh assignments and team player lists
         } catch (err) {
             setError(typeof err === 'string' ? err : 'Failed to remove player.');
         } finally {
-             setLoadingTeams(false);
+             setLoadingteams(false);
         }
     };
 
 
-    // --- Calculate Available Players ---
-    const availablePlayersForAssignment = allPlayers.filter(
+    // --- Calculate Available players ---
+    const availableplayersForAssignment = allplayers.filter(
         p => !assignedPlayerIds.has(p.player_id)
     );
 
 
     // --- Render ---
-    if (loadingSeasons) return <LoadingFallback message="Loading seasons..." />;
+    if (loadingseasons) return <LoadingFallback message="Loading seasons..." />;
 
     return (
         <div>
-            <h2>Manage Teams & Player Assignments</h2>
+            <h2>Manage teams & Player Assignments</h2>
 
             {/* Season Selector */}
             <div style={{ marginBottom: '1rem' }}>
@@ -308,7 +308,7 @@ function AdminTeamsPage() {
                     id="season-select-teams"
                     value={selectedSeasonId}
                     onChange={(e) => setSelectedSeasonId(e.target.value)}
-                    disabled={loadingTeams}
+                    disabled={loadingteams}
                 >
                     <option value="">-- Select a Season --</option>
                     {seasons.map(s => <option key={s.season_id} value={s.season_id}>{s.name} ({s.year})</option>)}
@@ -322,23 +322,23 @@ function AdminTeamsPage() {
                  <div style={{ marginBottom: '2rem', padding: '1rem', border: '1px solid #eee', borderRadius: '5px' }}>
                      <h3>{editingTeam ? `Editing Team: ${editingTeam.name}` : 'Add New Team'}</h3>
                      <TeamForm
-                         onSubmit={handleTeamSubmit}
+                         onSubmit={handleteamsubmit}
                          initialData={editingTeam ? { ...editingTeam, season_id: selectedSeasonId } : { season_id: selectedSeasonId } } // Pass season_id
                          seasons={seasons} // Pass seasons for the dropdown (only used if adding)
-                         loading={loadingTeams}
+                         loading={loadingteams}
                      />
                      {editingTeam && <button onClick={() => setEditingTeam(null)} style={{marginTop: '0.5rem', backgroundColor: '#6c757d'}}>Cancel Edit</button>}
                  </div>
              )}
 
 
-            {/* Teams List for Selected Season */}
-            {selectedSeasonId && loadingTeams && <LoadingFallback message="Loading teams..." />}
-            {selectedSeasonId && !loadingTeams && teams.length === 0 && <p>No teams found for this season. Add one above.</p>}
+            {/* teams List for Selected Season */}
+            {selectedSeasonId && loadingteams && <LoadingFallback message="Loading teams..." />}
+            {selectedSeasonId && !loadingteams && teams.length === 0 && <p>No teams found for this season. Add one above.</p>}
 
-            {selectedSeasonId && !loadingTeams && teams.length > 0 && (
+            {selectedSeasonId && !loadingteams && teams.length > 0 && (
                 <div>
-                    <h3>Teams in Selected Season</h3>
+                    <h3>teams in Selected Season</h3>
                     {teams.map(team => (
                         <div key={team.team_id} style={{ border: '1px solid #ccc', padding: '1rem', marginBottom: '1rem', borderRadius: '5px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -348,7 +348,7 @@ function AdminTeamsPage() {
                                     <p>Budget: ${team.budget ? parseFloat(team.budget).toFixed(2) : 'N/A'}</p>
                                 </div>
                                 <div>
-                                     <button onClick={() => setEditingTeam(team)} disabled={loadingTeams || !!editingTeam}>Edit Team</button>
+                                     <button onClick={() => setEditingTeam(team)} disabled={loadingteams || !!editingTeam}>Edit Team</button>
                                      {/* TODO: Add delete team button */}
                                 </div>
                             </div>
@@ -357,11 +357,11 @@ function AdminTeamsPage() {
                              <PlayerAssignment
                                 teamId={team.team_id}
                                 seasonId={parseInt(selectedSeasonId)}
-                                teamPlayers={team.players || []} // Ensure players array exists
-                                availablePlayers={availablePlayersForAssignment}
+                                teamplayers={team.players || []} // Ensure players array exists
+                                availableplayers={availableplayersForAssignment}
                                 onAssign={handleAssignPlayer}
                                 onRemove={handleRemovePlayer}
-                                loading={loadingTeams || loadingPlayers}
+                                loading={loadingteams || loadingplayers}
                              />
                          </div>
                     ))}
@@ -372,4 +372,4 @@ function AdminTeamsPage() {
     );
 }
 
-export default AdminTeamsPage;
+export default AdminteamsPage;
