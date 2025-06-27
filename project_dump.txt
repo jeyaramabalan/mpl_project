@@ -2893,7 +2893,7 @@ exports.registerPlayer = async (req, res, next) => {
     if (role && !validRoles.includes(role)) { return res.status(400).json({ message: `Invalid role. Must be one of: ${validRoles.slice(0,-1).join(', ')} or empty.` }); }
     // --- End Validation ---
     try {
-        const [result] = await pool.query('INSERT INTO Players (name, base_price, role, current_team_id) VALUES (?, ?, ?, NULL)', [ name, base_price === undefined || base_price === null ? 100.00 : base_price, role || null ]);
+        const [result] = await pool.query('INSERT INTO players (name, base_price, role, current_team_id) VALUES (?, ?, ?, NULL)', [ name, base_price === undefined || base_price === null ? 100.00 : base_price, role || null ]);
         const playerId = result.insertId;
         const [newPlayer] = await pool.query('SELECT player_id, name, base_price, role, current_team_id FROM players WHERE player_id = ?', [playerId]);
         if (newPlayer.length === 0) throw new Error('Failed to retrieve newly registered player.');
@@ -3063,7 +3063,7 @@ exports.updatePlayer = async (req, res, next) => {
 
         // Perform update if there are fields to change
         if (Object.keys(fieldsToUpdate).length > 0) {
-            const [result] = await pool.query('UPDATE Players SET ? WHERE player_id = ?', [fieldsToUpdate, id]);
+            const [result] = await pool.query('UPDATE players SET ? WHERE player_id = ?', [fieldsToUpdate, id]);
              if (result.affectedRows === 0) {
                 console.warn(`Update Player ${id}: Affected rows was 0. Data might be unchanged.`);
              }
@@ -3103,8 +3103,8 @@ exports.deletePlayer = async (req, res, next) => {
         }
 
         // --- Handle Foreign Key References ---
-        await connection.query('UPDATE Teams SET captain_player_id = NULL WHERE captain_player_id = ?', [id]);
-        await connection.query('UPDATE Matches SET man_of_the_match_player_id = NULL WHERE man_of_the_match_player_id = ?', [id]);
+        await connection.query('UPDATE teams SET captain_player_id = NULL WHERE captain_player_id = ?', [id]);
+        await connection.query('UPDATE matches SET man_of_the_match_player_id = NULL WHERE man_of_the_match_player_id = ?', [id]);
         // Assuming ratings should be kept but reference nulled (adjust if cascading delete is desired)
         // await connection.query('UPDATE PlayerRatings SET rater_player_id = NULL WHERE rater_player_id = ?', [id]);
         // await connection.query('UPDATE PlayerRatings SET rated_player_id = NULL WHERE rated_player_id = ?', [id]);
@@ -3494,7 +3494,7 @@ exports.registerAdmin = async (req, res, next) => {
 
         // Insert the new admin into the database
         const [result] = await pool.query(
-            'INSERT INTO Admins (username, email, password_hash) VALUES (?, ?, ?)',
+            'INSERT INTO admins (username, email, password_hash) VALUES (?, ?, ?)',
             [username, email, password_hash]
         );
 
@@ -3603,7 +3603,7 @@ exports.createMatch = async (req, res, next) => {
 
         // Insert the match
         const [result] = await connection.query(
-            `INSERT INTO Matches (season_id, team1_id, team2_id, match_datetime, venue, status)
+            `INSERT INTO matches (season_id, team1_id, team2_id, match_datetime, venue, status)
              VALUES (?, ?, ?, ?, ?, 'Scheduled')`,
             [parseInt(season_id), parseInt(team1_id), parseInt(team2_id), match_datetime, venue || 'Metalworks Box Arena']
         );
@@ -3797,7 +3797,7 @@ exports.updateMatch = async (req, res, next) => {
 
         // Proceed with update if there are fields to change
         if (Object.keys(fieldsToUpdate).length > 0) {
-            const [result] = await connection.query('UPDATE Matches SET ? WHERE match_id = ?', [fieldsToUpdate, matchId]);
+            const [result] = await connection.query('UPDATE matches SET ? WHERE match_id = ?', [fieldsToUpdate, matchId]);
             if (result.changedRows === 0 && result.affectedRows > 0){
                  console.log(`Update Match ${matchId}: Data provided was same as existing data.`);
                  // Optionally return 304 Not Modified or proceed to fetch and return 200 OK
@@ -3958,7 +3958,7 @@ exports.resolveMatch = async (req, res, next) => {
         const momToSave = status === 'Abandoned' ? null : momId;       // No MoM if abandoned
 
         const [updateResult] = await connection.query(
-            'UPDATE Matches SET status = ?, winner_team_id = ?, result_summary = ?, man_of_the_match_player_id = ? WHERE match_id = ?',
+            'UPDATE matches SET status = ?, winner_team_id = ?, result_summary = ?, man_of_the_match_player_id = ? WHERE match_id = ?',
             [status, winnerToSave, summaryToSave, momToSave, matchId]
         );
 
@@ -4163,7 +4163,7 @@ exports.submitMatchSetup = async (req, res, next) => {
         // 3. Update Match Table
         console.log(`--- Updating Match ${matchId} status to Setup ---`);
         await connection.query(
-            'UPDATE Matches SET status = ?, toss_winner_team_id = ?, decision = ?, super_over_number = ? WHERE match_id = ?',
+            'UPDATE matches SET status = ?, toss_winner_team_id = ?, decision = ?, super_over_number = ? WHERE match_id = ?',
             ['Setup', parseInt(toss_winner_team_id), decision, parseInt(super_over_number), matchId]
         );
 
@@ -4182,7 +4182,7 @@ exports.submitMatchSetup = async (req, res, next) => {
             console.log(`--- Initializing PlayerMatchStats for ${allPlayers.length} players ---`);
             const statsInsertPromises = allPlayers.map(p =>
                 // MODIFIED: Add impact points initialized to 0
-                connection.query('INSERT INTO PlayerMatchStats (match_id, player_id, team_id, batting_impact_points, bowling_impact_points, fielding_impact_points) VALUES (?, ?, ?, 0, 0, 0)', [matchId, p.player_id, p.team_id])
+                connection.query('INSERT INTO playermatchstats (match_id, player_id, team_id, batting_impact_points, bowling_impact_points, fielding_impact_points) VALUES (?, ?, ?, 0, 0, 0)', [matchId, p.player_id, p.team_id])
                     .catch(err => { if (err.code === 'ER_DUP_ENTRY') { console.warn(`PlayerMatchStats entry exists for match ${matchId}, player ${p.player_id}. Ignoring.`); return null; } throw err; })
             );
             await Promise.all(statsInsertPromises);
@@ -4454,7 +4454,7 @@ exports.submitFinalMatchScore = async (req, res, next) => {
 
         // 1. Update Match status, winner, result, MoM
         console.log(`--- Updating Match ${matchId} status to Completed ---`);
-        await connection.query( 'UPDATE Matches SET status = ?, winner_team_id = ?, result_summary = ?, man_of_the_match_player_id = ? WHERE match_id = ?', ['Completed', winner_team_id || null, result_summary || null, finalManOfTheMatchPlayerId, matchId] ); 
+        await connection.query( 'UPDATE matches SET status = ?, winner_team_id = ?, result_summary = ?, man_of_the_match_player_id = ? WHERE match_id = ?', ['Completed', winner_team_id || null, result_summary || null, finalManOfTheMatchPlayerId, matchId] ); 
 
         // 2. Update PlayerMatchStats
         if (playerStats && Array.isArray(playerStats)) {
@@ -4466,7 +4466,7 @@ exports.submitFinalMatchScore = async (req, res, next) => {
                 statsToUpdate.is_out = statsToUpdate.is_out ?? false;
                 statsToUpdate.how_out = statsToUpdate.how_out || null;
                 return connection.query(
-                    `INSERT INTO PlayerMatchStats (match_id, player_id, team_id, runs_scored, balls_faced, fours, sixes, is_out, how_out, wickets_taken, runs_conceded, overs_bowled, maidens, wides, no_balls, catches, stumps, run_outs)
+                    `INSERT INTO playermatchstats (match_id, player_id, team_id, runs_scored, balls_faced, fours, sixes, is_out, how_out, wickets_taken, runs_conceded, overs_bowled, maidens, wides, no_balls, catches, stumps, run_outs)
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                      ON DUPLICATE KEY UPDATE
                      runs_scored = VALUES(runs_scored), balls_faced = VALUES(balls_faced), fours = VALUES(fours), sixes = VALUES(sixes), is_out = VALUES(is_out), how_out = VALUES(how_out), wickets_taken = VALUES(wickets_taken), runs_conceded = VALUES(runs_conceded), overs_bowled = VALUES(overs_bowled), maidens = VALUES(maidens), wides = VALUES(wides), no_balls = VALUES(no_balls), catches = VALUES(catches), stumps = VALUES(stumps), run_outs = VALUES(run_outs)`,
@@ -4560,8 +4560,8 @@ exports.scoreSingleBall = async (req, res, next) => {
         let dbOverNumber = 1; let dbBallNumberInOver = 1; let logicalOver = 0; let logicalBallInOver = 0; let nextInningNumber = inningNumber;
         let previousOverBowlerId = null; // ADDED: Track the bowler of the last ball of the previous over
 
-        if (currentStatus === 'Setup' && inningNumber == 1) { await connection.query("UPDATE Matches SET status = 'Live' WHERE match_id = ?", [matchId]); currentStatus = 'Live'; updatedStatus = 'Live'; console.log(`Match ${matchId}: Status -> Live (Inning 1 Start)`); }
-        else if (currentStatus === 'InningsBreak' && inningNumber == 2) { await connection.query("UPDATE Matches SET status = 'Live' WHERE match_id = ?", [matchId]); currentStatus = 'Live'; updatedStatus = 'Live'; console.log(`Match ${matchId}: Status -> Live (Inning 2 Start). Target: ${targetScore}.`); }
+        if (currentStatus === 'Setup' && inningNumber == 1) { await connection.query("UPDATE matches SET status = 'Live' WHERE match_id = ?", [matchId]); currentStatus = 'Live'; updatedStatus = 'Live'; console.log(`Match ${matchId}: Status -> Live (Inning 1 Start)`); }
+        else if (currentStatus === 'InningsBreak' && inningNumber == 2) { await connection.query("UPDATE matches SET status = 'Live' WHERE match_id = ?", [matchId]); currentStatus = 'Live'; updatedStatus = 'Live'; console.log(`Match ${matchId}: Status -> Live (Inning 2 Start). Target: ${targetScore}.`); }
         else if (currentStatus === 'Live') {
             const [batsmanOutCheck] = await connection.query(`SELECT 1 FROM playermatchstats WHERE match_id = ? AND player_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, batsmanOnStrikePlayerId, battingTeamId]); if (batsmanOutCheck.length > 0) throw new Error(`Batsman ${batsmanOnStrikePlayerId} is already out.`);
 
@@ -4670,17 +4670,17 @@ exports.scoreSingleBall = async (req, res, next) => {
         // --- 7. Update PlayerMatchStats (MODIFIED for Impact Points) ---
         console.log(`--- Updating Stats: Batsman=${batsmanOnStrikePlayerId}, Bowler=${bowlerPlayerId}, Fielder=${finalFielderId || 'N/A'} ---`);
         // Update Batsman: Add batting_impact_points update
-        await connection.query(`UPDATE PlayerMatchStats SET runs_scored = runs_scored + ?, balls_faced = balls_faced + ?, fours = fours + ?, sixes = sixes + ?, is_out = IF(? = TRUE, TRUE, is_out), how_out = IF(? = TRUE, ?, how_out), batting_impact_points = batting_impact_points + ? WHERE match_id = ? AND player_id = ?`,
+        await connection.query(`UPDATE playermatchstats SET runs_scored = runs_scored + ?, balls_faced = balls_faced + ?, fours = fours + ?, sixes = sixes + ?, is_out = IF(? = TRUE, TRUE, is_out), how_out = IF(? = TRUE, ?, how_out), batting_impact_points = batting_impact_points + ? WHERE match_id = ? AND player_id = ?`,
         [actualRunsOffBat, isLegalDelivery ? 1 : 0, (runsScored == 4 && !isExtra && !isBye) ? 1 : 0, (runsScored == 6 && !isExtra && !isBye) ? 1 : 0, isWicket, isWicket, wicketType || null, impactPoints.batsman, matchId, batsmanOnStrikePlayerId]); // Added impactPoints.batsman
         
         // Update Bowler: Add bowling_impact_points update
         const [currentBowlerStatsData] = await connection.query('SELECT overs_bowled FROM playermatchstats WHERE match_id = ? AND player_id = ?', [matchId, bowlerPlayerId]); const currentOversDecimal = currentBowlerStatsData[0]?.overs_bowled || 0.0; const newOversDecimal = calculateNewOversDecimal(currentOversDecimal, isLegalDelivery);
-        await connection.query(`UPDATE PlayerMatchStats SET overs_bowled = ?, runs_conceded = runs_conceded + ?, wickets_taken = wickets_taken + ?, wides = wides + ?, no_balls = no_balls + ?, maidens = maidens + ?, bowling_impact_points = bowling_impact_points + ? WHERE match_id = ? AND player_id = ?`,
+        await connection.query(`UPDATE playermatchstats SET overs_bowled = ?, runs_conceded = runs_conceded + ?, wickets_taken = wickets_taken + ?, wides = wides + ?, no_balls = no_balls + ?, maidens = maidens + ?, bowling_impact_points = bowling_impact_points + ? WHERE match_id = ? AND player_id = ?`,
         [newOversDecimal, runsForBowler, (isWicket && !['Run Out'].includes(wicketType)) ? 1 : 0, extraType === 'Wide' ? 1 : 0, extraType === 'NoBall' ? 1 : 0, 0 /* Maiden TBD */, impactPoints.bowler, matchId, bowlerPlayerId]); // Added impactPoints.bowler
         
         // Update Fielder: Add fielding_impact_points update
         if (finalFielderId && impactPoints.fielder !== 0) {
-            await connection.query(`UPDATE PlayerMatchStats SET catches = catches + ?, stumps = stumps + ?, fielding_impact_points = fielding_impact_points + ? WHERE match_id = ? AND player_id = ?`,
+            await connection.query(`UPDATE playermatchstats SET catches = catches + ?, stumps = stumps + ?, fielding_impact_points = fielding_impact_points + ? WHERE match_id = ? AND player_id = ?`,
             [wicketType === 'Caught' ? 1 : 0, wicketType === 'Stumped' ? 1 : 0, impactPoints.fielder, matchId, finalFielderId]); // Added impactPoints.fielder
         }
 
@@ -4777,7 +4777,7 @@ exports.scoreSingleBall = async (req, res, next) => {
 
         // Update Match table (MODIFIED to include MoM)
         if (updatedStatus !== currentStatus || matchCompleted) {
-            await connection.query("UPDATE Matches SET status = ?, winner_team_id = ?, result_summary = ?, man_of_the_match_player_id = ? WHERE match_id = ?",
+            await connection.query("UPDATE matches SET status = ?, winner_team_id = ?, result_summary = ?, man_of_the_match_player_id = ? WHERE match_id = ?",
                 [updatedStatus, winnerTeamId, resultSummary, manOfTheMatchPlayerId, matchId]); // Added manOfTheMatchPlayerId
         }
         if(inningsEnded || matchCompleted) { await connection.query("UPDATE ballbyball SET commentary_text = ? WHERE ball_id = ?", [commentary.trim(), newBallId]); }
@@ -4875,17 +4875,17 @@ exports.undoLastBall = async (req, res, next) => {
         console.log(`--- Reversing Impact: Bat=${impactPointsToReverse.batsman}, Bowl=${impactPointsToReverse.bowler}, Field=${impactPointsToReverse.fielder} ---`);
 
          // Revert Batsman: Subtract batting_impact_points
-         await connection.query(`UPDATE PlayerMatchStats SET runs_scored = GREATEST(0, runs_scored - ?), balls_faced = GREATEST(0, balls_faced - ?), fours = GREATEST(0, fours - ?), sixes = GREATEST(0, sixes - ?), is_out = IF(? = TRUE AND how_out = ?, FALSE, is_out), how_out = IF(? = TRUE AND how_out = ?, NULL, how_out), batting_impact_points = batting_impact_points - ? WHERE match_id = ? AND player_id = ?`,
+         await connection.query(`UPDATE playermatchstats SET runs_scored = GREATEST(0, runs_scored - ?), balls_faced = GREATEST(0, balls_faced - ?), fours = GREATEST(0, fours - ?), sixes = GREATEST(0, sixes - ?), is_out = IF(? = TRUE AND how_out = ?, FALSE, is_out), how_out = IF(? = TRUE AND how_out = ?, NULL, how_out), batting_impact_points = batting_impact_points - ? WHERE match_id = ? AND player_id = ?`,
              [actualRunsOffBat, isLegalDelivery ? 1 : 0, (lastBall.runs_scored == 4 && !lastBall.is_extra && !lastBall.is_bye) ? 1 : 0, (lastBall.runs_scored == 6 && !lastBall.is_extra && !lastBall.is_bye) ? 1 : 0, lastBall.is_wicket, lastBall.wicket_type, lastBall.is_wicket, lastBall.wicket_type, impactPointsToReverse.batsman, matchId, lastBall.batsman_on_strike_player_id ]); // Subtracted impact
 
          // Revert Bowler: Subtract bowling_impact_points
          // ... (calculate previousOversDecimal as before) ...
-         await connection.query(`UPDATE PlayerMatchStats SET overs_bowled = ?, runs_conceded = GREATEST(0, runs_conceded - ?), wickets_taken = GREATEST(0, wickets_taken - ?), wides = GREATEST(0, wides - ?), no_balls = GREATEST(0, no_balls - ?), bowling_impact_points = bowling_impact_points - ? WHERE match_id = ? AND player_id = ?`,
+         await connection.query(`UPDATE playermatchstats SET overs_bowled = ?, runs_conceded = GREATEST(0, runs_conceded - ?), wickets_taken = GREATEST(0, wickets_taken - ?), wides = GREATEST(0, wides - ?), no_balls = GREATEST(0, no_balls - ?), bowling_impact_points = bowling_impact_points - ? WHERE match_id = ? AND player_id = ?`,
              [Math.max(0, previousOversDecimal), runsForBowler, (lastBall.is_wicket && !['Run Out'].includes(lastBall.wicket_type)) ? 1 : 0, lastBall.extra_type === 'Wide' ? 1 : 0, lastBall.extra_type === 'NoBall' ? 1 : 0, impactPointsToReverse.bowler, matchId, lastBall.bowler_player_id]); // Subtracted impact
 
          // Revert Fielder: Subtract fielding_impact_points
          if (lastBall.is_wicket && fielder_player_id && impactPointsToReverse.fielder !== 0) {
-             await connection.query(`UPDATE PlayerMatchStats SET catches = GREATEST(0, catches - ?), stumps = GREATEST(0, stumps - ?), fielding_impact_points = fielding_impact_points - ? WHERE match_id = ? AND player_id = ?`,
+             await connection.query(`UPDATE playermatchstats SET catches = GREATEST(0, catches - ?), stumps = GREATEST(0, stumps - ?), fielding_impact_points = fielding_impact_points - ? WHERE match_id = ? AND player_id = ?`,
                 [lastBall.wicket_type === 'Caught' ? 1 : 0, lastBall.wicket_type === 'Stumped' ? 1 : 0, impactPointsToReverse.fielder, matchId, fielder_player_id]); // Subtracted impact
          }
 
@@ -4897,14 +4897,14 @@ exports.undoLastBall = async (req, res, next) => {
         if (isSuperOverBall && !isExtra && !isBye && actualRunsOffBat > 0) actualRunsOffBat /= 2; // Revert double runs
         const runsForBowler = actualRunsOffBat + (parseInt(extraRuns) || 0);
         // Revert Batsman
-        await connection.query(`UPDATE PlayerMatchStats SET runs_scored = GREATEST(0, runs_scored - ?), balls_faced = GREATEST(0, balls_faced - ?), fours = GREATEST(0, fours - ?), sixes = GREATEST(0, sixes - ?), is_out = IF(? = TRUE AND how_out = ?, FALSE, is_out), how_out = IF(? = TRUE AND how_out = ?, NULL, how_out) WHERE match_id = ? AND player_id = ?`, [actualRunsOffBat, isLegalDelivery ? 1 : 0, (runs_scored == 4 && !isExtra && !isBye) ? 1 : 0, (runs_scored == 6 && !isExtra && !isBye) ? 1 : 0, isWicket, wicketType, isWicket, wicketType, matchId, batsman_on_strike_player_id]);
+        await connection.query(`UPDATE playermatchstats SET runs_scored = GREATEST(0, runs_scored - ?), balls_faced = GREATEST(0, balls_faced - ?), fours = GREATEST(0, fours - ?), sixes = GREATEST(0, sixes - ?), is_out = IF(? = TRUE AND how_out = ?, FALSE, is_out), how_out = IF(? = TRUE AND how_out = ?, NULL, how_out) WHERE match_id = ? AND player_id = ?`, [actualRunsOffBat, isLegalDelivery ? 1 : 0, (runs_scored == 4 && !isExtra && !isBye) ? 1 : 0, (runs_scored == 6 && !isExtra && !isBye) ? 1 : 0, isWicket, wicketType, isWicket, wicketType, matchId, batsman_on_strike_player_id]);
         // Revert Bowler (using accurate reversal logic)
         const [bowlerStatsData] = await connection.query('SELECT overs_bowled FROM playermatchstats WHERE match_id = ? AND player_id = ?', [matchId, bowler_player_id]);
         const currentOversDecimal = bowlerStatsData.length > 0 ? (bowlerStatsData[0].overs_bowled || 0) : 0;
         let previousOversDecimal = currentOversDecimal; if (isLegalDelivery && currentOversDecimal > 0) { const currentOvers = Math.floor(currentOversDecimal); const currentBalls = Math.round((currentOversDecimal - currentOvers) * 10); if (currentBalls === 1 && currentOvers > 0) { previousOversDecimal = parseFloat(`${currentOvers - 1}.5`); } else if (currentBalls > 0) { previousOversDecimal = parseFloat(`${currentOvers}.${currentBalls - 1}`); } else { /* Edge case 0.0 remains 0.0 */ previousOversDecimal = 0.0; } }
-        await connection.query(`UPDATE PlayerMatchStats SET overs_bowled = ?, runs_conceded = GREATEST(0, runs_conceded - ?), wickets_taken = GREATEST(0, wickets_taken - ?), wides = GREATEST(0, wides - ?), no_balls = GREATEST(0, no_balls - ?) WHERE match_id = ? AND player_id = ?`, [Math.max(0, previousOversDecimal), runsForBowler, (isWicket && !['Run Out'].includes(wicketType)) ? 1 : 0, extraType === 'Wide' ? 1 : 0, extraType === 'NoBall' ? 1 : 0, matchId, bowler_player_id]);
+        await connection.query(`UPDATE playermatchstats SET overs_bowled = ?, runs_conceded = GREATEST(0, runs_conceded - ?), wickets_taken = GREATEST(0, wickets_taken - ?), wides = GREATEST(0, wides - ?), no_balls = GREATEST(0, no_balls - ?) WHERE match_id = ? AND player_id = ?`, [Math.max(0, previousOversDecimal), runsForBowler, (isWicket && !['Run Out'].includes(wicketType)) ? 1 : 0, extraType === 'Wide' ? 1 : 0, extraType === 'NoBall' ? 1 : 0, matchId, bowler_player_id]);
         // Revert Fielder
-        if (isWicket && fielder_player_id) { await connection.query(`UPDATE PlayerMatchStats SET catches = GREATEST(0, catches - ?), stumps = GREATEST(0, stumps - ?) WHERE match_id = ? AND player_id = ?`, [wicketType === 'Caught' ? 1 : 0, wicketType === 'Stumped' ? 1 : 0, matchId, fielder_player_id]); }
+        if (isWicket && fielder_player_id) { await connection.query(`UPDATE playermatchstats SET catches = GREATEST(0, catches - ?), stumps = GREATEST(0, stumps - ?) WHERE match_id = ? AND player_id = ?`, [wicketType === 'Caught' ? 1 : 0, wicketType === 'Stumped' ? 1 : 0, matchId, fielder_player_id]); }
         console.log(`--- Player Stats Reverted ---`);
 
         // --- 4. Delete the last ballbyball record ---
@@ -4935,12 +4935,12 @@ exports.undoLastBall = async (req, res, next) => {
             if (!prevInningsEndReason && !wasTargetAchievedBefore) { revertStatus = true; }
         }
 
-        //if (revertStatus) { newStatus = 'Live'; console.log(`--- Reverting Match Status from ${currentStatus} to Live ---`); await connection.query("UPDATE Matches SET status = 'Live', winner_team_id = NULL, result_summary = NULL, man_of_the_match_player_id = NULL WHERE match_id = ?", [matchId]); }
+        //if (revertStatus) { newStatus = 'Live'; console.log(`--- Reverting Match Status from ${currentStatus} to Live ---`); await connection.query("UPDATE matches SET status = 'Live', winner_team_id = NULL, result_summary = NULL, man_of_the_match_player_id = NULL WHERE match_id = ?", [matchId]); }
 
         if (revertStatus) {
             newStatus = 'Live'; console.log(`--- Reverting Match Status from ${currentStatus} to Live ---`);
             // set MoM to NULL as well
-            await connection.query("UPDATE Matches SET status = 'Live', winner_team_id = NULL, result_summary = NULL, man_of_the_match_player_id = NULL WHERE match_id = ?", [matchId]);
+            await connection.query("UPDATE matches SET status = 'Live', winner_team_id = NULL, result_summary = NULL, man_of_the_match_player_id = NULL WHERE match_id = ?", [matchId]);
         }
 
         
@@ -5004,7 +5004,7 @@ exports.createSeason = async (req, res, next) => {
 
     try {
         const [result] = await pool.query(
-            'INSERT INTO Seasons (year, name, start_date, end_date, status) VALUES (?, ?, ?, ?, ?)',
+            'INSERT INTO seasons (year, name, start_date, end_date, status) VALUES (?, ?, ?, ?, ?)',
             // Provide null for optional fields if they are empty strings or undefined
             [year, name, start_date || null, end_date || null, status || 'Planned']
         );
@@ -5108,7 +5108,7 @@ exports.updateSeason = async (req, res, next) => {
         if (status) fieldsToUpdate.status = status;
 
         // Perform the update query
-        const [result] = await pool.query('UPDATE Seasons SET ? WHERE season_id = ?', [fieldsToUpdate, id]);
+        const [result] = await pool.query('UPDATE seasons SET ? WHERE season_id = ?', [fieldsToUpdate, id]);
 
          if (result.affectedRows === 0) {
              // This might happen if the data submitted was the same as existing data
@@ -5214,7 +5214,7 @@ exports.addTeamToSeason = async (req, res, next) => {
 
         // Insert the new team
         const [result] = await connection.query(
-            'INSERT INTO Teams (season_id, name, captain_player_id, budget) VALUES (?, ?, ?, ?)',
+            'INSERT INTO teams (season_id, name, captain_player_id, budget) VALUES (?, ?, ?, ?)',
             [season_id, name, captain_player_id || null, budget === undefined || budget === null ? 10000.00 : budget] // Default budget if not provided
         );
         const teamId = result.insertId;
@@ -5391,20 +5391,20 @@ exports.updateTeam = async (req, res, next) => {
                  // 3. Update the captain_player_id in the Teams table
                  teamFieldsToUpdate.captain_player_id = newCaptainId;
                  // 4. Update the is_captain flag in TeamPlayers (set new captain, unset old)
-                 await connection.query('UPDATE TeamPlayers SET is_captain = FALSE WHERE team_id = ? AND season_id = ?', [id, teamSeasonId]);
-                 await connection.query('UPDATE TeamPlayers SET is_captain = TRUE WHERE team_id = ? AND player_id = ? AND season_id = ?', [id, newCaptainId, teamSeasonId]);
+                 await connection.query('UPDATE teamplayers SET is_captain = FALSE WHERE team_id = ? AND season_id = ?', [id, teamSeasonId]);
+                 await connection.query('UPDATE teamplayers SET is_captain = TRUE WHERE team_id = ? AND player_id = ? AND season_id = ?', [id, newCaptainId, teamSeasonId]);
              } else {
                  // Setting captain to NULL
                  teamFieldsToUpdate.captain_player_id = null;
                   // 4. Ensure no player is marked as captain in TeamPlayers
-                 await connection.query('UPDATE TeamPlayers SET is_captain = FALSE WHERE team_id = ? AND season_id = ?', [id, teamSeasonId]);
+                 await connection.query('UPDATE teamplayers SET is_captain = FALSE WHERE team_id = ? AND season_id = ?', [id, teamSeasonId]);
              }
          } // End of captain handling
 
 
          // Update the Teams table if there are fields to update
          if (Object.keys(teamFieldsToUpdate).length > 0) {
-             const [updateResult] = await connection.query('UPDATE Teams SET ? WHERE team_id = ?', [teamFieldsToUpdate, id]);
+             const [updateResult] = await connection.query('UPDATE teams SET ? WHERE team_id = ?', [teamFieldsToUpdate, id]);
              if (updateResult.affectedRows === 0) {
                  // This might happen if only captain was changed (as it doesn't affect Teams row directly if already set)
                  // Or if data was identical. Log a warning.
@@ -5457,16 +5457,16 @@ exports.addPlayerToTeam = async (req, res, next) => {
         const [existingAssignment] = await connection.query('SELECT team_id FROM teamplayers WHERE player_id = ? AND season_id = ?', [player_id, season_id]); if (existingAssignment.length > 0) { await connection.rollback(); return res.status(400).json({ message: `Player ${player_id} is already assigned to team ${existingAssignment[0].team_id} for season ${season_id}. Remove them first.` }); }
 
         // Captain handling (Keep as before)
-        if (is_captain) { await connection.query('UPDATE TeamPlayers SET is_captain = FALSE WHERE team_id = ? AND season_id = ?', [team_id, season_id]); await connection.query('UPDATE Teams SET captain_player_id = ? WHERE team_id = ?', [player_id, team_id]); }
+        if (is_captain) { await connection.query('UPDATE teamplayers SET is_captain = FALSE WHERE team_id = ? AND season_id = ?', [team_id, season_id]); await connection.query('UPDATE teams SET captain_player_id = ? WHERE team_id = ?', [player_id, team_id]); }
 
         // Insert into TeamPlayers (Keep as before)
-        const [result] = await connection.query( 'INSERT INTO TeamPlayers (team_id, player_id, season_id, purchase_price, is_captain) VALUES (?, ?, ?, ?, ?)', [team_id, player_id, season_id, purchase_price === undefined ? null : purchase_price, is_captain || false] );
+        const [result] = await connection.query( 'INSERT INTO teamplayers (team_id, player_id, season_id, purchase_price, is_captain) VALUES (?, ?, ?, ?, ?)', [team_id, player_id, season_id, purchase_price === undefined ? null : purchase_price, is_captain || false] );
         const teamPlayerId = result.insertId;
 
         // MODIFIED: Update the player's current_team_id
         // Consider if you only want the *latest* season's team assignment to set this.
         // This logic sets it regardless of season order. Adjust if needed.
-        await connection.query('UPDATE Players SET current_team_id = ? WHERE player_id = ?', [team_id, player_id]);
+        await connection.query('UPDATE players SET current_team_id = ? WHERE player_id = ?', [team_id, player_id]);
         console.log(`Updated player ${player_id}'s current_team_id to ${team_id}`);
 
         await connection.commit();
@@ -5499,10 +5499,10 @@ exports.removePlayerFromTeam = async (req, res, next) => {
         if (deleteResult.affectedRows === 0) { await connection.rollback(); return res.status(404).json({ message: 'Team player assignment could not be deleted (not found?).' }); }
 
         // Handle captain (Keep as before)
-        if (player_id === captain_player_id) { await connection.query('UPDATE Teams SET captain_player_id = NULL WHERE team_id = ?', [team_id]); }
+        if (player_id === captain_player_id) { await connection.query('UPDATE teams SET captain_player_id = NULL WHERE team_id = ?', [team_id]); }
 
         // MODIFIED: Clear player's current_team_id ONLY if it matched the team they were removed from
-        await connection.query('UPDATE Players SET current_team_id = NULL WHERE player_id = ? AND current_team_id = ?', [player_id, team_id]);
+        await connection.query('UPDATE players SET current_team_id = NULL WHERE player_id = ? AND current_team_id = ?', [player_id, team_id]);
         console.log(`Cleared current_team_id for player ${player_id} if it was ${team_id}`);
 
         await connection.commit();
@@ -5608,7 +5608,7 @@ exports.protect = async (req, res, next) => {
 // Placeholder for Player Authentication (if needed later for features like player rating)
 // exports.protectPlayer = async (req, res, next) => {
 //     // Similar logic, but verify player token and fetch player details
-//     // from the Players table instead of Admins table.
+//     // from the Players table instead of admins table.
 // };
 
 

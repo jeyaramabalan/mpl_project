@@ -15,7 +15,7 @@ exports.registerPlayer = async (req, res, next) => {
     if (role && !validRoles.includes(role)) { return res.status(400).json({ message: `Invalid role. Must be one of: ${validRoles.slice(0,-1).join(', ')} or empty.` }); }
     // --- End Validation ---
     try {
-        const [result] = await pool.query('INSERT INTO Players (name, base_price, role, current_team_id) VALUES (?, ?, ?, NULL)', [ name, base_price === undefined || base_price === null ? 100.00 : base_price, role || null ]);
+        const [result] = await pool.query('INSERT INTO players (name, base_price, role, current_team_id) VALUES (?, ?, ?, NULL)', [ name, base_price === undefined || base_price === null ? 100.00 : base_price, role || null ]);
         const playerId = result.insertId;
         const [newPlayer] = await pool.query('SELECT player_id, name, base_price, role, current_team_id FROM players WHERE player_id = ?', [playerId]);
         if (newPlayer.length === 0) throw new Error('Failed to retrieve newly registered player.');
@@ -185,7 +185,7 @@ exports.updatePlayer = async (req, res, next) => {
 
         // Perform update if there are fields to change
         if (Object.keys(fieldsToUpdate).length > 0) {
-            const [result] = await pool.query('UPDATE Players SET ? WHERE player_id = ?', [fieldsToUpdate, id]);
+            const [result] = await pool.query('UPDATE players SET ? WHERE player_id = ?', [fieldsToUpdate, id]);
              if (result.affectedRows === 0) {
                 console.warn(`Update Player ${id}: Affected rows was 0. Data might be unchanged.`);
              }
@@ -225,8 +225,8 @@ exports.deletePlayer = async (req, res, next) => {
         }
 
         // --- Handle Foreign Key References ---
-        await connection.query('UPDATE Teams SET captain_player_id = NULL WHERE captain_player_id = ?', [id]);
-        await connection.query('UPDATE Matches SET man_of_the_match_player_id = NULL WHERE man_of_the_match_player_id = ?', [id]);
+        await connection.query('UPDATE teams SET captain_player_id = NULL WHERE captain_player_id = ?', [id]);
+        await connection.query('UPDATE matches SET man_of_the_match_player_id = NULL WHERE man_of_the_match_player_id = ?', [id]);
         // Assuming ratings should be kept but reference nulled (adjust if cascading delete is desired)
         // await connection.query('UPDATE PlayerRatings SET rater_player_id = NULL WHERE rater_player_id = ?', [id]);
         // await connection.query('UPDATE PlayerRatings SET rated_player_id = NULL WHERE rated_player_id = ?', [id]);

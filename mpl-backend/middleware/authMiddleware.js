@@ -52,5 +52,5 @@ exports.protect = async (req, res, next) => {
 // Placeholder for Player Authentication (if needed later for features like player rating)
 // exports.protectPlayer = async (req, res, next) => {
 //     // Similar logic, but verify player token and fetch player details
-//     // from the Players table instead of Admins table.
+//     // from the Players table instead of admins table.
 // };

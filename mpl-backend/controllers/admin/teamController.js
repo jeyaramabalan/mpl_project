@@ -41,7 +41,7 @@ exports.addTeamToSeason = async (req, res, next) => {
 
         // Insert the new team
         const [result] = await connection.query(
-            'INSERT INTO Teams (season_id, name, captain_player_id, budget) VALUES (?, ?, ?, ?)',
+            'INSERT INTO teams (season_id, name, captain_player_id, budget) VALUES (?, ?, ?, ?)',
             [season_id, name, captain_player_id || null, budget === undefined || budget === null ? 10000.00 : budget] // Default budget if not provided
         );
         const teamId = result.insertId;
@@ -218,20 +218,20 @@ exports.updateTeam = async (req, res, next) => {
                  // 3. Update the captain_player_id in the Teams table
                  teamFieldsToUpdate.captain_player_id = newCaptainId;
                  // 4. Update the is_captain flag in TeamPlayers (set new captain, unset old)
-                 await connection.query('UPDATE TeamPlayers SET is_captain = FALSE WHERE team_id = ? AND season_id = ?', [id, teamSeasonId]);
-                 await connection.query('UPDATE TeamPlayers SET is_captain = TRUE WHERE team_id = ? AND player_id = ? AND season_id = ?', [id, newCaptainId, teamSeasonId]);
+                 await connection.query('UPDATE teamplayers SET is_captain = FALSE WHERE team_id = ? AND season_id = ?', [id, teamSeasonId]);
+                 await connection.query('UPDATE teamplayers SET is_captain = TRUE WHERE team_id = ? AND player_id = ? AND season_id = ?', [id, newCaptainId, teamSeasonId]);
              } else {
                  // Setting captain to NULL
                  teamFieldsToUpdate.captain_player_id = null;
                   // 4. Ensure no player is marked as captain in TeamPlayers
-                 await connection.query('UPDATE TeamPlayers SET is_captain = FALSE WHERE team_id = ? AND season_id = ?', [id, teamSeasonId]);
+                 await connection.query('UPDATE teamplayers SET is_captain = FALSE WHERE team_id = ? AND season_id = ?', [id, teamSeasonId]);
              }
          } // End of captain handling
 
 
          // Update the Teams table if there are fields to update
          if (Object.keys(teamFieldsToUpdate).length > 0) {
-             const [updateResult] = await connection.query('UPDATE Teams SET ? WHERE team_id = ?', [teamFieldsToUpdate, id]);
+             const [updateResult] = await connection.query('UPDATE teams SET ? WHERE team_id = ?', [teamFieldsToUpdate, id]);
              if (updateResult.affectedRows === 0) {
                  // This might happen if only captain was changed (as it doesn't affect Teams row directly if already set)
                  // Or if data was identical. Log a warning.
@@ -284,16 +284,16 @@ exports.addPlayerToTeam = async (req, res, next) => {
         const [existingAssignment] = await connection.query('SELECT team_id FROM teamplayers WHERE player_id = ? AND season_id = ?', [player_id, season_id]); if (existingAssignment.length > 0) { await connection.rollback(); return res.status(400).json({ message: `Player ${player_id} is already assigned to team ${existingAssignment[0].team_id} for season ${season_id}. Remove them first.` }); }
 
         // Captain handling (Keep as before)
-        if (is_captain) { await connection.query('UPDATE TeamPlayers SET is_captain = FALSE WHERE team_id = ? AND season_id = ?', [team_id, season_id]); await connection.query('UPDATE Teams SET captain_player_id = ? WHERE team_id = ?', [player_id, team_id]); }
+        if (is_captain) { await connection.query('UPDATE teamplayers SET is_captain = FALSE WHERE team_id = ? AND season_id = ?', [team_id, season_id]); await connection.query('UPDATE teams SET captain_player_id = ? WHERE team_id = ?', [player_id, team_id]); }
 
         // Insert into TeamPlayers (Keep as before)
-        const [result] = await connection.query( 'INSERT INTO TeamPlayers (team_id, player_id, season_id, purchase_price, is_captain) VALUES (?, ?, ?, ?, ?)', [team_id, player_id, season_id, purchase_price === undefined ? null : purchase_price, is_captain || false] );
+        const [result] = await connection.query( 'INSERT INTO teamplayers (team_id, player_id, season_id, purchase_price, is_captain) VALUES (?, ?, ?, ?, ?)', [team_id, player_id, season_id, purchase_price === undefined ? null : purchase_price, is_captain || false] );
         const teamPlayerId = result.insertId;
 
         // MODIFIED: Update the player's current_team_id
         // Consider if you only want the *latest* season's team assignment to set this.
         // This logic sets it regardless of season order. Adjust if needed.
-        await connection.query('UPDATE Players SET current_team_id = ? WHERE player_id = ?', [team_id, player_id]);
+        await connection.query('UPDATE players SET current_team_id = ? WHERE player_id = ?', [team_id, player_id]);
         console.log(`Updated player ${player_id}'s current_team_id to ${team_id}`);
 
         await connection.commit();
@@ -326,10 +326,10 @@ exports.removePlayerFromTeam = async (req, res, next) => {
         if (deleteResult.affectedRows === 0) { await connection.rollback(); return res.status(404).json({ message: 'Team player assignment could not be deleted (not found?).' }); }
 
         // Handle captain (Keep as before)
-        if (player_id === captain_player_id) { await connection.query('UPDATE Teams SET captain_player_id = NULL WHERE team_id = ?', [team_id]); }
+        if (player_id === captain_player_id) { await connection.query('UPDATE teams SET captain_player_id = NULL WHERE team_id = ?', [team_id]); }
 
         // MODIFIED: Clear player's current_team_id ONLY if it matched the team they were removed from
-        await connection.query('UPDATE Players SET current_team_id = NULL WHERE player_id = ? AND current_team_id = ?', [player_id, team_id]);
+        await connection.query('UPDATE players SET current_team_id = NULL WHERE player_id = ? AND current_team_id = ?', [player_id, team_id]);
         console.log(`Cleared current_team_id for player ${player_id} if it was ${team_id}`);
 
         await connection.commit();

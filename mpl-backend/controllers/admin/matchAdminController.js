@@ -69,7 +69,7 @@ exports.createMatch = async (req, res, next) => {
 
         // Insert the match
         const [result] = await connection.query(
-            `INSERT INTO Matches (season_id, team1_id, team2_id, match_datetime, venue, status)
+            `INSERT INTO matches (season_id, team1_id, team2_id, match_datetime, venue, status)
              VALUES (?, ?, ?, ?, ?, 'Scheduled')`,
             [parseInt(season_id), parseInt(team1_id), parseInt(team2_id), match_datetime, venue || 'Bowyer Park']
         );
@@ -263,7 +263,7 @@ exports.updateMatch = async (req, res, next) => {
 
         // Proceed with update if there are fields to change
         if (Object.keys(fieldsToUpdate).length > 0) {
-            const [result] = await connection.query('UPDATE Matches SET ? WHERE match_id = ?', [fieldsToUpdate, matchId]);
+            const [result] = await connection.query('UPDATE matches SET ? WHERE match_id = ?', [fieldsToUpdate, matchId]);
             if (result.changedRows === 0 && result.affectedRows > 0){
                  console.log(`Update Match ${matchId}: Data provided was same as existing data.`);
                  // Optionally return 304 Not Modified or proceed to fetch and return 200 OK
@@ -424,7 +424,7 @@ exports.resolveMatch = async (req, res, next) => {
         const momToSave = status === 'Abandoned' ? null : momId;       // No MoM if abandoned
 
         const [updateResult] = await connection.query(
-            'UPDATE Matches SET status = ?, winner_team_id = ?, result_summary = ?, man_of_the_match_player_id = ? WHERE match_id = ?',
+            'UPDATE matches SET status = ?, winner_team_id = ?, result_summary = ?, man_of_the_match_player_id = ? WHERE match_id = ?',
             [status, winnerToSave, summaryToSave, momToSave, matchId]
         );
 

@@ -140,7 +140,7 @@ exports.registerAdmin = async (req, res, next) => {
 
         // Insert the new admin into the database
         const [result] = await pool.query(
-            'INSERT INTO Admins (username, email, password_hash) VALUES (?, ?, ?)',
+            'INSERT INTO admins (username, email, password_hash) VALUES (?, ?, ?)',
             [username, email, password_hash]
         );
 

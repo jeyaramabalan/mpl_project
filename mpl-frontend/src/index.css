@@ -7,7 +7,7 @@
   font-weight: 400;
 
   color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
+  color: rgba(255, 251, 0, 0.87);
   background-color: #242424;
 
   font-synthesis: none;
@@ -115,7 +115,7 @@ form select,
 form textarea {
     padding: 0.6rem;
     border: 1px solid #555;
-    background-color: #fcffe3;
+    background-color: #a4a1d8;
     color: inherit; /* Inherit text color */
     border-radius: 4px;
     box-sizing: border-box; /* Include padding in width */
@@ -175,7 +175,7 @@ nav a:hover {
 
 nav .active { /* Class added by NavLink */
     font-weight: bold;
-    color: #fff;
+    color: #9db9e4;
     border-bottom-color: #646cff;
 }
 
@@ -222,7 +222,7 @@ nav .active { /* Class added by NavLink */
   }
   main { background-color: #f0f0f0; }
   form { background-color: #e8e8e8; }
-  form input, form select, form textarea { background-color: #fff; border-color: #ccc; color: #333; }
+  form input, form select, form textarea { background-color: #fff; border-color: #ccc; color: #707070; }
   table { background-color: #f9f9f9; }
   th, td { border-color: #ccc; }
   th { background-color: #e8e8e8; }

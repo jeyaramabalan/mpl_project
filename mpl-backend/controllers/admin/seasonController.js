@@ -20,7 +20,7 @@ exports.createSeason = async (req, res, next) => {
 
     try {
         const [result] = await pool.query(
-            'INSERT INTO Seasons (year, name, start_date, end_date, status) VALUES (?, ?, ?, ?, ?)',
+            'INSERT INTO seasons (year, name, start_date, end_date, status) VALUES (?, ?, ?, ?, ?)',
             // Provide null for optional fields if they are empty strings or undefined
             [year, name, start_date || null, end_date || null, status || 'Planned']
         );
@@ -124,7 +124,7 @@ exports.updateSeason = async (req, res, next) => {
         if (status) fieldsToUpdate.status = status;
 
         // Perform the update query
-        const [result] = await pool.query('UPDATE Seasons SET ? WHERE season_id = ?', [fieldsToUpdate, id]);
+        const [result] = await pool.query('UPDATE seasons SET ? WHERE season_id = ?', [fieldsToUpdate, id]);
 
          if (result.affectedRows === 0) {
              // This might happen if the data submitted was the same as existing data

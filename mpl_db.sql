@@ -981,7 +981,7 @@ CREATE TABLE `payments` (
   `status` enum('Pending','Paid','Waived') NOT NULL DEFAULT 'Pending' COMMENT 'Status of the payment',
   `method` varchar(50) DEFAULT NULL COMMENT 'Method of payment (e.g., "Cash", "Online", "AdminWaived")',
   `notes` text DEFAULT NULL COMMENT 'Optional notes regarding the payment',
-  `recorded_by_admin_id` int(11) DEFAULT NULL COMMENT 'Foreign key linking to the admin who recorded/verified the payment (Admins table)',
+  `recorded_by_admin_id` int(11) DEFAULT NULL COMMENT 'Foreign key linking to the admin who recorded/verified the payment (admins table)',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp() COMMENT 'Timestamp when the payment record was created'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Tracks player fee payments and other financial transactions';
 
