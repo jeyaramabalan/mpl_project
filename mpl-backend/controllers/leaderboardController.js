@@ -48,9 +48,9 @@ exports.getLeaderboards = async (req, res, next) => {
                 SUM(COALESCE(pms.bowling_impact_points, 0)) as total_bowling_impact,
                 SUM(COALESCE(pms.fielding_impact_points, 0)) as total_fielding_impact,
                 SUM(COALESCE(pms.batting_impact_points, 0) + COALESCE(pms.bowling_impact_points, 0) + COALESCE(pms.fielding_impact_points, 0)) as total_impact
-            FROM PlayerMatchStats pms
-            JOIN Players p ON pms.player_id = p.player_id
-            JOIN Matches m ON pms.match_id = m.match_id
+            FROM playermatchstats pms
+            JOIN players p ON pms.player_id = p.player_id
+            JOIN matches m ON pms.match_id = m.match_id
             WHERE m.season_id = ?
             GROUP BY p.player_id, p.name
         `;

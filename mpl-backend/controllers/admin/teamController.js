@@ -23,7 +23,7 @@ exports.addTeamToSeason = async (req, res, next) => {
         await connection.beginTransaction();
 
         // Check if season exists
-        const [seasonCheck] = await connection.query('SELECT 1 FROM Seasons WHERE season_id = ?', [season_id]);
+        const [seasonCheck] = await connection.query('SELECT 1 FROM seasons WHERE season_id = ?', [season_id]);
         if (seasonCheck.length === 0) {
             await connection.rollback();
             return res.status(400).json({ message: `Season with ID ${season_id} does not exist.` });
@@ -31,7 +31,7 @@ exports.addTeamToSeason = async (req, res, next) => {
 
         // Optional: Check if captain player exists if ID is provided
         if (captain_player_id) {
-             const [playerCheck] = await connection.query('SELECT 1 FROM Players WHERE player_id = ?', [captain_player_id]);
+             const [playerCheck] = await connection.query('SELECT 1 FROM players WHERE player_id = ?', [captain_player_id]);
              if (playerCheck.length === 0) {
                 await connection.rollback();
                 return res.status(400).json({ message: `Captain Player with ID ${captain_player_id} does not exist.` });
@@ -47,7 +47,7 @@ exports.addTeamToSeason = async (req, res, next) => {
         const teamId = result.insertId;
 
         // Fetch the newly created team to return
-        const [newTeam] = await connection.query('SELECT * FROM Teams WHERE team_id = ?', [teamId]);
+        const [newTeam] = await connection.query('SELECT * FROM teams WHERE team_id = ?', [teamId]);
 
         await connection.commit();
         res.status(201).json({ message: 'Team added successfully', team: newTeam[0] });
@@ -77,9 +77,9 @@ exports.getTeamsForSeason = async (req, res, next) => {
         // Base query including season and captain info
         let query = `
           SELECT t.*, s.name as season_name, p.name as captain_name
-          FROM Teams t
-          JOIN Seasons s ON t.season_id = s.season_id
-          LEFT JOIN Players p ON t.captain_player_id = p.player_id
+          FROM teams t
+          JOIN seasons s ON t.season_id = s.season_id
+          LEFT JOIN players p ON t.captain_player_id = p.player_id
           `;
         const params = [];
 
@@ -124,8 +124,8 @@ exports.getTeamDetails = async (req, res, next) => {
         // Fetch team details
         const [teams] = await pool.query(
             `SELECT t.*, p.name as captain_name
-             FROM Teams t
-             LEFT JOIN Players p ON t.captain_player_id = p.player_id
+             FROM teams t
+             LEFT JOIN players p ON t.captain_player_id = p.player_id
              WHERE t.team_id = ? AND t.season_id = ?`, // Ensure team belongs to the requested season
             [id, season_id]
         );
@@ -141,8 +141,8 @@ exports.getTeamDetails = async (req, res, next) => {
             `SELECT
                 p.player_id, p.name, p.role,
                 tp.team_player_id, tp.purchase_price, tp.is_captain
-             FROM Players p
-             JOIN TeamPlayers tp ON p.player_id = tp.player_id
+             FROM players p
+             JOIN teamplayers tp ON p.player_id = tp.player_id
              WHERE tp.team_id = ? AND tp.season_id = ?
              ORDER BY p.name`,
             [id, season_id]
@@ -181,7 +181,7 @@ exports.updateTeam = async (req, res, next) => {
          await connection.beginTransaction();
 
          // Get current team info, especially season_id
-         const [existingTeamArr] = await connection.query('SELECT team_id, season_id FROM Teams WHERE team_id = ?', [id]);
+         const [existingTeamArr] = await connection.query('SELECT team_id, season_id FROM teams WHERE team_id = ?', [id]);
          if (existingTeamArr.length === 0) {
              await connection.rollback();
              return res.status(404).json({ message: 'Team not found.' });
@@ -201,14 +201,14 @@ exports.updateTeam = async (req, res, next) => {
              // If setting a new captain (not null)
              if (newCaptainId !== null) {
                  // 1. Check if the new captain player exists
-                 const [playerCheck] = await connection.query('SELECT 1 FROM Players WHERE player_id = ?', [newCaptainId]);
+                 const [playerCheck] = await connection.query('SELECT 1 FROM players WHERE player_id = ?', [newCaptainId]);
                  if (playerCheck.length === 0) {
                      await connection.rollback();
                      return res.status(400).json({ message: `Player ID ${newCaptainId} does not exist.` });
                  }
                  // 2. Check if the new captain is actually ON THIS TEAM for THIS SEASON
                  const [teamPlayerCheck] = await connection.query(
-                     'SELECT 1 FROM TeamPlayers WHERE team_id = ? AND player_id = ? AND season_id = ?',
+                     'SELECT 1 FROM teamplayers WHERE team_id = ? AND player_id = ? AND season_id = ?',
                      [id, newCaptainId, teamSeasonId]
                  );
                  if (teamPlayerCheck.length === 0) {
@@ -244,8 +244,8 @@ exports.updateTeam = async (req, res, next) => {
          // Fetch the final updated team details to return
          const [finalTeam] = await connection.query(
              `SELECT t.*, p.name as captain_name
-              FROM Teams t
-              LEFT JOIN Players p ON t.captain_player_id = p.player_id
+              FROM teams t
+              LEFT JOIN players p ON t.captain_player_id = p.player_id
               WHERE t.team_id = ?`, [id]
           );
 
@@ -279,9 +279,9 @@ exports.addPlayerToTeam = async (req, res, next) => {
     try {
         await connection.beginTransaction();
         // Pre-checks (team exists, player exists, player not already assigned) - Keep as before
-        const [teamCheck] = await connection.query('SELECT 1 FROM Teams WHERE team_id = ? AND season_id = ?', [team_id, season_id]); if (teamCheck.length === 0) { await connection.rollback(); return res.status(400).json({ message: `Team ID ${team_id} not found for season ${season_id}.` }); }
-        const [playerCheck] = await connection.query('SELECT 1 FROM Players WHERE player_id = ?', [player_id]); if (playerCheck.length === 0) { await connection.rollback(); return res.status(400).json({ message: `Player ID ${player_id} does not exist.` }); }
-        const [existingAssignment] = await connection.query('SELECT team_id FROM TeamPlayers WHERE player_id = ? AND season_id = ?', [player_id, season_id]); if (existingAssignment.length > 0) { await connection.rollback(); return res.status(400).json({ message: `Player ${player_id} is already assigned to team ${existingAssignment[0].team_id} for season ${season_id}. Remove them first.` }); }
+        const [teamCheck] = await connection.query('SELECT 1 FROM teams WHERE team_id = ? AND season_id = ?', [team_id, season_id]); if (teamCheck.length === 0) { await connection.rollback(); return res.status(400).json({ message: `Team ID ${team_id} not found for season ${season_id}.` }); }
+        const [playerCheck] = await connection.query('SELECT 1 FROM players WHERE player_id = ?', [player_id]); if (playerCheck.length === 0) { await connection.rollback(); return res.status(400).json({ message: `Player ID ${player_id} does not exist.` }); }
+        const [existingAssignment] = await connection.query('SELECT team_id FROM teamplayers WHERE player_id = ? AND season_id = ?', [player_id, season_id]); if (existingAssignment.length > 0) { await connection.rollback(); return res.status(400).json({ message: `Player ${player_id} is already assigned to team ${existingAssignment[0].team_id} for season ${season_id}. Remove them first.` }); }
 
         // Captain handling (Keep as before)
         if (is_captain) { await connection.query('UPDATE TeamPlayers SET is_captain = FALSE WHERE team_id = ? AND season_id = ?', [team_id, season_id]); await connection.query('UPDATE Teams SET captain_player_id = ? WHERE team_id = ?', [player_id, team_id]); }
@@ -317,12 +317,12 @@ exports.removePlayerFromTeam = async (req, res, next) => {
     try {
         await connection.beginTransaction();
         // Get assignment details (Keep as before)
-        const [assignmentInfo] = await connection.query(`SELECT tp.player_id, tp.team_id, t.captain_player_id FROM TeamPlayers tp JOIN Teams t ON tp.team_id = t.team_id WHERE tp.team_player_id = ?`, [teamPlayerId]);
+        const [assignmentInfo] = await connection.query(`SELECT tp.player_id, tp.team_id, t.captain_player_id FROM teamplayers tp JOIN teams t ON tp.team_id = t.team_id WHERE tp.team_player_id = ?`, [teamPlayerId]);
         if (assignmentInfo.length === 0) { await connection.rollback(); return res.status(404).json({ message: 'Team player assignment not found.' }); }
         const { player_id, team_id, captain_player_id } = assignmentInfo[0];
 
         // Delete assignment (Keep as before)
-        const [deleteResult] = await connection.query('DELETE FROM TeamPlayers WHERE team_player_id = ?', [teamPlayerId]);
+        const [deleteResult] = await connection.query('DELETE FROM teamplayers WHERE team_player_id = ?', [teamPlayerId]);
         if (deleteResult.affectedRows === 0) { await connection.rollback(); return res.status(404).json({ message: 'Team player assignment could not be deleted (not found?).' }); }
 
         // Handle captain (Keep as before)
@@ -354,12 +354,12 @@ exports.removePlayerFromTeam = async (req, res, next) => {
 //     // CHECK YOUR SCHEMA CONSTRAINTS CAREFULLY!
 //     try {
 //         // Check existence first
-//         const [existing] = await pool.query('SELECT team_id FROM Teams WHERE team_id = ?', [id]);
+//         const [existing] = await pool.query('SELECT team_id FROM teams WHERE team_id = ?', [id]);
 //         if (existing.length === 0) {
 //             return res.status(404).json({ message: 'Team not found.' });
 //         }
 //         // Perform delete
-//         const [result] = await pool.query('DELETE FROM Teams WHERE team_id = ?', [id]);
+//         const [result] = await pool.query('DELETE FROM teams WHERE team_id = ?', [id]);
 //         if (result.affectedRows === 0) {
 //              return res.status(404).json({ message: 'Team not found or could not be deleted.' });
 //         }

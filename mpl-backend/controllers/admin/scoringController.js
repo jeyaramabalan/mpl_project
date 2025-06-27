@@ -117,9 +117,9 @@ exports.getMatchesForSetup = async (req, res, next) => {
     try {
         const query = `
             SELECT m.match_id, m.match_datetime, t1.name as team1_name, t2.name as team2_name, t1.team_id as team1_id, t2.team_id as team2_id
-            FROM Matches m
-            JOIN Teams t1 ON m.team1_id = t1.team_id
-            JOIN Teams t2 ON m.team2_id = t2.team_id
+            FROM matches m
+            JOIN teams t1 ON m.team1_id = t1.team_id
+            JOIN teams t2 ON m.team2_id = t2.team_id
             WHERE m.status = 'Scheduled'
             ORDER BY m.match_datetime ASC
         `;
@@ -157,7 +157,7 @@ exports.submitMatchSetup = async (req, res, next) => {
         console.log(`--- Starting Setup for Match ${matchId} ---`);
 
         // 1. Check Match Status & Get Details
-        const [matchCheck] = await connection.query('SELECT status, team1_id, team2_id, season_id FROM Matches WHERE match_id = ? FOR UPDATE', [matchId]);
+        const [matchCheck] = await connection.query('SELECT status, team1_id, team2_id, season_id FROM matches WHERE match_id = ? FOR UPDATE', [matchId]);
         if (matchCheck.length === 0) throw new Error('Match not found.');
         if (matchCheck[0].status !== 'Scheduled') throw new Error(`Match cannot be set up. Current status: ${matchCheck[0].status}`);
         const { team1_id, team2_id, season_id } = matchCheck[0];
@@ -174,8 +174,8 @@ exports.submitMatchSetup = async (req, res, next) => {
 
         // 4. Create initial PlayerMatchStats entries
         console.log(`--- Fetching players for teams ${team1_id} and ${team2_id} ---`);
-        const [team1Players] = await connection.query('SELECT player_id FROM TeamPlayers WHERE team_id = ? AND season_id = ?', [team1_id, season_id]);
-        const [team2Players] = await connection.query('SELECT player_id FROM TeamPlayers WHERE team_id = ? AND season_id = ?', [team2_id, season_id]);
+        const [team1Players] = await connection.query('SELECT player_id FROM teamplayers WHERE team_id = ? AND season_id = ?', [team1_id, season_id]);
+        const [team2Players] = await connection.query('SELECT player_id FROM teamplayers WHERE team_id = ? AND season_id = ?', [team2_id, season_id]);
         const allPlayers = [
             ...team1Players.map(p => ({ player_id: p.player_id, team_id: team1_id })),
             ...team2Players.map(p => ({ player_id: p.player_id, team_id: team2_id }))
@@ -199,7 +199,7 @@ exports.submitMatchSetup = async (req, res, next) => {
         console.log(`--- Match ${matchId} setup committed ---`);
 
         // 6. Prepare Initial State for Frontend/Sockets
-        const fetchPlayerNames = async (playerIds) => { if (!playerIds || playerIds.length === 0) return []; const placeholders = playerIds.map(() => '?').join(','); const [names] = await pool.query(`SELECT player_id, name FROM Players WHERE player_id IN (${placeholders})`, playerIds.map(p => p.player_id)); return names; };
+        const fetchPlayerNames = async (playerIds) => { if (!playerIds || playerIds.length === 0) return []; const placeholders = playerIds.map(() => '?').join(','); const [names] = await pool.query(`SELECT player_id, name FROM players WHERE player_id IN (${placeholders})`, playerIds.map(p => p.player_id)); return names; };
         const battingTeamDbList = (decision === 'Bat' && toss_winner_team_id == team1_id) || (decision === 'Bowl' && toss_winner_team_id != team1_id) ? team1Players : team2Players;
         const bowlingTeamDbList = (decision === 'Bat' && toss_winner_team_id == team1_id) || (decision === 'Bowl' && toss_winner_team_id != team1_id) ? team2Players : team1Players;
         const battingTeamPlayerDetails = await fetchPlayerNames(battingTeamDbList);
@@ -241,7 +241,7 @@ exports.getLiveMatchState = async (req, res, next) => {
 
     try {
         // --- 1. Fetch Basic Match Details ---
-        const [matches] = await pool.query('SELECT m.*, t1.name as team1_name, t2.name as team2_name FROM Matches m join teams t1 on m.team1_id = t1.team_id join teams t2 on m.team2_id = t2.team_id WHERE m.match_id = ? ;', [matchId]);
+        const [matches] = await pool.query('SELECT m.*, t1.name as team1_name, t2.name as team2_name FROM matches m join teams t1 on m.team1_id = t1.team_id join teams t2 on m.team2_id = t2.team_id WHERE m.match_id = ? ;', [matchId]);
         if (matches.length === 0) {
             console.log(`--- getLiveMatchState: Match ${matchId} not found ---`);
             return res.status(404).json({ message: 'Match not found.' });
@@ -270,7 +270,7 @@ exports.getLiveMatchState = async (req, res, next) => {
             inningNumber = 2;
         } else if (status === 'Live') {
             // If live, check the inning of the last recorded ball
-            const [lastBall] = await pool.query('SELECT inning_number FROM BallByBall WHERE match_id = ? ORDER BY ball_id DESC LIMIT 1', [matchId]);
+            const [lastBall] = await pool.query('SELECT inning_number FROM ballbyball WHERE match_id = ? ORDER BY ball_id DESC LIMIT 1', [matchId]);
             if (lastBall.length > 0) {
                 // Trust the inning number of the last ball bowled if status is Live
                 inningNumber = lastBall[0].inning_number;
@@ -299,7 +299,7 @@ exports.getLiveMatchState = async (req, res, next) => {
         if (status === 'InningsBreak' || status === 'Completed') {
             inningNumber = 2;
         } else if (status === 'Live') {
-            const [lastBall] = await pool.query('SELECT inning_number FROM BallByBall WHERE match_id = ? ORDER BY ball_id DESC LIMIT 1', [matchId]);
+            const [lastBall] = await pool.query('SELECT inning_number FROM ballbyball WHERE match_id = ? ORDER BY ball_id DESC LIMIT 1', [matchId]);
             if (lastBall.length > 0) {
                 inningNumber = lastBall[0].inning_number;
                 // If last ball was inning 1, check if inning 1 should have ended
@@ -309,9 +309,9 @@ exports.getLiveMatchState = async (req, res, next) => {
                         SELECT
                             COUNT(CASE WHEN pms.is_out = TRUE THEN 1 END) as wickets,
                             MAX(b.over_number) as last_over_num,
-                            (SELECT COUNT(*) FROM BallByBall b2 WHERE b2.match_id = ? AND b2.inning_number = 1 AND b2.over_number = MAX(b.over_number) AND (b2.is_extra = false OR b2.extra_type = 'NoBall')) as balls_in_last_over
-                        FROM PlayerMatchStats pms
-                        LEFT JOIN BallByBall b ON pms.match_id = b.match_id AND pms.team_id = ? AND b.inning_number = 1
+                            (SELECT COUNT(*) FROM ballbyball b2 WHERE b2.match_id = ? AND b2.inning_number = 1 AND b2.over_number = MAX(b.over_number) AND (b2.is_extra = false OR b2.extra_type = 'NoBall')) as balls_in_last_over
+                        FROM playermatchstats pms
+                        LEFT JOIN ballbyball b ON pms.match_id = b.match_id AND pms.team_id = ? AND b.inning_number = 1
                         WHERE pms.match_id = ? AND pms.team_id = ?
                      `, [matchId, (decision === 'Bat' ? toss_winner_team_id : (toss_winner_team_id == team1_id ? team2_id : team1_id)), matchId, (decision === 'Bat' ? toss_winner_team_id : (toss_winner_team_id == team1_id ? team2_id : team1_id))]);
 
@@ -338,8 +338,8 @@ exports.getLiveMatchState = async (req, res, next) => {
         console.log(`--- getLiveMatchState: Determined Inning=${inningNumber}, Batting=${battingTeamId}, Bowling=${bowlingTeamId} ---`);
         */
         // --- 3. Calculate Current Score, Wickets, Overs, Target ---
-        const [summaryScoreData] = await pool.query(`SELECT SUM(runs_scored + extra_runs) as totalScore FROM BallByBall WHERE match_id = ? AND inning_number = ?`, [matchId, inningNumber]);
-        const [summaryWicketData] = await pool.query(`SELECT COUNT(*) as totalWickets FROM PlayerMatchStats WHERE match_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, battingTeamId]);
+        const [summaryScoreData] = await pool.query(`SELECT SUM(runs_scored + extra_runs) as totalScore FROM ballbyball WHERE match_id = ? AND inning_number = ?`, [matchId, inningNumber]);
+        const [summaryWicketData] = await pool.query(`SELECT COUNT(*) as totalWickets FROM playermatchstats WHERE match_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, battingTeamId]);
         const score = summaryScoreData[0]?.totalScore || 0;
         const wickets = summaryWicketData[0]?.totalWickets || 0;
 
@@ -349,7 +349,7 @@ exports.getLiveMatchState = async (req, res, next) => {
         let displayBall = 0;
         const [overProgressData] = await pool.query(`
              SELECT over_number, COUNT(*) as legal_balls
-             FROM BallByBall
+             FROM ballbyball
              WHERE match_id = ? AND inning_number = ? AND (is_extra = false)
              GROUP BY over_number ORDER BY over_number DESC LIMIT 1
          `, [matchId, inningNumber]);
@@ -375,28 +375,28 @@ exports.getLiveMatchState = async (req, res, next) => {
 
         let targetScore = null;
         if (inningNumber === 2 || status === 'InningsBreak' || status === 'Completed') {
-            const [scoreDataInning1] = await pool.query(`SELECT SUM(runs_scored + extra_runs) as score FROM BallByBall WHERE match_id = ? AND inning_number = 1`, [matchId]);
+            const [scoreDataInning1] = await pool.query(`SELECT SUM(runs_scored + extra_runs) as score FROM ballbyball WHERE match_id = ? AND inning_number = 1`, [matchId]);
             targetScore = Number((scoreDataInning1[0]?.score || 0)) + 1;
             console.log(`--- getLiveMatchState: Target Score = ${targetScore} ---`);
         }
 
         // --- 4. Fetch Player Lists, Out Batsmen, Bowler Stats ---
-        const fetchPlayerNames = async (playerIds) => { if (!playerIds || playerIds.length === 0) return []; const placeholders = playerIds.map(() => '?').join(','); const [names] = await pool.query(`SELECT player_id, name FROM Players WHERE player_id IN (${placeholders})`, playerIds.map(p => p.player_id || p)); return names; };
-        const [team1PlayersDb] = await pool.query('SELECT player_id FROM TeamPlayers WHERE team_id = ? AND season_id = ?', [team1_id, season_id]);
-        const [team2PlayersDb] = await pool.query('SELECT player_id FROM TeamPlayers WHERE team_id = ? AND season_id = ?', [team2_id, season_id]);
+        const fetchPlayerNames = async (playerIds) => { if (!playerIds || playerIds.length === 0) return []; const placeholders = playerIds.map(() => '?').join(','); const [names] = await pool.query(`SELECT player_id, name FROM players WHERE player_id IN (${placeholders})`, playerIds.map(p => p.player_id || p)); return names; };
+        const [team1PlayersDb] = await pool.query('SELECT player_id FROM teamplayers WHERE team_id = ? AND season_id = ?', [team1_id, season_id]);
+        const [team2PlayersDb] = await pool.query('SELECT player_id FROM teamplayers WHERE team_id = ? AND season_id = ?', [team2_id, season_id]);
         const team1PlayerDetails = await fetchPlayerNames(team1PlayersDb);
         const team2PlayerDetails = await fetchPlayerNames(team2PlayersDb);
         const battingPlayersList = battingTeamId === team1_id ? team1PlayerDetails : team2PlayerDetails;
         const bowlingPlayersList = bowlingTeamId === team1_id ? team1PlayerDetails : team2PlayerDetails;
 
-        const [batsmenOutStats] = await pool.query(`SELECT player_id FROM PlayerMatchStats WHERE match_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, battingTeamId]);
+        const [batsmenOutStats] = await pool.query(`SELECT player_id FROM playermatchstats WHERE match_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, battingTeamId]);
         const batsmenOutIds = batsmenOutStats.map(b => b.player_id);
 
-        const [currentBowlerStats] = await pool.query(`SELECT ps.player_id, FLOOR(ps.overs_bowled) as completed_overs,p.name as player_name FROM PlayerMatchStats ps join players p on ps.player_id = p.player_id  WHERE ps.match_id = ? AND ps.team_id = ? AND ps.overs_bowled > 0`, [matchId, bowlingTeamId]);
+        const [currentBowlerStats] = await pool.query(`SELECT ps.player_id, FLOOR(ps.overs_bowled) as completed_overs,p.name as player_name FROM playermatchstats ps join players p on ps.player_id = p.player_id  WHERE ps.match_id = ? AND ps.team_id = ? AND ps.overs_bowled > 0`, [matchId, bowlingTeamId]);
         console.log(`--- getLiveMatchState: Fetched ${batsmenOutIds.length} out batsmen, ${currentBowlerStats.length} bowlers with stats ---`);
 
         // --- 5. Fetch Recent Commentary ---
-        const [recentCommentaryData] = await pool.query(`SELECT ball_id, commentary_text FROM BallByBall WHERE match_id = ? ORDER BY ball_id DESC LIMIT 10`, [matchId]);
+        const [recentCommentaryData] = await pool.query(`SELECT ball_id, commentary_text FROM ballbyball WHERE match_id = ? ORDER BY ball_id DESC LIMIT 10`, [matchId]);
         const recentBallsSummary = recentCommentaryData.length > 0 ? recentCommentaryData.slice().reverse().map(b => b.commentary_text?.split(':')[0] || '?').join(', ') : '';
         const lastBallCommentary = recentCommentaryData[0]?.commentary_text || (status === 'Setup' ? 'Match setup complete. Select opening players.' : 'No commentary yet.');
         console.log(`--- getLiveMatchState: Last commentary event: ${lastBallCommentary} ---`);
@@ -445,7 +445,7 @@ exports.submitFinalMatchScore = async (req, res, next) => {
         let finalManOfTheMatchPlayerId = man_of_the_match_player_id || null; // Use provided if exists
         if (!finalManOfTheMatchPlayerId) {
             console.log(`--- MoM not provided for finalize, calculating... ---`);
-            const [impactStats] = await connection.query(`SELECT player_id, team_id, (batting_impact_points + bowling_impact_points + fielding_impact_points) as total_impact FROM PlayerMatchStats WHERE match_id = ? ORDER BY total_impact DESC`, [matchId]);
+            const [impactStats] = await connection.query(`SELECT player_id, team_id, (batting_impact_points + bowling_impact_points + fielding_impact_points) as total_impact FROM playermatchstats WHERE match_id = ? ORDER BY total_impact DESC`, [matchId]);
             if (impactStats.length > 0) {
                 const highestImpact = impactStats[0].total_impact;
                 let potentialMoms = impactStats.filter(p => p.total_impact === highestImpact);
@@ -589,7 +589,7 @@ exports.scoreSingleBall = async (req, res, next) => {
         await connection.beginTransaction();
 
         // --- 1. Fetch Match State & Determine Teams ---
-        const [matches] = await connection.query('SELECT status, super_over_number, team1_id, team2_id, toss_winner_team_id, decision, season_id FROM Matches WHERE match_id = ? FOR UPDATE', [matchId]);
+        const [matches] = await connection.query('SELECT status, super_over_number, team1_id, team2_id, toss_winner_team_id, decision, season_id FROM matches WHERE match_id = ? FOR UPDATE', [matchId]);
         if (matches.length === 0) throw new Error('Match not found.');
         const match = matches[0];
         let currentStatus = match.status;
@@ -598,7 +598,7 @@ exports.scoreSingleBall = async (req, res, next) => {
         let battingTeamId, bowlingTeamId;
         const { team1_id, team2_id, toss_winner_team_id, decision, season_id } = match;
         if (inningNumber == 1) { battingTeamId = (decision === 'Bat') ? toss_winner_team_id : (toss_winner_team_id == team1_id ? team2_id : team1_id); bowlingTeamId = (battingTeamId == team1_id) ? team2_id : team1_id; }
-        else { bowlingTeamId = (decision === 'Bat') ? toss_winner_team_id : (toss_winner_team_id == team1_id ? team2_id : team1_id); battingTeamId = (bowlingTeamId == team1_id) ? team2_id : team1_id; const [scoreData] = await connection.query(`SELECT SUM(runs_scored + extra_runs) as score FROM BallByBall WHERE match_id = ? AND inning_number = 1`, [matchId]); targetScore = Number((scoreData[0]?.score || 0)) + 1; }
+        else { bowlingTeamId = (decision === 'Bat') ? toss_winner_team_id : (toss_winner_team_id == team1_id ? team2_id : team1_id); battingTeamId = (bowlingTeamId == team1_id) ? team2_id : team1_id; const [scoreData] = await connection.query(`SELECT SUM(runs_scored + extra_runs) as score FROM ballbyball WHERE match_id = ? AND inning_number = 1`, [matchId]); targetScore = Number((scoreData[0]?.score || 0)) + 1; }
         console.log(`--- Scoring Ball: Match ${matchId}, Inning ${inningNumber}, Status ${currentStatus}, Batting ${battingTeamId}, Bowling ${bowlingTeamId} ---`);
 
         // --- 2. Handle Status Transition & Validation ---
@@ -608,14 +608,14 @@ exports.scoreSingleBall = async (req, res, next) => {
         if (currentStatus === 'Setup' && inningNumber == 1) { await connection.query("UPDATE Matches SET status = 'Live' WHERE match_id = ?", [matchId]); currentStatus = 'Live'; updatedStatus = 'Live'; console.log(`Match ${matchId}: Status -> Live (Inning 1 Start)`); }
         else if (currentStatus === 'InningsBreak' && inningNumber == 2) { await connection.query("UPDATE Matches SET status = 'Live' WHERE match_id = ?", [matchId]); currentStatus = 'Live'; updatedStatus = 'Live'; console.log(`Match ${matchId}: Status -> Live (Inning 2 Start). Target: ${targetScore}.`); }
         else if (currentStatus === 'Live') {
-            const [batsmanOutCheck] = await connection.query(`SELECT 1 FROM PlayerMatchStats WHERE match_id = ? AND player_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, batsmanOnStrikePlayerId, battingTeamId]); if (batsmanOutCheck.length > 0) throw new Error(`Batsman ${batsmanOnStrikePlayerId} is already out.`);
+            const [batsmanOutCheck] = await connection.query(`SELECT 1 FROM playermatchstats WHERE match_id = ? AND player_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, batsmanOnStrikePlayerId, battingTeamId]); if (batsmanOutCheck.length > 0) throw new Error(`Batsman ${batsmanOnStrikePlayerId} is already out.`);
 
             // --- Determine Over/Ball Sequence FIRST ---
             // We need dbOverNumber before checking bowler eligibility for the *new* over
-            const [lastBallInfo] = await connection.query(`SELECT over_number, ball_number_in_over, bowler_player_id FROM BallByBall WHERE match_id = ? AND inning_number = ? ORDER BY ball_id DESC LIMIT 1`, [matchId, inningNumber]); // Fetch bowler_id too
+            const [lastBallInfo] = await connection.query(`SELECT over_number, ball_number_in_over, bowler_player_id FROM ballbyball WHERE match_id = ? AND inning_number = ? ORDER BY ball_id DESC LIMIT 1`, [matchId, inningNumber]); // Fetch bowler_id too
             if (lastBallInfo.length > 0) {
                 const lastBall = lastBallInfo[0];
-                const [legalBallsData] = await connection.query(`SELECT COUNT(*) as count FROM BallByBall WHERE match_id = ? AND inning_number = ? AND over_number = ? AND (is_extra = false)`, [matchId, inningNumber, lastBall.over_number]);
+                const [legalBallsData] = await connection.query(`SELECT COUNT(*) as count FROM ballbyball WHERE match_id = ? AND inning_number = ? AND over_number = ? AND (is_extra = false)`, [matchId, inningNumber, lastBall.over_number]);
                 const legalBallsInLastOverCount = legalBallsData[0]?.count || 0;
                 dbBallNumberInOver = lastBall.ball_number_in_over + 1;
                 if (legalBallsInLastOverCount >= 6) { // If starting a NEW over
@@ -636,7 +636,7 @@ exports.scoreSingleBall = async (req, res, next) => {
 
 
             // --- Now perform Bowler Eligibility Checks ---
-            const [bowlerOversData] = await connection.query(`SELECT ps.player_id, FLOOR(ps.overs_bowled) as completed_overs,p.name as player_name FROM PlayerMatchStats ps join players p on ps.player_id = p.player_id  WHERE ps.match_id = ? AND ps.team_id = ? AND ps.overs_bowled > 0`, [matchId, bowlingTeamId]);
+            const [bowlerOversData] = await connection.query(`SELECT ps.player_id, FLOOR(ps.overs_bowled) as completed_overs,p.name as player_name FROM playermatchstats ps join players p on ps.player_id = p.player_id  WHERE ps.match_id = ? AND ps.team_id = ? AND ps.overs_bowled > 0`, [matchId, bowlingTeamId]);
             let twoOverBowlerExists = false; let currentBowlerCompletedOvers = 0;
             let didCurrentBowlerBowlSuperOver = false; // ADDED: Check if current bowler bowled the super over
 
@@ -645,7 +645,7 @@ exports.scoreSingleBall = async (req, res, next) => {
                 if (b.player_id === bowlerPlayerId) {
                     currentBowlerCompletedOvers = b.completed_overs;
                     // Check if this bowler bowled the designated super over
-                    // We need to query BallByBall again for this specific bowler and super over number
+                    // We need to query ballbyball again for this specific bowler and super over number
                     // This check is done after the loop for clarity
                 }
             });
@@ -665,8 +665,8 @@ exports.scoreSingleBall = async (req, res, next) => {
             // Check 4: Super Over bowler limitation (only applies if they completed at least one over)
             // Fetch if this bowler bowled the super over
             const [superOverCheck] = await connection.query( // ADDED CHECK
-                `SELECT 1 FROM BallByBall b
-                 JOIN Matches m ON b.match_id = m.match_id
+                `SELECT 1 FROM ballbyball b
+                 JOIN matches m ON b.match_id = m.match_id
                  WHERE b.match_id = ?
                    AND b.inning_number = ?
                    AND b.bowler_player_id = ?
@@ -724,10 +724,10 @@ exports.scoreSingleBall = async (req, res, next) => {
         if (extraType === 'NoBall' && runsScored > 0 && isBye) commentary += `(+${runsScored} bye). `;
         commentary = commentary.trim();
 
-        // --- 5. Insert into BallByBall table ---
+        // --- 5. Insert into ballbyball table ---
         const finalFielderId = (isWicket && ['Caught', 'Stumped'].includes(wicketType)) ? fielderPlayerId : null;
         console.log(`--- Inserting Ball: ${commentary} ---`);
-        const [ballResult] = await connection.query(`INSERT INTO BallByBall (match_id, inning_number, over_number, ball_number_in_over, bowler_player_id, batsman_on_strike_player_id, runs_scored, is_bye, is_extra, extra_type, extra_runs, is_wicket, wicket_type, fielder_player_id, commentary_text) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [matchId, inningNumber, dbOverNumber, dbBallNumberInOver, bowlerPlayerId, batsmanOnStrikePlayerId, actualRunsOffBat, isBye || false, isExtra || false, extraType || null, parseInt(extraRuns || 0), isWicket || false, wicketType || null, finalFielderId, commentary]); const newBallId = ballResult.insertId;
+        const [ballResult] = await connection.query(`INSERT INTO ballbyball (match_id, inning_number, over_number, ball_number_in_over, bowler_player_id, batsman_on_strike_player_id, runs_scored, is_bye, is_extra, extra_type, extra_runs, is_wicket, wicket_type, fielder_player_id, commentary_text) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [matchId, inningNumber, dbOverNumber, dbBallNumberInOver, bowlerPlayerId, batsmanOnStrikePlayerId, actualRunsOffBat, isBye || false, isExtra || false, extraType || null, parseInt(extraRuns || 0), isWicket || false, wicketType || null, finalFielderId, commentary]); const newBallId = ballResult.insertId;
 
         // --- 6. Calculate Impact Points --- 
         const impactPoints = calculateImpactPoints({ runs_scored: runsScored, is_extra: isExtra, extra_type: extraType, extra_runs: extraRuns, is_wicket: isWicket, wicket_type: wicketType, is_bye: isBye });
@@ -740,7 +740,7 @@ exports.scoreSingleBall = async (req, res, next) => {
             [actualRunsOffBat, isLegalDelivery ? 1 : 0, (runsScored == 4 && !isExtra && !isBye) ? 1 : 0, (runsScored == 2 && !isExtra && !isBye) ? 1 : 0, isWicket, isWicket, wicketType || null, impactPoints.batsman, matchId, batsmanOnStrikePlayerId]); // Added impactPoints.batsman
 
         // Update Bowler: Add bowling_impact_points update
-        const [currentBowlerStatsData] = await connection.query('SELECT overs_bowled FROM PlayerMatchStats WHERE match_id = ? AND player_id = ?', [matchId, bowlerPlayerId]); const currentOversDecimal = currentBowlerStatsData[0]?.overs_bowled || 0.0; const newOversDecimal = calculateNewOversDecimal(currentOversDecimal, isLegalDelivery);
+        const [currentBowlerStatsData] = await connection.query('SELECT overs_bowled FROM playermatchstats WHERE match_id = ? AND player_id = ?', [matchId, bowlerPlayerId]); const currentOversDecimal = currentBowlerStatsData[0]?.overs_bowled || 0.0; const newOversDecimal = calculateNewOversDecimal(currentOversDecimal, isLegalDelivery);
         await connection.query(`UPDATE PlayerMatchStats SET overs_bowled = ?, runs_conceded = runs_conceded + ?, wickets_taken = wickets_taken + ?, wides = wides + ?, no_balls = no_balls + ?, maidens = maidens + ?, bowling_impact_points = bowling_impact_points + ? WHERE match_id = ? AND player_id = ?`,
             [newOversDecimal, runsForBowler, (isWicket && !['Run Out'].includes(wicketType)) ? 1 : 0, extraType === 'Wide' ? 1 : 0, extraType === 'NoBall' ? 1 : 0, 0 /* Maiden TBD */, impactPoints.bowler, matchId, bowlerPlayerId]); // Added impactPoints.bowler
 
@@ -757,7 +757,7 @@ exports.scoreSingleBall = async (req, res, next) => {
         let winnerTeamId = null;
         const maxOvers = 5;
         const maxWickets = 5;
-        const [progressInfo] = await connection.query(`SELECT COUNT(*) as wickets_this_inning FROM PlayerMatchStats WHERE match_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, battingTeamId]); const [legalBallsDataCurrent] = await connection.query(`SELECT COUNT(*) as count FROM BallByBall WHERE match_id = ? AND inning_number = ? AND over_number = ? AND (is_extra = false)`, [matchId, inningNumber, dbOverNumber]);
+        const [progressInfo] = await connection.query(`SELECT COUNT(*) as wickets_this_inning FROM playermatchstats WHERE match_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, battingTeamId]); const [legalBallsDataCurrent] = await connection.query(`SELECT COUNT(*) as count FROM ballbyball WHERE match_id = ? AND inning_number = ? AND over_number = ? AND (is_extra = false)`, [matchId, inningNumber, dbOverNumber]);
         const totalWicketsThisInning = progressInfo[0].wickets_this_inning || 0;
         const legalBallsThisOver = legalBallsDataCurrent[0].count || 0;
         let inningsEndReason = null;
@@ -779,12 +779,12 @@ exports.scoreSingleBall = async (req, res, next) => {
 
 
                 // Calculate winner/result
-                const [finalScores] = await connection.query(`SELECT inning_number, SUM(runs_scored + extra_runs) as total_score FROM BallByBall WHERE match_id = ? GROUP BY inning_number ORDER BY inning_number`, [matchId]); const inn1Score = finalScores.find(s => s.inning_number === 1)?.total_score || 0; const inn2Score = finalScores.find(s => s.inning_number === 2)?.total_score || 0;
+                const [finalScores] = await connection.query(`SELECT inning_number, SUM(runs_scored + extra_runs) as total_score FROM ballbyball WHERE match_id = ? GROUP BY inning_number ORDER BY inning_number`, [matchId]); const inn1Score = finalScores.find(s => s.inning_number === 1)?.total_score || 0; const inn2Score = finalScores.find(s => s.inning_number === 2)?.total_score || 0;
                 if (inn2Score >= targetScore) {
                     winnerTeamId = battingTeamId;
                     winnerTeamName = winnerTeamId;
                     try {
-                        const [t1] = await connection.query('SELECT name FROM Teams WHERE team_id = ?', [winnerTeamId]);
+                        const [t1] = await connection.query('SELECT name FROM teams WHERE team_id = ?', [winnerTeamId]);
                         if (t1.length > 0) winnerTeamName = t1[0].name;
 
                     } catch (nameError) {
@@ -797,7 +797,7 @@ exports.scoreSingleBall = async (req, res, next) => {
                     winnerTeamId = bowlingTeamId;
                     winnerTeamName = winnerTeamId;
                     try {
-                        const [t1] = await connection.query('SELECT name FROM Teams WHERE team_id = ?', [winnerTeamId]);
+                        const [t1] = await connection.query('SELECT name FROM teams WHERE team_id = ?', [winnerTeamId]);
                         if (t1.length > 0) winnerTeamName = t1[0].name;
 
                     } catch (nameError) {
@@ -812,7 +812,7 @@ exports.scoreSingleBall = async (req, res, next) => {
                 console.log(`Match ${matchId}: Innings 2 ended. Status -> Completed. Result: ${resultSummary}`);
             }
         } else if (inningNumber === 2 && targetScore !== null) {
-            const [currentInningScoreData] = await connection.query(`SELECT SUM(runs_scored + extra_runs) as score FROM BallByBall WHERE match_id = ? AND inning_number = 2`, [matchId]); const currentInningScore = currentInningScoreData[0]?.score || 0;
+            const [currentInningScoreData] = await connection.query(`SELECT SUM(runs_scored + extra_runs) as score FROM ballbyball WHERE match_id = ? AND inning_number = 2`, [matchId]); const currentInningScore = currentInningScoreData[0]?.score || 0;
             if (currentInningScore >= targetScore) {
                 inningsEnded = true;
                 matchCompleted = true;
@@ -820,7 +820,7 @@ exports.scoreSingleBall = async (req, res, next) => {
                 winnerTeamId = battingTeamId;
                 winnerTeamName = winnerTeamId;
                 try {
-                    const [t1] = await connection.query('SELECT name FROM Teams WHERE team_id = ?', [winnerTeamId]);
+                    const [t1] = await connection.query('SELECT name FROM teams WHERE team_id = ?', [winnerTeamId]);
                     if (t1.length > 0) winnerTeamName = t1[0].name;
 
                 } catch (nameError) {
@@ -838,7 +838,7 @@ exports.scoreSingleBall = async (req, res, next) => {
             console.log(`--- Match ${matchId} Completed. Calculating Man of the Match ---`);
             const [impactStats] = await connection.query(`
                 SELECT player_id, team_id, (batting_impact_points + bowling_impact_points + fielding_impact_points) as total_impact
-                FROM PlayerMatchStats WHERE match_id = ? ORDER BY total_impact DESC
+                FROM playermatchstats WHERE match_id = ? ORDER BY total_impact DESC
             `, [matchId]);
             if (impactStats.length > 0) {
                 const highestImpact = impactStats[0].total_impact;
@@ -860,7 +860,7 @@ exports.scoreSingleBall = async (req, res, next) => {
             await connection.query("UPDATE Matches SET status = ?, winner_team_id = ?, result_summary = ?, man_of_the_match_player_id = ? WHERE match_id = ?",
                 [updatedStatus, winnerTeamId, resultSummary, manOfTheMatchPlayerId, matchId]); // Added manOfTheMatchPlayerId
         }
-        if (inningsEnded || matchCompleted) { await connection.query("UPDATE BallByBall SET commentary_text = ? WHERE ball_id = ?", [commentary.trim(), newBallId]); }
+        if (inningsEnded || matchCompleted) { await connection.query("UPDATE ballbyball SET commentary_text = ? WHERE ball_id = ?", [commentary.trim(), newBallId]); }
         // --- 8. Commit Transaction ---
         await connection.commit();
         console.log(`--- Ball ${newBallId} scoring committed ---`);
@@ -927,7 +927,7 @@ exports.undoLastBall = async (req, res, next) => {
         console.log(`--- Starting UNDO for Match ${matchId} ---`);
 
         // 1. Find the last ball record
-        const [lastBallArr] = await connection.query(`SELECT * FROM BallByBall WHERE match_id = ? ORDER BY ball_id DESC LIMIT 1 FOR UPDATE`, [matchId]);
+        const [lastBallArr] = await connection.query(`SELECT * FROM ballbyball WHERE match_id = ? ORDER BY ball_id DESC LIMIT 1 FOR UPDATE`, [matchId]);
         if (lastBallArr.length === 0) throw new Error('No balls recorded yet to undo.');
         const lastBall = lastBallArr[0];
         const { ball_id, inningNumber, over_number, bowler_player_id, batsman_on_strike_player_id, runs_scored, is_bye, is_extra, extra_type, extra_runs, is_wicket, wicket_type, fielder_player_id } = lastBall;
@@ -940,7 +940,7 @@ exports.undoLastBall = async (req, res, next) => {
         console.log(`--- Undoing Ball ID: ${ball_id}, Inning: ${inningNumber}, Over: ${over_number} ---`);
 
         // 2. Fetch Match state & details
-        const [matches] = await connection.query('SELECT status, team1_id, team2_id, toss_winner_team_id, decision, season_id, winner_team_id, result_summary, super_over_number FROM Matches WHERE match_id = ? FOR UPDATE', [matchId]);
+        const [matches] = await connection.query('SELECT status, team1_id, team2_id, toss_winner_team_id, decision, season_id, winner_team_id, result_summary, super_over_number FROM matches WHERE match_id = ? FOR UPDATE', [matchId]);
         if (matches.length === 0) throw new Error('Match not found.');
         const match = matches[0];
         let currentStatus = match.status;
@@ -962,7 +962,7 @@ exports.undoLastBall = async (req, res, next) => {
         // Revert Batsman
         await connection.query(`UPDATE PlayerMatchStats SET runs_scored = GREATEST(0, runs_scored - ?), balls_faced = GREATEST(0, balls_faced - ?), fours = GREATEST(0, fours - ?), twos = GREATEST(0, twos - ?), is_out = IF(? = TRUE AND how_out = ?, FALSE, is_out), how_out = IF(? = TRUE AND how_out = ?, NULL, how_out) WHERE match_id = ? AND player_id = ?`, [actualRunsOffBat, isLegalDelivery ? 1 : 0, (runs_scored == 4 && !isExtra && !isBye) ? 1 : 0, (runs_scored == 2 && !isExtra && !isBye) ? 1 : 0, isWicket, wicketType, isWicket, wicketType, matchId, batsman_on_strike_player_id]);
         // Revert Bowler (using accurate reversal logic)
-        const [bowlerStatsData] = await connection.query('SELECT overs_bowled FROM PlayerMatchStats WHERE match_id = ? AND player_id = ?', [matchId, bowler_player_id]);
+        const [bowlerStatsData] = await connection.query('SELECT overs_bowled FROM playermatchstats WHERE match_id = ? AND player_id = ?', [matchId, bowler_player_id]);
         const currentOversDecimal = bowlerStatsData.length > 0 ? (bowlerStatsData[0].overs_bowled || 0) : 0;
         let previousOversDecimal = currentOversDecimal; if (isLegalDelivery && currentOversDecimal > 0) { const currentOvers = Math.floor(currentOversDecimal); const currentBalls = Math.round((currentOversDecimal - currentOvers) * 10); if (currentBalls === 1 && currentOvers > 0) { previousOversDecimal = parseFloat(`${currentOvers - 1}.5`); } else if (currentBalls > 0) { previousOversDecimal = parseFloat(`${currentOvers}.${currentBalls - 1}`); } else { /* Edge case 0.0 remains 0.0 */ previousOversDecimal = 0.0; } }
         await connection.query(`UPDATE PlayerMatchStats SET overs_bowled = ?, runs_conceded = GREATEST(0, runs_conceded - ?), wickets_taken = GREATEST(0, wickets_taken - ?), wides = GREATEST(0, wides - ?), no_balls = GREATEST(0, no_balls - ?) WHERE match_id = ? AND player_id = ?`, [Math.max(0, previousOversDecimal), runsForBowler, (isWicket && !['Run Out'].includes(wicketType)) ? 1 : 0, extraType === 'Wide' ? 1 : 0, extraType === 'NoBall' ? 1 : 0, matchId, bowler_player_id]);
@@ -988,14 +988,14 @@ exports.undoLastBall = async (req, res, next) => {
                 [lastBall.wicket_type === 'Caught' ? 1 : 0, lastBall.wicket_type === 'Stumped' ? 1 : 0, impactPointsToReverse.fielder, matchId, fielder_player_id]); // Subtracted impact
         }
 
-        // --- 4. Delete the last BallByBall record ---
+        // --- 4. Delete the last ballbyball record ---
         console.log(`--- Deleting Ball ID: ${ball_id} ---`);
-        await connection.query("DELETE FROM BallByBall WHERE ball_id = ?", [ball_id]);
+        await connection.query("DELETE FROM ballbyball WHERE ball_id = ?", [ball_id]);
 
         // --- 5. Revert Match Status if necessary ---
         let newStatus = currentStatus; let revertStatus = false; const maxOvers = 5; const maxWickets = 5;
-        const [prevProgressInfo] = await connection.query(`SELECT COUNT(*) as wickets_this_inning FROM PlayerMatchStats WHERE match_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, battingTeamId]);
-        const [prevOverProgress] = await pool.query(`SELECT over_number, COUNT(*) as legal_balls FROM BallByBall WHERE match_id = ? AND inning_number = ? AND (is_extra = false) GROUP BY over_number ORDER BY over_number DESC LIMIT 1`, [matchId, inningNumber]);
+        const [prevProgressInfo] = await connection.query(`SELECT COUNT(*) as wickets_this_inning FROM playermatchstats WHERE match_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, battingTeamId]);
+        const [prevOverProgress] = await pool.query(`SELECT over_number, COUNT(*) as legal_balls FROM ballbyball WHERE match_id = ? AND inning_number = ? AND (is_extra = false) GROUP BY over_number ORDER BY over_number DESC LIMIT 1`, [matchId, inningNumber]);
         const prevLastLegalOverNum = prevOverProgress[0]?.over_number || 0;
         const ballsInPrevLastLegalOver = prevOverProgress[0]?.legal_balls || 0;
 
@@ -1014,9 +1014,9 @@ exports.undoLastBall = async (req, res, next) => {
         else if (currentStatus === 'Completed' && inningNumber === 2) {
             let wasTargetAchievedBefore = false;
             if (!prevInningsEndReason) { // Check target achievement only if innings didn't end for other reasons
-                const [prevInn2ScoreData] = await connection.query(`SELECT SUM(runs_scored + extra_runs) as score FROM BallByBall WHERE match_id = ? AND inning_number = 2`, [matchId]); // Score AFTER deleting ball
+                const [prevInn2ScoreData] = await connection.query(`SELECT SUM(runs_scored + extra_runs) as score FROM ballbyball WHERE match_id = ? AND inning_number = 2`, [matchId]); // Score AFTER deleting ball
                 const prevInn2Score = prevInn2ScoreData[0]?.score || 0;
-                const [inn1ScoreData] = await connection.query(`SELECT SUM(runs_scored + extra_runs) as score FROM BallByBall WHERE match_id = ? AND inning_number = 1`, [matchId]);
+                const [inn1ScoreData] = await connection.query(`SELECT SUM(runs_scored + extra_runs) as score FROM ballbyball WHERE match_id = ? AND inning_number = 1`, [matchId]);
                 const targetScore = Number((inn1ScoreData[0]?.score || 0)) + 1;
                 wasTargetAchievedBefore = prevInn2Score >= targetScore;
             }

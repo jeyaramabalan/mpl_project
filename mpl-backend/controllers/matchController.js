@@ -19,12 +19,12 @@ exports.getFixtures = async (req, res, next) => {
                 m.team2_id, t2.name as team2_name,
                 m.winner_team_id, wt.name as winner_team_name,
                 m.man_of_the_match_player_id, mom.name as man_of_the_match_name
-            FROM Matches m
-            JOIN Seasons s ON m.season_id = s.season_id
-            JOIN Teams t1 ON m.team1_id = t1.team_id
-            JOIN Teams t2 ON m.team2_id = t2.team_id
-            LEFT JOIN Teams wt ON m.winner_team_id = wt.team_id
-            LEFT JOIN Players mom ON m.man_of_the_match_player_id = mom.player_id
+            FROM matches m
+            JOIN seasons s ON m.season_id = s.season_id
+            JOIN teams t1 ON m.team1_id = t1.team_id
+            JOIN teams t2 ON m.team2_id = t2.team_id
+            LEFT JOIN teams wt ON m.winner_team_id = wt.team_id
+            LEFT JOIN players mom ON m.man_of_the_match_player_id = mom.player_id
 
         `;
         const params = [];
@@ -90,13 +90,13 @@ exports.getMatchDetails = async (req, res, next) => {
                 twt.name as toss_winner_name, -- Name of team that won toss
                 wt.name as winner_team_name,  -- Name of winning team (if completed)
                 mom.name as man_of_the_match_name -- Name of MoM (if set)
-            FROM Matches m
-            JOIN Seasons s ON m.season_id = s.season_id
-            JOIN Teams t1 ON m.team1_id = t1.team_id
-            JOIN Teams t2 ON m.team2_id = t2.team_id
-            LEFT JOIN Teams twt ON m.toss_winner_team_id = twt.team_id
-            LEFT JOIN Teams wt ON m.winner_team_id = wt.team_id
-            LEFT JOIN Players mom ON m.man_of_the_match_player_id = mom.player_id
+            FROM matches m
+            JOIN seasons s ON m.season_id = s.season_id
+            JOIN teams t1 ON m.team1_id = t1.team_id
+            JOIN teams t2 ON m.team2_id = t2.team_id
+            LEFT JOIN teams twt ON m.toss_winner_team_id = twt.team_id
+            LEFT JOIN teams wt ON m.winner_team_id = wt.team_id
+            LEFT JOIN players mom ON m.man_of_the_match_player_id = mom.player_id
             WHERE m.match_id = ?
         `;
         const [matches] = await pool.query(query, [id]);
@@ -116,9 +116,9 @@ exports.getMatchDetails = async (req, res, next) => {
                     p.name as player_name,
                      -- Determine which team (1 or 2) this player belongs to for display grouping
                     CASE WHEN pms.team_id = m.team1_id THEN 1 ELSE 2 END as team_number
-                 FROM PlayerMatchStats pms
-                 JOIN Players p ON pms.player_id = p.player_id
-                 JOIN Matches m ON pms.match_id = m.match_id -- Join Matches to determine team number
+                 FROM playermatchstats pms
+                 JOIN players p ON pms.player_id = p.player_id
+                 JOIN matches m ON pms.match_id = m.match_id -- Join Matches to determine team number
                  WHERE pms.match_id = ?
                  ORDER BY team_number, p.name`, // Order by team, then player name for scorecard
                 [id]
@@ -150,10 +150,10 @@ exports.getMatchCommentary = async (req, res, next) => {
                 batsman.name as batsman_name,
                 bowler.name as bowler_name,
                 fielder.name as fielder_name
-             FROM BallByBall b
-             JOIN Players batsman ON b.batsman_on_strike_player_id = batsman.player_id
-             JOIN Players bowler ON b.bowler_player_id = bowler.player_id
-             LEFT JOIN Players fielder ON b.fielder_player_id = fielder.player_id
+             FROM ballbyball b
+             JOIN players batsman ON b.batsman_on_strike_player_id = batsman.player_id
+             JOIN players bowler ON b.bowler_player_id = bowler.player_id
+             LEFT JOIN players fielder ON b.fielder_player_id = fielder.player_id
              WHERE b.match_id = ?
              ORDER BY b.inning_number ASC, b.over_number ASC, b.ball_number_in_over ASC, b.ball_id ASC`,
             [id]

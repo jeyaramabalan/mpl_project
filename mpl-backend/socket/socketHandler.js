@@ -14,7 +14,7 @@ let liveMatchesState = {};
 //     batsmanStrike: { id: 101, name: 'Rohit Sharma', runs: 35, balls: 20 }, // Might be simplified or part of players list
 //     bowler: { id: 110, name: 'Yuzvendra Chahal', oversDecimal: 0.0, runs: 8, wickets: 0 }, // Simplified
 //     lastEvent: "Ball 4.6: WICKET! Caught (Hit Six). Innings End.",
-//     lastBallCommentary: "Over 4.6: Chahal to Rohit Sharma, WICKET! Caught by Kohli (Hit Six!)", // From BallByBall table via backend emit
+//     lastBallCommentary: "Over 4.6: Chahal to Rohit Sharma, WICKET! Caught by Kohli (Hit Six!)", // From ballbyball table via backend emit
 //     recentCommentary: ["Over 4.6: ...", "Over 4.5: ..."] // Array of recent commentary strings
 //   },
 //   ...
@@ -106,7 +106,7 @@ function initializeSocket(io) {
 
 
         // --- IMPORTANT: 'scoreBall' listener is REMOVED ---
-        // The logic for processing a ball, updating the database (BallByBall, PlayerMatchStats),
+        // The logic for processing a ball, updating the database (ballbyball, PlayerMatchStats),
         // calculating the new state, and determining end of over/innings/match
         // now resides in the backend HTTP endpoint controller: `controllers/admin/scoringController.js -> scoreSingleBall`.
         // That controller function, AFTER successfully committing database changes,

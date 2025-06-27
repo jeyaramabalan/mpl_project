@@ -22,7 +22,7 @@ async function validateTeamsForSeason(teamIds, seasonId, connection) {
     }
 
     const placeholders = uniqueTeamIds.map(() => '?').join(',');
-    const sql = `SELECT COUNT(DISTINCT team_id) as count FROM Teams WHERE season_id = ? AND team_id IN (${placeholders})`;
+    const sql = `SELECT COUNT(DISTINCT team_id) as count FROM teams WHERE season_id = ? AND team_id IN (${placeholders})`;
     const params = [parseInt(seasonId), ...uniqueTeamIds];
 
     // Use provided connection (if in transaction) or default pool
@@ -56,7 +56,7 @@ exports.createMatch = async (req, res, next) => {
         await connection.beginTransaction();
 
         // Validate season exists
-        const [seasonCheck] = await connection.query('SELECT 1 FROM Seasons WHERE season_id = ?', [season_id]);
+        const [seasonCheck] = await connection.query('SELECT 1 FROM seasons WHERE season_id = ?', [season_id]);
         if (seasonCheck.length === 0) {
             throw new Error(`Season with ID ${season_id} not found.`);
         }
@@ -80,9 +80,9 @@ exports.createMatch = async (req, res, next) => {
         // Fetch the created match with team names to return it
         const [newMatch] = await pool.query(
              `SELECT m.*, t1.name as team1_name, t2.name as team2_name
-              FROM Matches m
-              JOIN Teams t1 ON m.team1_id = t1.team_id
-              JOIN Teams t2 ON m.team2_id = t2.team_id
+              FROM matches m
+              JOIN teams t1 ON m.team1_id = t1.team_id
+              JOIN teams t2 ON m.team2_id = t2.team_id
               WHERE m.match_id = ?`, [newMatchId]);
 
         // Check if the fetch returned the match (it should)
@@ -119,12 +119,12 @@ exports.getAllMatches = async (req, res, next) => {
                 t2.name as team2_name, t2.team_id as team2_id,
                 wt.name as winner_team_name,
                 mom.name as man_of_the_match_name
-            FROM Matches m
-            JOIN Seasons s ON m.season_id = s.season_id
-            JOIN Teams t1 ON m.team1_id = t1.team_id
-            JOIN Teams t2 ON m.team2_id = t2.team_id
-            LEFT JOIN Teams wt ON m.winner_team_id = wt.team_id
-            LEFT JOIN Players mom ON m.man_of_the_match_player_id = mom.player_id
+            FROM matches m
+            JOIN seasons s ON m.season_id = s.season_id
+            JOIN teams t1 ON m.team1_id = t1.team_id
+            JOIN teams t2 ON m.team2_id = t2.team_id
+            LEFT JOIN teams wt ON m.winner_team_id = wt.team_id
+            LEFT JOIN players mom ON m.man_of_the_match_player_id = mom.player_id
         `;
         const params = [];
         const conditions = [];
@@ -168,10 +168,10 @@ exports.getAllMatches = async (req, res, next) => {
     try {
          let query = `
             SELECT m.*, s.name as season_name, t1.name as team1_name, t2.name as team2_name
-            FROM Matches m
-            JOIN Seasons s ON m.season_id = s.season_id
-            JOIN Teams t1 ON m.team1_id = t1.team_id
-            JOIN Teams t2 ON m.team2_id = t2.team_id
+            FROM matches m
+            JOIN seasons s ON m.season_id = s.season_id
+            JOIN teams t1 ON m.team1_id = t1.team_id
+            JOIN teams t2 ON m.team2_id = t2.team_id
             WHERE m.match_id = ?`;
         const [matches] = await pool.query(query, [id]);
 
@@ -220,7 +220,7 @@ exports.updateMatch = async (req, res, next) => {
 
         // Fetch existing match for validation
         const [existingMatches] = await connection.query(
-            'SELECT season_id, status, team1_id as current_team1, team2_id as current_team2 FROM Matches WHERE match_id = ? FOR UPDATE',
+            'SELECT season_id, status, team1_id as current_team1, team2_id as current_team2 FROM matches WHERE match_id = ? FOR UPDATE',
             [matchId]
         );
         if (existingMatches.length === 0) {
@@ -282,9 +282,9 @@ exports.updateMatch = async (req, res, next) => {
         // Fetch updated match data with team names to return
         const [updatedMatch] = await pool.query(
             `SELECT m.*, t1.name as team1_name, t2.name as team2_name
-             FROM Matches m
-             JOIN Teams t1 ON m.team1_id = t1.team_id
-             JOIN Teams t2 ON m.team2_id = t2.team_id
+             FROM matches m
+             JOIN teams t1 ON m.team1_id = t1.team_id
+             JOIN teams t2 ON m.team2_id = t2.team_id
              WHERE m.match_id = ?`, [matchId]);
 
         res.json({ message: 'Match updated successfully', match: updatedMatch[0] });
@@ -313,7 +313,7 @@ exports.deleteMatch = async (req, res, next) => {
          await connection.beginTransaction();
 
          // Check if match exists and its status before attempting delete
-         const [existingMatches] = await connection.query('SELECT status FROM Matches WHERE match_id = ? FOR UPDATE', [matchId]);
+         const [existingMatches] = await connection.query('SELECT status FROM matches WHERE match_id = ? FOR UPDATE', [matchId]);
         if (existingMatches.length === 0) {
             await connection.rollback();
             return res.status(404).json({ message: 'Match not found.' });
@@ -326,8 +326,8 @@ exports.deleteMatch = async (req, res, next) => {
              return res.status(400).json({ message: `Cannot delete match. Only 'Scheduled' matches can be deleted (current status: '${current_status}').` });
          }
 
-        // Foreign keys to BallByBall and PlayerMatchStats should have ON DELETE CASCADE set in schema
-        const [result] = await connection.query('DELETE FROM Matches WHERE match_id = ?', [matchId]);
+        // Foreign keys to ballbyball and PlayerMatchStats should have ON DELETE CASCADE set in schema
+        const [result] = await connection.query('DELETE FROM matches WHERE match_id = ?', [matchId]);
 
         if (result.affectedRows === 0) {
             // Should not happen if the SELECT FOR UPDATE found the row
@@ -388,7 +388,7 @@ exports.resolveMatch = async (req, res, next) => {
 
         // 1. Fetch Match Details to validate winner/mom IDs if provided
         const [matches] = await connection.query(
-            'SELECT team1_id, team2_id, season_id, status as current_status FROM Matches WHERE match_id = ? FOR UPDATE',
+            'SELECT team1_id, team2_id, season_id, status as current_status FROM matches WHERE match_id = ? FOR UPDATE',
             [matchId]
         );
         if (matches.length === 0) {
@@ -409,7 +409,7 @@ exports.resolveMatch = async (req, res, next) => {
         // 3. Validate MoM Player ID (if provided) exists and belongs to one of the teams in the season
         if (momId !== null) {
              const [momPlayerCheck] = await connection.query(
-                `SELECT 1 FROM TeamPlayers tp
+                `SELECT 1 FROM teamplayers tp
                  WHERE tp.player_id = ? AND tp.season_id = ? AND (tp.team_id = ? OR tp.team_id = ?)`,
                 [momId, season_id, team1_id, team2_id]
              );
@@ -436,7 +436,7 @@ exports.resolveMatch = async (req, res, next) => {
         await connection.commit();
 
         // Fetch updated record to return
-        const [updatedMatch] = await connection.query('SELECT * FROM Matches WHERE match_id = ?', [matchId]);
+        const [updatedMatch] = await connection.query('SELECT * FROM matches WHERE match_id = ?', [matchId]);
 
         // TODO: Optionally emit a socket event ('matchEnded' or 'matchResolved') ?
         // Depends if live viewers need to see this manual resolution instantly.

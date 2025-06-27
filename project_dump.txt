@@ -2596,9 +2596,9 @@ exports.getLeaderboards = async (req, res, next) => {
                 SUM(COALESCE(pms.bowling_impact_points, 0)) as total_bowling_impact,
                 SUM(COALESCE(pms.fielding_impact_points, 0)) as total_fielding_impact,
                 SUM(COALESCE(pms.batting_impact_points, 0) + COALESCE(pms.bowling_impact_points, 0) + COALESCE(pms.fielding_impact_points, 0)) as total_impact
-            FROM PlayerMatchStats pms
-            JOIN Players p ON pms.player_id = p.player_id
-            JOIN Matches m ON pms.match_id = m.match_id
+            FROM playermatchstats pms
+            JOIN players p ON pms.player_id = p.player_id
+            JOIN matches m ON pms.match_id = m.match_id
             WHERE m.season_id = ?
             GROUP BY p.player_id, p.name
         `;
@@ -2699,12 +2699,12 @@ exports.getFixtures = async (req, res, next) => {
                 m.team2_id, t2.name as team2_name,
                 m.winner_team_id, wt.name as winner_team_name,
                 m.man_of_the_match_player_id, mom.name as man_of_the_match_name
-            FROM Matches m
-            JOIN Seasons s ON m.season_id = s.season_id
-            JOIN Teams t1 ON m.team1_id = t1.team_id
-            JOIN Teams t2 ON m.team2_id = t2.team_id
-            LEFT JOIN Teams wt ON m.winner_team_id = wt.team_id
-            LEFT JOIN Players mom ON m.man_of_the_match_player_id = mom.player_id
+            FROM matches m
+            JOIN seasons s ON m.season_id = s.season_id
+            JOIN teams t1 ON m.team1_id = t1.team_id
+            JOIN teams t2 ON m.team2_id = t2.team_id
+            LEFT JOIN teams wt ON m.winner_team_id = wt.team_id
+            LEFT JOIN players mom ON m.man_of_the_match_player_id = mom.player_id
         `;
         const params = [];
         const conditions = [];
@@ -2769,13 +2769,13 @@ exports.getMatchDetails = async (req, res, next) => {
                 twt.name as toss_winner_name, -- Name of team that won toss
                 wt.name as winner_team_name,  -- Name of winning team (if completed)
                 mom.name as man_of_the_match_name -- Name of MoM (if set)
-            FROM Matches m
-            JOIN Seasons s ON m.season_id = s.season_id
-            JOIN Teams t1 ON m.team1_id = t1.team_id
-            JOIN Teams t2 ON m.team2_id = t2.team_id
-            LEFT JOIN Teams twt ON m.toss_winner_team_id = twt.team_id
-            LEFT JOIN Teams wt ON m.winner_team_id = wt.team_id
-            LEFT JOIN Players mom ON m.man_of_the_match_player_id = mom.player_id
+            FROM matches m
+            JOIN seasons s ON m.season_id = s.season_id
+            JOIN teams t1 ON m.team1_id = t1.team_id
+            JOIN teams t2 ON m.team2_id = t2.team_id
+            LEFT JOIN teams twt ON m.toss_winner_team_id = twt.team_id
+            LEFT JOIN teams wt ON m.winner_team_id = wt.team_id
+            LEFT JOIN players mom ON m.man_of_the_match_player_id = mom.player_id
             WHERE m.match_id = ?
         `;
         const [matches] = await pool.query(query, [id]);
@@ -2795,9 +2795,9 @@ exports.getMatchDetails = async (req, res, next) => {
                     p.name as player_name,
                      -- Determine which team (1 or 2) this player belongs to for display grouping
                     CASE WHEN pms.team_id = m.team1_id THEN 1 ELSE 2 END as team_number
-                 FROM PlayerMatchStats pms
-                 JOIN Players p ON pms.player_id = p.player_id
-                 JOIN Matches m ON pms.match_id = m.match_id -- Join Matches to determine team number
+                 FROM playermatchstats pms
+                 JOIN players p ON pms.player_id = p.player_id
+                 JOIN matches m ON pms.match_id = m.match_id -- Join Matches to determine team number
                  WHERE pms.match_id = ?
                  ORDER BY team_number, p.name`, // Order by team, then player name for scorecard
                 [id]
@@ -2829,10 +2829,10 @@ exports.getMatchCommentary = async (req, res, next) => {
                 batsman.name as batsman_name,
                 bowler.name as bowler_name,
                 fielder.name as fielder_name
-             FROM BallByBall b
-             JOIN Players batsman ON b.batsman_on_strike_player_id = batsman.player_id
-             JOIN Players bowler ON b.bowler_player_id = bowler.player_id
-             LEFT JOIN Players fielder ON b.fielder_player_id = fielder.player_id
+             FROM ballbyball b
+             JOIN players batsman ON b.batsman_on_strike_player_id = batsman.player_id
+             JOIN players bowler ON b.bowler_player_id = bowler.player_id
+             LEFT JOIN players fielder ON b.fielder_player_id = fielder.player_id
              WHERE b.match_id = ?
              ORDER BY b.inning_number ASC, b.over_number ASC, b.ball_number_in_over ASC, b.ball_id ASC`,
             [id]
@@ -2895,7 +2895,7 @@ exports.registerPlayer = async (req, res, next) => {
     try {
         const [result] = await pool.query('INSERT INTO Players (name, base_price, role, current_team_id) VALUES (?, ?, ?, NULL)', [ name, base_price === undefined || base_price === null ? 100.00 : base_price, role || null ]);
         const playerId = result.insertId;
-        const [newPlayer] = await pool.query('SELECT player_id, name, base_price, role, current_team_id FROM Players WHERE player_id = ?', [playerId]);
+        const [newPlayer] = await pool.query('SELECT player_id, name, base_price, role, current_team_id FROM players WHERE player_id = ?', [playerId]);
         if (newPlayer.length === 0) throw new Error('Failed to retrieve newly registered player.');
         res.status(201).json({ message: 'Player registered successfully', player: newPlayer[0] });
     } catch (error) { console.error("Player Registration Error:", error); next(error); }
@@ -2908,7 +2908,7 @@ exports.registerPlayer = async (req, res, next) => {
  */
 exports.getAllPlayers = async (req, res, next) => {
     try {
-        const [players] = await pool.query('SELECT p.player_id, p.name, p.role, t.name as current_team_name FROM Players p LEFT JOIN Teams t ON p.current_team_id = t.team_id ORDER BY p.name ASC');
+        const [players] = await pool.query('SELECT p.player_id, p.name, p.role, t.name as current_team_name FROM players p LEFT JOIN teams t ON p.current_team_id = t.team_id ORDER BY p.name ASC');
         res.json(players);
     } catch (error) { console.error("Get All Players Error:", error); next(error); }
 };
@@ -2921,11 +2921,11 @@ exports.getAllPlayers = async (req, res, next) => {
 exports.getPlayerById = async (req, res, next) => {
      const { id } = req.params; if (isNaN(parseInt(id))) { return res.status(400).json({ message: 'Invalid Player ID.' }); }
     try {
-        const playerQuery = ` SELECT p.player_id, p.name, p.base_price, p.role, p.current_team_id, t.name as current_team_name FROM Players p LEFT JOIN Teams t ON p.current_team_id = t.team_id WHERE p.player_id = ? `;
+        const playerQuery = ` SELECT p.player_id, p.name, p.base_price, p.role, p.current_team_id, t.name as current_team_name FROM players p LEFT JOIN teams t ON p.current_team_id = t.team_id WHERE p.player_id = ? `;
         const [players] = await pool.query(playerQuery, [id]);
         if (players.length === 0) { return res.status(404).json({ message: 'Player not found.' }); }
         const playerData = players[0];
-        const impactQuery = ` SELECT SUM(COALESCE(batting_impact_points, 0) + COALESCE(bowling_impact_points, 0) + COALESCE(fielding_impact_points, 0)) as total_impact, COUNT(DISTINCT match_id) as matches_played FROM PlayerMatchStats WHERE player_id = ? GROUP BY player_id `;
+        const impactQuery = ` SELECT SUM(COALESCE(batting_impact_points, 0) + COALESCE(bowling_impact_points, 0) + COALESCE(fielding_impact_points, 0)) as total_impact, COUNT(DISTINCT match_id) as matches_played FROM playermatchstats WHERE player_id = ? GROUP BY player_id `;
         const [impactRes] = await pool.query(impactQuery, [id]); let averageImpact = 0; if (impactRes.length > 0 && impactRes[0].matches_played > 0) { averageImpact = impactRes[0].total_impact / impactRes[0].matches_played; }
         const responseData = { ...playerData, average_impact: parseFloat(averageImpact.toFixed(2)) };
         res.json(responseData);
@@ -2970,15 +2970,15 @@ exports.getPlayerStats = async (req, res, next) => {
                 COALESCE(SUM(pms.batting_impact_points), 0) as total_batting_impact,
                 COALESCE(SUM(pms.bowling_impact_points), 0) as total_bowling_impact,
                 COALESCE(SUM(pms.fielding_impact_points), 0) as total_fielding_impact
-            FROM Players p
-            LEFT JOIN PlayerMatchStats pms ON p.player_id = pms.player_id
+            FROM players p
+            LEFT JOIN playermatchstats pms ON p.player_id = pms.player_id
         `;
         const params = [];
         let joinClause = '';
         let whereClause = ' WHERE p.player_id = ?'; params.push(playerId);
 
         if (season_id) {
-            joinClause = ' LEFT JOIN Matches m ON pms.match_id = m.match_id';
+            joinClause = ' LEFT JOIN matches m ON pms.match_id = m.match_id';
             whereClause += ' AND m.season_id = ?'; params.push(season_id);
         }
         query += joinClause + whereClause + ' GROUP BY p.player_id, p.name, p.role';
@@ -2987,7 +2987,7 @@ exports.getPlayerStats = async (req, res, next) => {
 
         // --- Handle No Stats Found ---
         if (statsArr.length === 0) {
-             const [playerCheck] = await pool.query('SELECT player_id, name, role FROM Players WHERE player_id = ?', [playerId]);
+             const [playerCheck] = await pool.query('SELECT player_id, name, role FROM players WHERE player_id = ?', [playerId]);
              if (playerCheck.length === 0) { return res.status(404).json({ message: 'Player not found.' }); }
              else { return res.json({ ...playerCheck[0], matches_played: 0, total_runs: 0, total_balls_faced: 0, highest_score: 0, total_fours: 0, total_sixes: 0, times_out: 0, total_wickets: 0, total_runs_conceded: 0, total_overs_bowled: 0.0, total_maidens: 0, total_wides: 0, total_no_balls: 0, total_catches: 0, total_stumps: 0, total_run_outs: 0, total_batting_impact: 0, total_bowling_impact: 0, total_fielding_impact: 0, average_impact: 0, super_overs_bowled: 0, batting_average: null, batting_strike_rate: null, bowling_average: null, bowling_economy_rate: null, bowling_strike_rate: null }); } // Added super_overs_bowled: 0
         }
@@ -2997,8 +2997,8 @@ exports.getPlayerStats = async (req, res, next) => {
         // --- Query 2: Calculate Super Overs Bowled --- // ADDED THIS QUERY
         let superOverQuery = `
             SELECT COUNT(DISTINCT b.match_id) as super_overs_bowled
-            FROM BallByBall b
-            JOIN Matches m ON b.match_id = m.match_id
+            FROM ballbyball b
+            JOIN matches m ON b.match_id = m.match_id
             WHERE b.bowler_player_id = ?
               AND b.over_number = m.super_over_number
         `;
@@ -3050,7 +3050,7 @@ exports.updatePlayer = async (req, res, next) => {
 
     try {
         // Check if player exists
-        const [existing] = await pool.query('SELECT player_id FROM Players WHERE player_id = ?', [id]);
+        const [existing] = await pool.query('SELECT player_id FROM players WHERE player_id = ?', [id]);
         if (existing.length === 0) {
             return res.status(404).json({ message: 'Player not found.' });
         }
@@ -3072,7 +3072,7 @@ exports.updatePlayer = async (req, res, next) => {
         }
 
         // Fetch updated player details (excluding sensitive/derived fields)
-        const [updatedPlayer] = await pool.query('SELECT player_id, name, base_price, role, current_team_id FROM Players WHERE player_id = ?', [id]);
+        const [updatedPlayer] = await pool.query('SELECT player_id, name, base_price, role, current_team_id FROM players WHERE player_id = ?', [id]);
         res.json({ message: 'Player updated successfully', player: updatedPlayer[0] });
 
     } catch (error) {
@@ -3097,7 +3097,7 @@ exports.deletePlayer = async (req, res, next) => {
         await connection.beginTransaction();
 
         // Check if player exists
-         const [existing] = await connection.query('SELECT player_id FROM Players WHERE player_id = ?', [id]);
+         const [existing] = await connection.query('SELECT player_id FROM players WHERE player_id = ?', [id]);
         if (existing.length === 0) {
             await connection.rollback(); return res.status(404).json({ message: 'Player not found.' });
         }
@@ -3110,14 +3110,14 @@ exports.deletePlayer = async (req, res, next) => {
         // await connection.query('UPDATE PlayerRatings SET rated_player_id = NULL WHERE rated_player_id = ?', [id]);
 
         // Explicitly delete from TeamPlayers junction table
-        await connection.query('DELETE FROM TeamPlayers WHERE player_id = ?', [id]);
+        await connection.query('DELETE FROM teamplayers WHERE player_id = ?', [id]);
         console.log(`Deleted TeamPlayers entries for player ${id}`);
 
         // NOTE: Deletion will fail if player has stats in PlayerMatchStats and FK constraint is RESTRICT.
         // Handle this based on your desired behavior (e.g., delete stats too? Disallow player delete?).
 
         // Finally, attempt to delete the player
-        const [result] = await connection.query('DELETE FROM Players WHERE player_id = ?', [id]);
+        const [result] = await connection.query('DELETE FROM players WHERE player_id = ?', [id]);
 
         if (result.affectedRows === 0) {
              await connection.rollback();
@@ -3156,7 +3156,7 @@ const pool = require('../config/db');
 exports.getPublicSeasons = async (req, res, next) => {
     try {
         // Select only necessary fields for public view, order by year
-        const [seasons] = await pool.query('SELECT season_id, name, year FROM Seasons ORDER BY year DESC');
+        const [seasons] = await pool.query('SELECT season_id, name, year FROM seasons ORDER BY year DESC');
         res.json(seasons);
     } catch (error) {
         console.error("Get Public Seasons Error:", error);
@@ -3192,14 +3192,14 @@ exports.getStandings = async (req, res, next) => {
 
     try {
         // 1. Get all teams for the season
-        const [teams] = await connection.query('SELECT team_id, name FROM Teams WHERE season_id = ?', [seasonIdNum]);
+        const [teams] = await connection.query('SELECT team_id, name FROM teams WHERE season_id = ?', [seasonIdNum]);
         if (teams.length === 0) {
             return res.json([]); // Return empty array if no teams in the season
         }
 
         // 2. Get all completed OR abandoned matches for the season
         const [matches] = await connection.query(
-            'SELECT match_id, team1_id, team2_id, winner_team_id, decision, toss_winner_team_id, status FROM Matches WHERE season_id = ? AND status IN (?, ?)',
+            'SELECT match_id, team1_id, team2_id, winner_team_id, decision, toss_winner_team_id, status FROM matches WHERE season_id = ? AND status IN (?, ?)',
             [seasonIdNum, 'Completed', 'Abandoned'] // Fetch both Completed and Abandoned
         );
 
@@ -3257,7 +3257,7 @@ exports.getStandings = async (req, res, next) => {
                 // Fetch Ball-by-Ball data
                 const [ballsData] = await connection.query(`
                     SELECT inning_number, runs_scored, extra_runs, is_extra, extra_type, is_bye
-                    FROM BallByBall
+                    FROM ballbyball
                     WHERE match_id = ?
                     ORDER BY inning_number, ball_id
                 `, [match.match_id]);
@@ -3388,7 +3388,7 @@ const generateToken = (id) => {
 
     try {
         // Find admin by username in the database
-        const [admins] = await pool.query('SELECT admin_id, username, email, password_hash FROM Admins WHERE username = ?', [username]);
+        const [admins] = await pool.query('SELECT admin_id, username, email, password_hash FROM admins WHERE username = ?', [username]);
 
         // Check if admin exists
         if (admins.length === 0) {
@@ -3428,7 +3428,7 @@ exports.loginAdmin = async (req, res, next) => {
     }
 
     try {
-        const [admins] = await pool.query('SELECT admin_id, username, email, password_hash FROM Admins WHERE username = ?', [username]);
+        const [admins] = await pool.query('SELECT admin_id, username, email, password_hash FROM admins WHERE username = ?', [username]);
 
         if (admins.length === 0) {
              console.log("[Backend Login] Admin user not found in DB."); // <-- ADD THIS
@@ -3483,7 +3483,7 @@ exports.registerAdmin = async (req, res, next) => {
 
     try {
         // Check if username or email already exists
-        const [existingAdmin] = await pool.query('SELECT admin_id FROM Admins WHERE username = ? OR email = ?', [username, email]);
+        const [existingAdmin] = await pool.query('SELECT admin_id FROM admins WHERE username = ? OR email = ?', [username, email]);
         if (existingAdmin.length > 0) {
             return res.status(400).json({ message: 'Admin with that username or email already exists' });
         }
@@ -3501,7 +3501,7 @@ exports.registerAdmin = async (req, res, next) => {
         const newAdminId = result.insertId;
 
         // Fetch the newly created admin's info (excluding hash)
-        const [newAdmin] = await pool.query('SELECT admin_id, username, email FROM Admins WHERE admin_id = ?', [newAdminId]);
+        const [newAdmin] = await pool.query('SELECT admin_id, username, email FROM admins WHERE admin_id = ?', [newAdminId]);
 
         if (newAdmin.length > 0) {
              // Respond with new admin details and a token (log them in immediately)
@@ -3556,7 +3556,7 @@ async function validateTeamsForSeason(teamIds, seasonId, connection) {
     }
 
     const placeholders = uniqueTeamIds.map(() => '?').join(',');
-    const sql = `SELECT COUNT(DISTINCT team_id) as count FROM Teams WHERE season_id = ? AND team_id IN (${placeholders})`;
+    const sql = `SELECT COUNT(DISTINCT team_id) as count FROM teams WHERE season_id = ? AND team_id IN (${placeholders})`;
     const params = [parseInt(seasonId), ...uniqueTeamIds];
 
     // Use provided connection (if in transaction) or default pool
@@ -3590,7 +3590,7 @@ exports.createMatch = async (req, res, next) => {
         await connection.beginTransaction();
 
         // Validate season exists
-        const [seasonCheck] = await connection.query('SELECT 1 FROM Seasons WHERE season_id = ?', [season_id]);
+        const [seasonCheck] = await connection.query('SELECT 1 FROM seasons WHERE season_id = ?', [season_id]);
         if (seasonCheck.length === 0) {
             throw new Error(`Season with ID ${season_id} not found.`);
         }
@@ -3614,9 +3614,9 @@ exports.createMatch = async (req, res, next) => {
         // Fetch the created match with team names to return it
         const [newMatch] = await pool.query(
              `SELECT m.*, t1.name as team1_name, t2.name as team2_name
-              FROM Matches m
-              JOIN Teams t1 ON m.team1_id = t1.team_id
-              JOIN Teams t2 ON m.team2_id = t2.team_id
+              FROM matches m
+              JOIN teams t1 ON m.team1_id = t1.team_id
+              JOIN teams t2 ON m.team2_id = t2.team_id
               WHERE m.match_id = ?`, [newMatchId]);
 
         // Check if the fetch returned the match (it should)
@@ -3653,12 +3653,12 @@ exports.getAllMatches = async (req, res, next) => {
                 t2.name as team2_name, t2.team_id as team2_id,
                 wt.name as winner_team_name,
                 mom.name as man_of_the_match_name
-            FROM Matches m
-            JOIN Seasons s ON m.season_id = s.season_id
-            JOIN Teams t1 ON m.team1_id = t1.team_id
-            JOIN Teams t2 ON m.team2_id = t2.team_id
-            LEFT JOIN Teams wt ON m.winner_team_id = wt.team_id
-            LEFT JOIN Players mom ON m.man_of_the_match_player_id = mom.player_id
+            FROM matches m
+            JOIN seasons s ON m.season_id = s.season_id
+            JOIN teams t1 ON m.team1_id = t1.team_id
+            JOIN teams t2 ON m.team2_id = t2.team_id
+            LEFT JOIN teams wt ON m.winner_team_id = wt.team_id
+            LEFT JOIN players mom ON m.man_of_the_match_player_id = mom.player_id
         `;
         const params = [];
         const conditions = [];
@@ -3702,10 +3702,10 @@ exports.getAllMatches = async (req, res, next) => {
     try {
          let query = `
             SELECT m.*, s.name as season_name, t1.name as team1_name, t2.name as team2_name
-            FROM Matches m
-            JOIN Seasons s ON m.season_id = s.season_id
-            JOIN Teams t1 ON m.team1_id = t1.team_id
-            JOIN Teams t2 ON m.team2_id = t2.team_id
+            FROM matches m
+            JOIN seasons s ON m.season_id = s.season_id
+            JOIN teams t1 ON m.team1_id = t1.team_id
+            JOIN teams t2 ON m.team2_id = t2.team_id
             WHERE m.match_id = ?`;
         const [matches] = await pool.query(query, [id]);
 
@@ -3754,7 +3754,7 @@ exports.updateMatch = async (req, res, next) => {
 
         // Fetch existing match for validation
         const [existingMatches] = await connection.query(
-            'SELECT season_id, status, team1_id as current_team1, team2_id as current_team2 FROM Matches WHERE match_id = ? FOR UPDATE',
+            'SELECT season_id, status, team1_id as current_team1, team2_id as current_team2 FROM matches WHERE match_id = ? FOR UPDATE',
             [matchId]
         );
         if (existingMatches.length === 0) {
@@ -3816,9 +3816,9 @@ exports.updateMatch = async (req, res, next) => {
         // Fetch updated match data with team names to return
         const [updatedMatch] = await pool.query(
             `SELECT m.*, t1.name as team1_name, t2.name as team2_name
-             FROM Matches m
-             JOIN Teams t1 ON m.team1_id = t1.team_id
-             JOIN Teams t2 ON m.team2_id = t2.team_id
+             FROM matches m
+             JOIN teams t1 ON m.team1_id = t1.team_id
+             JOIN teams t2 ON m.team2_id = t2.team_id
              WHERE m.match_id = ?`, [matchId]);
 
         res.json({ message: 'Match updated successfully', match: updatedMatch[0] });
@@ -3847,7 +3847,7 @@ exports.deleteMatch = async (req, res, next) => {
          await connection.beginTransaction();
 
          // Check if match exists and its status before attempting delete
-         const [existingMatches] = await connection.query('SELECT status FROM Matches WHERE match_id = ? FOR UPDATE', [matchId]);
+         const [existingMatches] = await connection.query('SELECT status FROM matches WHERE match_id = ? FOR UPDATE', [matchId]);
         if (existingMatches.length === 0) {
             await connection.rollback();
             return res.status(404).json({ message: 'Match not found.' });
@@ -3860,8 +3860,8 @@ exports.deleteMatch = async (req, res, next) => {
              return res.status(400).json({ message: `Cannot delete match. Only 'Scheduled' matches can be deleted (current status: '${current_status}').` });
          }
 
-        // Foreign keys to BallByBall and PlayerMatchStats should have ON DELETE CASCADE set in schema
-        const [result] = await connection.query('DELETE FROM Matches WHERE match_id = ?', [matchId]);
+        // Foreign keys to ballbyball and PlayerMatchStats should have ON DELETE CASCADE set in schema
+        const [result] = await connection.query('DELETE FROM matches WHERE match_id = ?', [matchId]);
 
         if (result.affectedRows === 0) {
             // Should not happen if the SELECT FOR UPDATE found the row
@@ -3922,7 +3922,7 @@ exports.resolveMatch = async (req, res, next) => {
 
         // 1. Fetch Match Details to validate winner/mom IDs if provided
         const [matches] = await connection.query(
-            'SELECT team1_id, team2_id, season_id, status as current_status FROM Matches WHERE match_id = ? FOR UPDATE',
+            'SELECT team1_id, team2_id, season_id, status as current_status FROM matches WHERE match_id = ? FOR UPDATE',
             [matchId]
         );
         if (matches.length === 0) {
@@ -3943,7 +3943,7 @@ exports.resolveMatch = async (req, res, next) => {
         // 3. Validate MoM Player ID (if provided) exists and belongs to one of the teams in the season
         if (momId !== null) {
              const [momPlayerCheck] = await connection.query(
-                `SELECT 1 FROM TeamPlayers tp
+                `SELECT 1 FROM teamplayers tp
                  WHERE tp.player_id = ? AND tp.season_id = ? AND (tp.team_id = ? OR tp.team_id = ?)`,
                 [momId, season_id, team1_id, team2_id]
              );
@@ -3970,7 +3970,7 @@ exports.resolveMatch = async (req, res, next) => {
         await connection.commit();
 
         // Fetch updated record to return
-        const [updatedMatch] = await connection.query('SELECT * FROM Matches WHERE match_id = ?', [matchId]);
+        const [updatedMatch] = await connection.query('SELECT * FROM matches WHERE match_id = ?', [matchId]);
 
         // TODO: Optionally emit a socket event ('matchEnded' or 'matchResolved') ?
         // Depends if live viewers need to see this manual resolution instantly.
@@ -4112,9 +4112,9 @@ exports.getMatchesForSetup = async (req, res, next) => {
     try {
         const query = `
             SELECT m.match_id, m.match_datetime, t1.name as team1_name, t2.name as team2_name, t1.team_id as team1_id, t2.team_id as team2_id
-            FROM Matches m
-            JOIN Teams t1 ON m.team1_id = t1.team_id
-            JOIN Teams t2 ON m.team2_id = t2.team_id
+            FROM matches m
+            JOIN teams t1 ON m.team1_id = t1.team_id
+            JOIN teams t2 ON m.team2_id = t2.team_id
             WHERE m.status = 'Scheduled'
             ORDER BY m.match_datetime ASC
         `;
@@ -4152,7 +4152,7 @@ exports.submitMatchSetup = async (req, res, next) => {
         console.log(`--- Starting Setup for Match ${matchId} ---`);
 
         // 1. Check Match Status & Get Details
-        const [matchCheck] = await connection.query('SELECT status, team1_id, team2_id, season_id FROM Matches WHERE match_id = ? FOR UPDATE', [matchId]);
+        const [matchCheck] = await connection.query('SELECT status, team1_id, team2_id, season_id FROM matches WHERE match_id = ? FOR UPDATE', [matchId]);
         if (matchCheck.length === 0) throw new Error('Match not found.');
         if (matchCheck[0].status !== 'Scheduled') throw new Error(`Match cannot be set up. Current status: ${matchCheck[0].status}`);
         const { team1_id, team2_id, season_id } = matchCheck[0];
@@ -4169,8 +4169,8 @@ exports.submitMatchSetup = async (req, res, next) => {
 
         // 4. Create initial PlayerMatchStats entries
         console.log(`--- Fetching players for teams ${team1_id} and ${team2_id} ---`);
-        const [team1Players] = await connection.query('SELECT player_id FROM TeamPlayers WHERE team_id = ? AND season_id = ?', [team1_id, season_id]);
-        const [team2Players] = await connection.query('SELECT player_id FROM TeamPlayers WHERE team_id = ? AND season_id = ?', [team2_id, season_id]);
+        const [team1Players] = await connection.query('SELECT player_id FROM teamplayers WHERE team_id = ? AND season_id = ?', [team1_id, season_id]);
+        const [team2Players] = await connection.query('SELECT player_id FROM teamplayers WHERE team_id = ? AND season_id = ?', [team2_id, season_id]);
         const allPlayers = [
             ...team1Players.map(p => ({ player_id: p.player_id, team_id: team1_id })),
             ...team2Players.map(p => ({ player_id: p.player_id, team_id: team2_id }))
@@ -4194,7 +4194,7 @@ exports.submitMatchSetup = async (req, res, next) => {
         console.log(`--- Match ${matchId} setup committed ---`);
 
         // 6. Prepare Initial State for Frontend/Sockets
-        const fetchPlayerNames = async (playerIds) => { if (!playerIds || playerIds.length === 0) return []; const placeholders = playerIds.map(() => '?').join(','); const [names] = await pool.query(`SELECT player_id, name FROM Players WHERE player_id IN (${placeholders})`, playerIds.map(p => p.player_id)); return names; };
+        const fetchPlayerNames = async (playerIds) => { if (!playerIds || playerIds.length === 0) return []; const placeholders = playerIds.map(() => '?').join(','); const [names] = await pool.query(`SELECT player_id, name FROM players WHERE player_id IN (${placeholders})`, playerIds.map(p => p.player_id)); return names; };
         const battingTeamDbList = (decision === 'Bat' && toss_winner_team_id == team1_id) || (decision === 'Bowl' && toss_winner_team_id != team1_id) ? team1Players : team2Players;
         const bowlingTeamDbList = (decision === 'Bat' && toss_winner_team_id == team1_id) || (decision === 'Bowl' && toss_winner_team_id != team1_id) ? team2Players : team1Players;
         const battingTeamPlayerDetails = await fetchPlayerNames(battingTeamDbList);
@@ -4236,7 +4236,7 @@ exports.getLiveMatchState = async (req, res, next) => {
 
     try {
         // --- 1. Fetch Basic Match Details ---
-        const [matches] = await pool.query('SELECT * FROM Matches WHERE match_id = ?', [matchId]);
+        const [matches] = await pool.query('SELECT * FROM matches WHERE match_id = ?', [matchId]);
         if (matches.length === 0) {
             console.log(`--- getLiveMatchState: Match ${matchId} not found ---`);
             return res.status(404).json({ message: 'Match not found.' });
@@ -4248,8 +4248,8 @@ exports.getLiveMatchState = async (req, res, next) => {
         // --- Handle simple statuses first (Scheduled, Abandoned) ---
         if (status === 'Scheduled' || status === 'Abandoned') {
             console.log(`--- getLiveMatchState: Returning minimal state for status ${status} ---`);
-            const [team1Data] = await pool.query('SELECT name FROM Teams WHERE team_id = ?', [team1_id]);
-            const [team2Data] = await pool.query('SELECT name FROM Teams WHERE team_id = ?', [team2_id]);
+            const [team1Data] = await pool.query('SELECT name FROM teams WHERE team_id = ?', [team1_id]);
+            const [team2Data] = await pool.query('SELECT name FROM teams WHERE team_id = ?', [team2_id]);
             return res.json({
                 matchId: matchId, status: status, seasonId: season_id, superOver: super_over_number,
                 team1_id: team1_id, team2_id: team2_id,
@@ -4266,7 +4266,7 @@ exports.getLiveMatchState = async (req, res, next) => {
                     inningNumber = 2;
                 } else if (status === 'Live') {
                     // If live, check the inning of the last recorded ball
-                    const [lastBall] = await pool.query('SELECT inning_number FROM BallByBall WHERE match_id = ? ORDER BY ball_id DESC LIMIT 1', [matchId]);
+                    const [lastBall] = await pool.query('SELECT inning_number FROM ballbyball WHERE match_id = ? ORDER BY ball_id DESC LIMIT 1', [matchId]);
                     if (lastBall.length > 0) {
                         // Trust the inning number of the last ball bowled if status is Live
                         inningNumber = lastBall[0].inning_number;
@@ -4291,7 +4291,7 @@ exports.getLiveMatchState = async (req, res, next) => {
         if (status === 'InningsBreak' || status === 'Completed') {
             inningNumber = 2;
         } else if (status === 'Live') {
-            const [lastBall] = await pool.query('SELECT inning_number FROM BallByBall WHERE match_id = ? ORDER BY ball_id DESC LIMIT 1', [matchId]);
+            const [lastBall] = await pool.query('SELECT inning_number FROM ballbyball WHERE match_id = ? ORDER BY ball_id DESC LIMIT 1', [matchId]);
             if (lastBall.length > 0) {
                 inningNumber = lastBall[0].inning_number;
                 // If last ball was inning 1, check if inning 1 should have ended
@@ -4301,9 +4301,9 @@ exports.getLiveMatchState = async (req, res, next) => {
                         SELECT
                             COUNT(CASE WHEN pms.is_out = TRUE THEN 1 END) as wickets,
                             MAX(b.over_number) as last_over_num,
-                            (SELECT COUNT(*) FROM BallByBall b2 WHERE b2.match_id = ? AND b2.inning_number = 1 AND b2.over_number = MAX(b.over_number) AND (b2.is_extra = false OR b2.extra_type = 'NoBall')) as balls_in_last_over
-                        FROM PlayerMatchStats pms
-                        LEFT JOIN BallByBall b ON pms.match_id = b.match_id AND pms.team_id = ? AND b.inning_number = 1
+                            (SELECT COUNT(*) FROM ballbyball b2 WHERE b2.match_id = ? AND b2.inning_number = 1 AND b2.over_number = MAX(b.over_number) AND (b2.is_extra = false OR b2.extra_type = 'NoBall')) as balls_in_last_over
+                        FROM playermatchstats pms
+                        LEFT JOIN ballbyball b ON pms.match_id = b.match_id AND pms.team_id = ? AND b.inning_number = 1
                         WHERE pms.match_id = ? AND pms.team_id = ?
                      `, [matchId, (decision === 'Bat' ? toss_winner_team_id : (toss_winner_team_id == team1_id ? team2_id : team1_id)), matchId, (decision === 'Bat' ? toss_winner_team_id : (toss_winner_team_id == team1_id ? team2_id : team1_id))]);
 
@@ -4330,8 +4330,8 @@ exports.getLiveMatchState = async (req, res, next) => {
         console.log(`--- getLiveMatchState: Determined Inning=${inningNumber}, Batting=${battingTeamId}, Bowling=${bowlingTeamId} ---`);
         */
         // --- 3. Calculate Current Score, Wickets, Overs, Target ---
-        const [summaryScoreData] = await pool.query(`SELECT SUM(runs_scored + extra_runs) as totalScore FROM BallByBall WHERE match_id = ? AND inning_number = ?`, [matchId, inningNumber]);
-        const [summaryWicketData] = await pool.query(`SELECT COUNT(*) as totalWickets FROM PlayerMatchStats WHERE match_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, battingTeamId]);
+        const [summaryScoreData] = await pool.query(`SELECT SUM(runs_scored + extra_runs) as totalScore FROM ballbyball WHERE match_id = ? AND inning_number = ?`, [matchId, inningNumber]);
+        const [summaryWicketData] = await pool.query(`SELECT COUNT(*) as totalWickets FROM playermatchstats WHERE match_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, battingTeamId]);
         const score = summaryScoreData[0]?.totalScore || 0;
         const wickets = summaryWicketData[0]?.totalWickets || 0;
 
@@ -4341,7 +4341,7 @@ exports.getLiveMatchState = async (req, res, next) => {
         let displayBall = 0;
         const [overProgressData] = await pool.query(`
              SELECT over_number, COUNT(*) as legal_balls
-             FROM BallByBall
+             FROM ballbyball
              WHERE match_id = ? AND inning_number = ? AND (is_extra = false OR extra_type = 'NoBall')
              GROUP BY over_number ORDER BY over_number DESC LIMIT 1
          `, [matchId, inningNumber]);
@@ -4367,28 +4367,28 @@ exports.getLiveMatchState = async (req, res, next) => {
 
         let targetScore = null;
         if (inningNumber === 2 || status === 'InningsBreak' || status === 'Completed') {
-            const [scoreDataInning1] = await pool.query(`SELECT SUM(runs_scored + extra_runs) as score FROM BallByBall WHERE match_id = ? AND inning_number = 1`, [matchId]);
+            const [scoreDataInning1] = await pool.query(`SELECT SUM(runs_scored + extra_runs) as score FROM ballbyball WHERE match_id = ? AND inning_number = 1`, [matchId]);
             targetScore = Number((scoreDataInning1[0]?.score || 0)) + 1;
             console.log(`--- getLiveMatchState: Target Score = ${targetScore} ---`);
         }
 
         // --- 4. Fetch Player Lists, Out Batsmen, Bowler Stats ---
-        const fetchPlayerNames = async (playerIds) => { if (!playerIds || playerIds.length === 0) return []; const placeholders = playerIds.map(() => '?').join(','); const [names] = await pool.query(`SELECT player_id, name FROM Players WHERE player_id IN (${placeholders})`, playerIds.map(p => p.player_id || p)); return names; };
-        const [team1PlayersDb] = await pool.query('SELECT player_id FROM TeamPlayers WHERE team_id = ? AND season_id = ?', [team1_id, season_id]);
-        const [team2PlayersDb] = await pool.query('SELECT player_id FROM TeamPlayers WHERE team_id = ? AND season_id = ?', [team2_id, season_id]);
+        const fetchPlayerNames = async (playerIds) => { if (!playerIds || playerIds.length === 0) return []; const placeholders = playerIds.map(() => '?').join(','); const [names] = await pool.query(`SELECT player_id, name FROM players WHERE player_id IN (${placeholders})`, playerIds.map(p => p.player_id || p)); return names; };
+        const [team1PlayersDb] = await pool.query('SELECT player_id FROM teamplayers WHERE team_id = ? AND season_id = ?', [team1_id, season_id]);
+        const [team2PlayersDb] = await pool.query('SELECT player_id FROM teamplayers WHERE team_id = ? AND season_id = ?', [team2_id, season_id]);
         const team1PlayerDetails = await fetchPlayerNames(team1PlayersDb);
         const team2PlayerDetails = await fetchPlayerNames(team2PlayersDb);
         const battingPlayersList = battingTeamId === team1_id ? team1PlayerDetails : team2PlayerDetails;
         const bowlingPlayersList = bowlingTeamId === team1_id ? team1PlayerDetails : team2PlayerDetails;
 
-        const [batsmenOutStats] = await pool.query(`SELECT player_id FROM PlayerMatchStats WHERE match_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, battingTeamId]);
+        const [batsmenOutStats] = await pool.query(`SELECT player_id FROM playermatchstats WHERE match_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, battingTeamId]);
         const batsmenOutIds = batsmenOutStats.map(b => b.player_id);
 
-        const [currentBowlerStats] = await pool.query(`SELECT player_id, FLOOR(overs_bowled) as completed_overs FROM PlayerMatchStats WHERE match_id = ? AND team_id = ? AND overs_bowled > 0`, [matchId, bowlingTeamId]);
+        const [currentBowlerStats] = await pool.query(`SELECT player_id, FLOOR(overs_bowled) as completed_overs FROM playermatchstats WHERE match_id = ? AND team_id = ? AND overs_bowled > 0`, [matchId, bowlingTeamId]);
         console.log(`--- getLiveMatchState: Fetched ${batsmenOutIds.length} out batsmen, ${currentBowlerStats.length} bowlers with stats ---`);
 
         // --- 5. Fetch Recent Commentary ---
-        const [recentCommentaryData] = await pool.query(`SELECT ball_id, commentary_text FROM BallByBall WHERE match_id = ? ORDER BY ball_id DESC LIMIT 10`, [matchId]);
+        const [recentCommentaryData] = await pool.query(`SELECT ball_id, commentary_text FROM ballbyball WHERE match_id = ? ORDER BY ball_id DESC LIMIT 10`, [matchId]);
         const recentBallsSummary = recentCommentaryData.length > 0 ? recentCommentaryData.slice().reverse().map(b => b.commentary_text?.split(':')[0] || '?').join(', ') : '';
         const lastBallCommentary = recentCommentaryData[0]?.commentary_text || (status === 'Setup' ? 'Match setup complete. Select opening players.' : 'No commentary yet.');
         console.log(`--- getLiveMatchState: Last commentary event: ${lastBallCommentary} ---`);
@@ -4436,7 +4436,7 @@ exports.submitFinalMatchScore = async (req, res, next) => {
         let finalManOfTheMatchPlayerId = man_of_the_match_player_id || null; // Use provided if exists
         if (!finalManOfTheMatchPlayerId) {
             console.log(`--- MoM not provided for finalize, calculating... ---`);
-            const [impactStats] = await connection.query(`SELECT player_id, team_id, (batting_impact_points + bowling_impact_points + fielding_impact_points) as total_impact FROM PlayerMatchStats WHERE match_id = ? ORDER BY total_impact DESC`, [matchId]);
+            const [impactStats] = await connection.query(`SELECT player_id, team_id, (batting_impact_points + bowling_impact_points + fielding_impact_points) as total_impact FROM playermatchstats WHERE match_id = ? ORDER BY total_impact DESC`, [matchId]);
             if (impactStats.length > 0) {
                 const highestImpact = impactStats[0].total_impact;
                 let potentialMoms = impactStats.filter(p => p.total_impact === highestImpact);
@@ -4544,7 +4544,7 @@ exports.scoreSingleBall = async (req, res, next) => {
         await connection.beginTransaction();
 
         // --- 1. Fetch Match State & Determine Teams ---
-        const [matches] = await connection.query('SELECT status, super_over_number, team1_id, team2_id, toss_winner_team_id, decision, season_id FROM Matches WHERE match_id = ? FOR UPDATE', [matchId]);
+        const [matches] = await connection.query('SELECT status, super_over_number, team1_id, team2_id, toss_winner_team_id, decision, season_id FROM matches WHERE match_id = ? FOR UPDATE', [matchId]);
         if (matches.length === 0) throw new Error('Match not found.');
         const match = matches[0];
         let currentStatus = match.status;
@@ -4553,7 +4553,7 @@ exports.scoreSingleBall = async (req, res, next) => {
         let battingTeamId, bowlingTeamId;
         const { team1_id, team2_id, toss_winner_team_id, decision, season_id } = match;
         if (inningNumber == 1) { battingTeamId = (decision === 'Bat') ? toss_winner_team_id : (toss_winner_team_id == team1_id ? team2_id : team1_id); bowlingTeamId = (battingTeamId == team1_id) ? team2_id : team1_id; }
-        else { bowlingTeamId = (decision === 'Bat') ? toss_winner_team_id : (toss_winner_team_id == team1_id ? team2_id : team1_id); battingTeamId = (bowlingTeamId == team1_id) ? team2_id : team1_id; const [scoreData] = await connection.query(`SELECT SUM(runs_scored + extra_runs) as score FROM BallByBall WHERE match_id = ? AND inning_number = 1`, [matchId]); targetScore = Number((scoreData[0]?.score || 0)) + 1; }
+        else { bowlingTeamId = (decision === 'Bat') ? toss_winner_team_id : (toss_winner_team_id == team1_id ? team2_id : team1_id); battingTeamId = (bowlingTeamId == team1_id) ? team2_id : team1_id; const [scoreData] = await connection.query(`SELECT SUM(runs_scored + extra_runs) as score FROM ballbyball WHERE match_id = ? AND inning_number = 1`, [matchId]); targetScore = Number((scoreData[0]?.score || 0)) + 1; }
         console.log(`--- Scoring Ball: Match ${matchId}, Inning ${inningNumber}, Status ${currentStatus}, Batting ${battingTeamId}, Bowling ${bowlingTeamId} ---`);
 
         // --- 2. Handle Status Transition & Validation ---
@@ -4563,14 +4563,14 @@ exports.scoreSingleBall = async (req, res, next) => {
         if (currentStatus === 'Setup' && inningNumber == 1) { await connection.query("UPDATE Matches SET status = 'Live' WHERE match_id = ?", [matchId]); currentStatus = 'Live'; updatedStatus = 'Live'; console.log(`Match ${matchId}: Status -> Live (Inning 1 Start)`); }
         else if (currentStatus === 'InningsBreak' && inningNumber == 2) { await connection.query("UPDATE Matches SET status = 'Live' WHERE match_id = ?", [matchId]); currentStatus = 'Live'; updatedStatus = 'Live'; console.log(`Match ${matchId}: Status -> Live (Inning 2 Start). Target: ${targetScore}.`); }
         else if (currentStatus === 'Live') {
-            const [batsmanOutCheck] = await connection.query(`SELECT 1 FROM PlayerMatchStats WHERE match_id = ? AND player_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, batsmanOnStrikePlayerId, battingTeamId]); if (batsmanOutCheck.length > 0) throw new Error(`Batsman ${batsmanOnStrikePlayerId} is already out.`);
+            const [batsmanOutCheck] = await connection.query(`SELECT 1 FROM playermatchstats WHERE match_id = ? AND player_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, batsmanOnStrikePlayerId, battingTeamId]); if (batsmanOutCheck.length > 0) throw new Error(`Batsman ${batsmanOnStrikePlayerId} is already out.`);
 
             // --- Determine Over/Ball Sequence FIRST ---
             // We need dbOverNumber before checking bowler eligibility for the *new* over
-            const [lastBallInfo] = await connection.query(`SELECT over_number, ball_number_in_over, bowler_player_id FROM BallByBall WHERE match_id = ? AND inning_number = ? ORDER BY ball_id DESC LIMIT 1`, [matchId, inningNumber]); // Fetch bowler_id too
+            const [lastBallInfo] = await connection.query(`SELECT over_number, ball_number_in_over, bowler_player_id FROM ballbyball WHERE match_id = ? AND inning_number = ? ORDER BY ball_id DESC LIMIT 1`, [matchId, inningNumber]); // Fetch bowler_id too
             if (lastBallInfo.length > 0) {
                 const lastBall = lastBallInfo[0];
-                const [legalBallsData] = await connection.query(`SELECT COUNT(*) as count FROM BallByBall WHERE match_id = ? AND inning_number = ? AND over_number = ? AND (is_extra = false OR extra_type = 'NoBall')`, [matchId, inningNumber, lastBall.over_number]);
+                const [legalBallsData] = await connection.query(`SELECT COUNT(*) as count FROM ballbyball WHERE match_id = ? AND inning_number = ? AND over_number = ? AND (is_extra = false OR extra_type = 'NoBall')`, [matchId, inningNumber, lastBall.over_number]);
                 const legalBallsInLastOverCount = legalBallsData[0]?.count || 0;
                 dbBallNumberInOver = lastBall.ball_number_in_over + 1;
                 if (legalBallsInLastOverCount >= 6) { // If starting a NEW over
@@ -4591,7 +4591,7 @@ exports.scoreSingleBall = async (req, res, next) => {
 
 
             // --- Now perform Bowler Eligibility Checks ---
-            const [bowlerOversData] = await connection.query(`SELECT player_id, FLOOR(overs_bowled) as completed_overs FROM PlayerMatchStats WHERE match_id = ? AND team_id = ? AND overs_bowled > 0`, [matchId, bowlingTeamId]);
+            const [bowlerOversData] = await connection.query(`SELECT player_id, FLOOR(overs_bowled) as completed_overs FROM playermatchstats WHERE match_id = ? AND team_id = ? AND overs_bowled > 0`, [matchId, bowlingTeamId]);
             let twoOverBowlerExists = false; let currentBowlerCompletedOvers = 0;
             let didCurrentBowlerBowlSuperOver = false; // ADDED: Check if current bowler bowled the super over
 
@@ -4600,7 +4600,7 @@ exports.scoreSingleBall = async (req, res, next) => {
                 if (b.player_id === bowlerPlayerId) {
                     currentBowlerCompletedOvers = b.completed_overs;
                     // Check if this bowler bowled the designated super over
-                    // We need to query BallByBall again for this specific bowler and super over number
+                    // We need to query ballbyball again for this specific bowler and super over number
                     // This check is done after the loop for clarity
                 }
             });
@@ -4618,8 +4618,8 @@ exports.scoreSingleBall = async (req, res, next) => {
             // Check 4: Super Over bowler limitation (only applies if they completed at least one over)
             // Fetch if this bowler bowled the super over
             const [superOverCheck] = await connection.query( // ADDED CHECK
-                `SELECT 1 FROM BallByBall b
-                 JOIN Matches m ON b.match_id = m.match_id
+                `SELECT 1 FROM ballbyball b
+                 JOIN matches m ON b.match_id = m.match_id
                  WHERE b.match_id = ?
                    AND b.inning_number = ?
                    AND b.bowler_player_id = ?
@@ -4658,10 +4658,10 @@ exports.scoreSingleBall = async (req, res, next) => {
         if (isWicket && wicketType === 'Hit Outside') commentary = `${logicalOver}.${logicalBallDisplay}: Ball. WICKET! (Hit Outside). `;
         commentary = commentary.trim();
 
-        // --- 5. Insert into BallByBall table ---
+        // --- 5. Insert into ballbyball table ---
         const finalFielderId = (isWicket && ['Caught', 'Stumped'].includes(wicketType)) ? fielderPlayerId : null;
         console.log(`--- Inserting Ball: ${commentary} ---`);
-        const [ballResult] = await connection.query(`INSERT INTO BallByBall (match_id, inning_number, over_number, ball_number_in_over, bowler_player_id, batsman_on_strike_player_id, runs_scored, is_bye, is_extra, extra_type, extra_runs, is_wicket, wicket_type, fielder_player_id, commentary_text) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [matchId, inningNumber, dbOverNumber, dbBallNumberInOver, bowlerPlayerId, batsmanOnStrikePlayerId, actualRunsOffBat, isBye || false, isExtra || false, extraType || null, parseInt(extraRuns || 0), isWicket || false, wicketType || null, finalFielderId, commentary]); const newBallId = ballResult.insertId;
+        const [ballResult] = await connection.query(`INSERT INTO ballbyball (match_id, inning_number, over_number, ball_number_in_over, bowler_player_id, batsman_on_strike_player_id, runs_scored, is_bye, is_extra, extra_type, extra_runs, is_wicket, wicket_type, fielder_player_id, commentary_text) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [matchId, inningNumber, dbOverNumber, dbBallNumberInOver, bowlerPlayerId, batsmanOnStrikePlayerId, actualRunsOffBat, isBye || false, isExtra || false, extraType || null, parseInt(extraRuns || 0), isWicket || false, wicketType || null, finalFielderId, commentary]); const newBallId = ballResult.insertId;
 
         // --- 6. Calculate Impact Points --- 
         const impactPoints = calculateImpactPoints({ runs_scored: runsScored, is_extra: isExtra, extra_type: extraType, extra_runs: extraRuns, is_wicket: isWicket, wicket_type: wicketType, is_bye: isBye });
@@ -4674,7 +4674,7 @@ exports.scoreSingleBall = async (req, res, next) => {
         [actualRunsOffBat, isLegalDelivery ? 1 : 0, (runsScored == 4 && !isExtra && !isBye) ? 1 : 0, (runsScored == 6 && !isExtra && !isBye) ? 1 : 0, isWicket, isWicket, wicketType || null, impactPoints.batsman, matchId, batsmanOnStrikePlayerId]); // Added impactPoints.batsman
         
         // Update Bowler: Add bowling_impact_points update
-        const [currentBowlerStatsData] = await connection.query('SELECT overs_bowled FROM PlayerMatchStats WHERE match_id = ? AND player_id = ?', [matchId, bowlerPlayerId]); const currentOversDecimal = currentBowlerStatsData[0]?.overs_bowled || 0.0; const newOversDecimal = calculateNewOversDecimal(currentOversDecimal, isLegalDelivery);
+        const [currentBowlerStatsData] = await connection.query('SELECT overs_bowled FROM playermatchstats WHERE match_id = ? AND player_id = ?', [matchId, bowlerPlayerId]); const currentOversDecimal = currentBowlerStatsData[0]?.overs_bowled || 0.0; const newOversDecimal = calculateNewOversDecimal(currentOversDecimal, isLegalDelivery);
         await connection.query(`UPDATE PlayerMatchStats SET overs_bowled = ?, runs_conceded = runs_conceded + ?, wickets_taken = wickets_taken + ?, wides = wides + ?, no_balls = no_balls + ?, maidens = maidens + ?, bowling_impact_points = bowling_impact_points + ? WHERE match_id = ? AND player_id = ?`,
         [newOversDecimal, runsForBowler, (isWicket && !['Run Out'].includes(wicketType)) ? 1 : 0, extraType === 'Wide' ? 1 : 0, extraType === 'NoBall' ? 1 : 0, 0 /* Maiden TBD */, impactPoints.bowler, matchId, bowlerPlayerId]); // Added impactPoints.bowler
         
@@ -4691,7 +4691,7 @@ exports.scoreSingleBall = async (req, res, next) => {
         let winnerTeamId = null; 
         const maxOvers = 5; 
         const maxWickets = 5;
-        const [progressInfo] = await connection.query(`SELECT COUNT(*) as wickets_this_inning FROM PlayerMatchStats WHERE match_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, battingTeamId]); const [legalBallsDataCurrent] = await connection.query(`SELECT COUNT(*) as count FROM BallByBall WHERE match_id = ? AND inning_number = ? AND over_number = ? AND (is_extra = false OR extra_type = 'NoBall')`, [matchId, inningNumber, dbOverNumber]);
+        const [progressInfo] = await connection.query(`SELECT COUNT(*) as wickets_this_inning FROM playermatchstats WHERE match_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, battingTeamId]); const [legalBallsDataCurrent] = await connection.query(`SELECT COUNT(*) as count FROM ballbyball WHERE match_id = ? AND inning_number = ? AND over_number = ? AND (is_extra = false OR extra_type = 'NoBall')`, [matchId, inningNumber, dbOverNumber]);
         const totalWicketsThisInning = progressInfo[0].wickets_this_inning || 0; 
         const legalBallsThisOver = legalBallsDataCurrent[0].count || 0;
         let inningsEndReason = null; 
@@ -4713,13 +4713,13 @@ exports.scoreSingleBall = async (req, res, next) => {
 
 
                 // Calculate winner/result
-                const [finalScores] = await connection.query(`SELECT inning_number, SUM(runs_scored + extra_runs) as total_score FROM BallByBall WHERE match_id = ? GROUP BY inning_number ORDER BY inning_number`, [matchId]); const inn1Score = finalScores.find(s => s.inning_number === 1)?.total_score || 0; const inn2Score = finalScores.find(s => s.inning_number === 2)?.total_score || 0;
+                const [finalScores] = await connection.query(`SELECT inning_number, SUM(runs_scored + extra_runs) as total_score FROM ballbyball WHERE match_id = ? GROUP BY inning_number ORDER BY inning_number`, [matchId]); const inn1Score = finalScores.find(s => s.inning_number === 1)?.total_score || 0; const inn2Score = finalScores.find(s => s.inning_number === 2)?.total_score || 0;
                 if (inn2Score >= targetScore) 
                     { 
                         winnerTeamId = battingTeamId; 
                         winnerTeamName = winnerTeamId;
                         try {
-                            const [t1] = await connection.query('SELECT name FROM Teams WHERE team_id = ?', [winnerTeamId]);
+                            const [t1] = await connection.query('SELECT name FROM teams WHERE team_id = ?', [winnerTeamId]);
                             if (t1.length > 0) winnerTeamName = t1[0].name;
                             
                         } catch (nameError) {
@@ -4733,7 +4733,7 @@ exports.scoreSingleBall = async (req, res, next) => {
                         winnerTeamId = bowlingTeamId; 
                         winnerTeamName = winnerTeamId;
                         try {
-                            const [t1] = await connection.query('SELECT name FROM Teams WHERE team_id = ?', [winnerTeamId]);
+                            const [t1] = await connection.query('SELECT name FROM teams WHERE team_id = ?', [winnerTeamId]);
                             if (t1.length > 0) winnerTeamName = t1[0].name;
                             
                         } catch (nameError) {
@@ -4749,7 +4749,7 @@ exports.scoreSingleBall = async (req, res, next) => {
                 console.log(`Match ${matchId}: Innings 2 ended. Status -> Completed. Result: ${resultSummary}`);
             }
         } else if (inningNumber === 2 && targetScore !== null) {
-            const [currentInningScoreData] = await connection.query(`SELECT SUM(runs_scored + extra_runs) as score FROM BallByBall WHERE match_id = ? AND inning_number = 2`, [matchId]); const currentInningScore = currentInningScoreData[0]?.score || 0;
+            const [currentInningScoreData] = await connection.query(`SELECT SUM(runs_scored + extra_runs) as score FROM ballbyball WHERE match_id = ? AND inning_number = 2`, [matchId]); const currentInningScore = currentInningScoreData[0]?.score || 0;
             if (currentInningScore >= targetScore) { inningsEnded = true; matchCompleted = true; updatedStatus = 'Completed'; winnerTeamId = battingTeamId; resultSummary = `Team ${battingTeamId} won by ${maxWickets - totalWicketsThisInning} wickets.`; commentary += ` TARGET ACHIEVED.`; console.log(`Match ${matchId}: Target achieved. Status -> Completed. Result: ${resultSummary}`); }
         }
 
@@ -4758,7 +4758,7 @@ exports.scoreSingleBall = async (req, res, next) => {
             console.log(`--- Match ${matchId} Completed. Calculating Man of the Match ---`);
             const [impactStats] = await connection.query(`
                 SELECT player_id, team_id, (batting_impact_points + bowling_impact_points + fielding_impact_points) as total_impact
-                FROM PlayerMatchStats WHERE match_id = ? ORDER BY total_impact DESC
+                FROM playermatchstats WHERE match_id = ? ORDER BY total_impact DESC
             `, [matchId]);
             if (impactStats.length > 0) {
                 const highestImpact = impactStats[0].total_impact;
@@ -4780,7 +4780,7 @@ exports.scoreSingleBall = async (req, res, next) => {
             await connection.query("UPDATE Matches SET status = ?, winner_team_id = ?, result_summary = ?, man_of_the_match_player_id = ? WHERE match_id = ?",
                 [updatedStatus, winnerTeamId, resultSummary, manOfTheMatchPlayerId, matchId]); // Added manOfTheMatchPlayerId
         }
-        if(inningsEnded || matchCompleted) { await connection.query("UPDATE BallByBall SET commentary_text = ? WHERE ball_id = ?", [commentary.trim(), newBallId]); }
+        if(inningsEnded || matchCompleted) { await connection.query("UPDATE ballbyball SET commentary_text = ? WHERE ball_id = ?", [commentary.trim(), newBallId]); }
         // --- 8. Commit Transaction ---
         await connection.commit();
         console.log(`--- Ball ${newBallId} scoring committed ---`);
@@ -4845,7 +4845,7 @@ exports.undoLastBall = async (req, res, next) => {
         console.log(`--- Starting UNDO for Match ${matchId} ---`);
 
         // 1. Find the last ball record
-        const [lastBallArr] = await connection.query(`SELECT * FROM BallByBall WHERE match_id = ? ORDER BY ball_id DESC LIMIT 1 FOR UPDATE`, [matchId]);
+        const [lastBallArr] = await connection.query(`SELECT * FROM ballbyball WHERE match_id = ? ORDER BY ball_id DESC LIMIT 1 FOR UPDATE`, [matchId]);
         if (lastBallArr.length === 0) throw new Error('No balls recorded yet to undo.');
         const lastBall = lastBallArr[0];
         const { ball_id, inningNumber, over_number, bowler_player_id, batsman_on_strike_player_id, runs_scored, is_bye, is_extra, extra_type, extra_runs, is_wicket, wicket_type, fielder_player_id } = lastBall;
@@ -4858,7 +4858,7 @@ exports.undoLastBall = async (req, res, next) => {
         console.log(`--- Undoing Ball ID: ${ball_id}, Inning: ${inningNumber}, Over: ${over_number} ---`);
 
         // 2. Fetch Match state & details
-        const [matches] = await connection.query('SELECT status, team1_id, team2_id, toss_winner_team_id, decision, season_id, winner_team_id, result_summary, super_over_number FROM Matches WHERE match_id = ? FOR UPDATE', [matchId]);
+        const [matches] = await connection.query('SELECT status, team1_id, team2_id, toss_winner_team_id, decision, season_id, winner_team_id, result_summary, super_over_number FROM matches WHERE match_id = ? FOR UPDATE', [matchId]);
         if (matches.length === 0) throw new Error('Match not found.');
         const match = matches[0];
         let currentStatus = match.status;
@@ -4899,7 +4899,7 @@ exports.undoLastBall = async (req, res, next) => {
         // Revert Batsman
         await connection.query(`UPDATE PlayerMatchStats SET runs_scored = GREATEST(0, runs_scored - ?), balls_faced = GREATEST(0, balls_faced - ?), fours = GREATEST(0, fours - ?), sixes = GREATEST(0, sixes - ?), is_out = IF(? = TRUE AND how_out = ?, FALSE, is_out), how_out = IF(? = TRUE AND how_out = ?, NULL, how_out) WHERE match_id = ? AND player_id = ?`, [actualRunsOffBat, isLegalDelivery ? 1 : 0, (runs_scored == 4 && !isExtra && !isBye) ? 1 : 0, (runs_scored == 6 && !isExtra && !isBye) ? 1 : 0, isWicket, wicketType, isWicket, wicketType, matchId, batsman_on_strike_player_id]);
         // Revert Bowler (using accurate reversal logic)
-        const [bowlerStatsData] = await connection.query('SELECT overs_bowled FROM PlayerMatchStats WHERE match_id = ? AND player_id = ?', [matchId, bowler_player_id]);
+        const [bowlerStatsData] = await connection.query('SELECT overs_bowled FROM playermatchstats WHERE match_id = ? AND player_id = ?', [matchId, bowler_player_id]);
         const currentOversDecimal = bowlerStatsData.length > 0 ? (bowlerStatsData[0].overs_bowled || 0) : 0;
         let previousOversDecimal = currentOversDecimal; if (isLegalDelivery && currentOversDecimal > 0) { const currentOvers = Math.floor(currentOversDecimal); const currentBalls = Math.round((currentOversDecimal - currentOvers) * 10); if (currentBalls === 1 && currentOvers > 0) { previousOversDecimal = parseFloat(`${currentOvers - 1}.5`); } else if (currentBalls > 0) { previousOversDecimal = parseFloat(`${currentOvers}.${currentBalls - 1}`); } else { /* Edge case 0.0 remains 0.0 */ previousOversDecimal = 0.0; } }
         await connection.query(`UPDATE PlayerMatchStats SET overs_bowled = ?, runs_conceded = GREATEST(0, runs_conceded - ?), wickets_taken = GREATEST(0, wickets_taken - ?), wides = GREATEST(0, wides - ?), no_balls = GREATEST(0, no_balls - ?) WHERE match_id = ? AND player_id = ?`, [Math.max(0, previousOversDecimal), runsForBowler, (isWicket && !['Run Out'].includes(wicketType)) ? 1 : 0, extraType === 'Wide' ? 1 : 0, extraType === 'NoBall' ? 1 : 0, matchId, bowler_player_id]);
@@ -4907,14 +4907,14 @@ exports.undoLastBall = async (req, res, next) => {
         if (isWicket && fielder_player_id) { await connection.query(`UPDATE PlayerMatchStats SET catches = GREATEST(0, catches - ?), stumps = GREATEST(0, stumps - ?) WHERE match_id = ? AND player_id = ?`, [wicketType === 'Caught' ? 1 : 0, wicketType === 'Stumped' ? 1 : 0, matchId, fielder_player_id]); }
         console.log(`--- Player Stats Reverted ---`);
 
-        // --- 4. Delete the last BallByBall record ---
+        // --- 4. Delete the last ballbyball record ---
         console.log(`--- Deleting Ball ID: ${ball_id} ---`);
-        await connection.query("DELETE FROM BallByBall WHERE ball_id = ?", [ball_id]);
+        await connection.query("DELETE FROM ballbyball WHERE ball_id = ?", [ball_id]);
 
         // --- 5. Revert Match Status if necessary ---
         let newStatus = currentStatus; let revertStatus = false; const maxOvers = 5; const maxWickets = 5;
-        const [prevProgressInfo] = await connection.query(`SELECT COUNT(*) as wickets_this_inning FROM PlayerMatchStats WHERE match_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, battingTeamId]);
-        const [prevOverProgress] = await pool.query(`SELECT over_number, COUNT(*) as legal_balls FROM BallByBall WHERE match_id = ? AND inning_number = ? AND (is_extra = false OR extra_type = 'NoBall') GROUP BY over_number ORDER BY over_number DESC LIMIT 1`, [matchId, inningNumber]);
+        const [prevProgressInfo] = await connection.query(`SELECT COUNT(*) as wickets_this_inning FROM playermatchstats WHERE match_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, battingTeamId]);
+        const [prevOverProgress] = await pool.query(`SELECT over_number, COUNT(*) as legal_balls FROM ballbyball WHERE match_id = ? AND inning_number = ? AND (is_extra = false OR extra_type = 'NoBall') GROUP BY over_number ORDER BY over_number DESC LIMIT 1`, [matchId, inningNumber]);
         const prevLastLegalOverNum = prevOverProgress[0]?.over_number || 0;
         const ballsInPrevLastLegalOver = prevOverProgress[0]?.legal_balls || 0;
 
@@ -4926,9 +4926,9 @@ exports.undoLastBall = async (req, res, next) => {
         else if (currentStatus === 'Completed' && inningNumber === 2) {
             let wasTargetAchievedBefore = false;
             if (!prevInningsEndReason) { // Check target achievement only if innings didn't end for other reasons
-                const [prevInn2ScoreData] = await connection.query(`SELECT SUM(runs_scored + extra_runs) as score FROM BallByBall WHERE match_id = ? AND inning_number = 2`, [matchId]); // Score AFTER deleting ball
+                const [prevInn2ScoreData] = await connection.query(`SELECT SUM(runs_scored + extra_runs) as score FROM ballbyball WHERE match_id = ? AND inning_number = 2`, [matchId]); // Score AFTER deleting ball
                 const prevInn2Score = prevInn2ScoreData[0]?.score || 0;
-                const [inn1ScoreData] = await connection.query(`SELECT SUM(runs_scored + extra_runs) as score FROM BallByBall WHERE match_id = ? AND inning_number = 1`, [matchId]);
+                const [inn1ScoreData] = await connection.query(`SELECT SUM(runs_scored + extra_runs) as score FROM ballbyball WHERE match_id = ? AND inning_number = 1`, [matchId]);
                 const targetScore = Number((inn1ScoreData[0]?.score || 0)) + 1;
                 wasTargetAchievedBefore = prevInn2Score >= targetScore;
             }
@@ -5010,7 +5010,7 @@ exports.createSeason = async (req, res, next) => {
         );
         const seasonId = result.insertId;
         // Fetch the newly created season to return it in the response
-        const [newSeason] = await pool.query('SELECT * FROM Seasons WHERE season_id = ?', [seasonId]);
+        const [newSeason] = await pool.query('SELECT * FROM seasons WHERE season_id = ?', [seasonId]);
 
         if (newSeason.length === 0) {
             // Should not happen if insert was successful
@@ -5036,7 +5036,7 @@ exports.createSeason = async (req, res, next) => {
 exports.getSeasons = async (req, res, next) => {
     try {
         // Order by year descending to show most recent first
-        const [seasons] = await pool.query('SELECT * FROM Seasons ORDER BY year DESC');
+        const [seasons] = await pool.query('SELECT * FROM seasons ORDER BY year DESC');
         res.json(seasons);
     } catch (error) {
         console.error("Get Seasons Error:", error);
@@ -5056,7 +5056,7 @@ exports.getSeasonById = async (req, res, next) => {
     }
 
     try {
-        const [seasons] = await pool.query('SELECT * FROM Seasons WHERE season_id = ?', [id]);
+        const [seasons] = await pool.query('SELECT * FROM seasons WHERE season_id = ?', [id]);
         if (seasons.length === 0) {
             return res.status(404).json({ message: 'Season not found.' });
         }
@@ -5094,7 +5094,7 @@ exports.updateSeason = async (req, res, next) => {
 
     try {
         // Check if the season exists before attempting to update
-        const [existing] = await pool.query('SELECT season_id FROM Seasons WHERE season_id = ?', [id]);
+        const [existing] = await pool.query('SELECT season_id FROM seasons WHERE season_id = ?', [id]);
         if (existing.length === 0) {
             return res.status(404).json({ message: 'Season not found.' });
         }
@@ -5114,13 +5114,13 @@ exports.updateSeason = async (req, res, next) => {
              // This might happen if the data submitted was the same as existing data
              console.warn(`Update Season ${id}: Affected rows was 0. Data might be unchanged.`);
               // Fetch current data to confirm if it matches request or if ID was wrong despite check
-             const [currentSeason] = await pool.query('SELECT * FROM Seasons WHERE season_id = ?', [id]);
+             const [currentSeason] = await pool.query('SELECT * FROM seasons WHERE season_id = ?', [id]);
              return res.json({ message: 'Season data unchanged.', season: currentSeason[0] });
 
          }
 
         // Fetch the updated season data to return in the response
-        const [updatedSeason] = await pool.query('SELECT * FROM Seasons WHERE season_id = ?', [id]);
+        const [updatedSeason] = await pool.query('SELECT * FROM seasons WHERE season_id = ?', [id]);
         res.json({ message: 'Season updated successfully', season: updatedSeason[0] });
 
     } catch (error) {
@@ -5144,13 +5144,13 @@ exports.updateSeason = async (req, res, next) => {
 //     // depending on your FOREIGN KEY constraints (ON DELETE CASCADE). Double-check schema.
 //     // Consider logical deletion (setting an 'is_deleted' flag) instead of physical deletion.
 //     try {
-//          const [existing] = await pool.query('SELECT season_id FROM Seasons WHERE season_id = ?', [id]);
+//          const [existing] = await pool.query('SELECT season_id FROM seasons WHERE season_id = ?', [id]);
 //         if (existing.length === 0) {
 //             return res.status(404).json({ message: 'Season not found.' });
 //         }
 
 //         // Perform deletion
-//         const [result] = await pool.query('DELETE FROM Seasons WHERE season_id = ?', [id]);
+//         const [result] = await pool.query('DELETE FROM seasons WHERE season_id = ?', [id]);
 
 //          if (result.affectedRows === 0) {
 //              return res.status(404).json({ message: 'Season not found or already deleted.' });
@@ -5196,7 +5196,7 @@ exports.addTeamToSeason = async (req, res, next) => {
         await connection.beginTransaction();
 
         // Check if season exists
-        const [seasonCheck] = await connection.query('SELECT 1 FROM Seasons WHERE season_id = ?', [season_id]);
+        const [seasonCheck] = await connection.query('SELECT 1 FROM seasons WHERE season_id = ?', [season_id]);
         if (seasonCheck.length === 0) {
             await connection.rollback();
             return res.status(400).json({ message: `Season with ID ${season_id} does not exist.` });
@@ -5204,7 +5204,7 @@ exports.addTeamToSeason = async (req, res, next) => {
 
         // Optional: Check if captain player exists if ID is provided
         if (captain_player_id) {
-             const [playerCheck] = await connection.query('SELECT 1 FROM Players WHERE player_id = ?', [captain_player_id]);
+             const [playerCheck] = await connection.query('SELECT 1 FROM players WHERE player_id = ?', [captain_player_id]);
              if (playerCheck.length === 0) {
                 await connection.rollback();
                 return res.status(400).json({ message: `Captain Player with ID ${captain_player_id} does not exist.` });
@@ -5220,7 +5220,7 @@ exports.addTeamToSeason = async (req, res, next) => {
         const teamId = result.insertId;
 
         // Fetch the newly created team to return
-        const [newTeam] = await connection.query('SELECT * FROM Teams WHERE team_id = ?', [teamId]);
+        const [newTeam] = await connection.query('SELECT * FROM teams WHERE team_id = ?', [teamId]);
 
         await connection.commit();
         res.status(201).json({ message: 'Team added successfully', team: newTeam[0] });
@@ -5250,9 +5250,9 @@ exports.getTeamsForSeason = async (req, res, next) => {
         // Base query including season and captain info
         let query = `
           SELECT t.*, s.name as season_name, p.name as captain_name
-          FROM Teams t
-          JOIN Seasons s ON t.season_id = s.season_id
-          LEFT JOIN Players p ON t.captain_player_id = p.player_id
+          FROM teams t
+          JOIN seasons s ON t.season_id = s.season_id
+          LEFT JOIN players p ON t.captain_player_id = p.player_id
           `;
         const params = [];
 
@@ -5297,8 +5297,8 @@ exports.getTeamDetails = async (req, res, next) => {
         // Fetch team details
         const [teams] = await pool.query(
             `SELECT t.*, p.name as captain_name
-             FROM Teams t
-             LEFT JOIN Players p ON t.captain_player_id = p.player_id
+             FROM teams t
+             LEFT JOIN players p ON t.captain_player_id = p.player_id
              WHERE t.team_id = ? AND t.season_id = ?`, // Ensure team belongs to the requested season
             [id, season_id]
         );
@@ -5314,8 +5314,8 @@ exports.getTeamDetails = async (req, res, next) => {
             `SELECT
                 p.player_id, p.name, p.role,
                 tp.team_player_id, tp.purchase_price, tp.is_captain
-             FROM Players p
-             JOIN TeamPlayers tp ON p.player_id = tp.player_id
+             FROM players p
+             JOIN teamplayers tp ON p.player_id = tp.player_id
              WHERE tp.team_id = ? AND tp.season_id = ?
              ORDER BY p.name`,
             [id, season_id]
@@ -5354,7 +5354,7 @@ exports.updateTeam = async (req, res, next) => {
          await connection.beginTransaction();
 
          // Get current team info, especially season_id
-         const [existingTeamArr] = await connection.query('SELECT team_id, season_id FROM Teams WHERE team_id = ?', [id]);
+         const [existingTeamArr] = await connection.query('SELECT team_id, season_id FROM teams WHERE team_id = ?', [id]);
          if (existingTeamArr.length === 0) {
              await connection.rollback();
              return res.status(404).json({ message: 'Team not found.' });
@@ -5374,14 +5374,14 @@ exports.updateTeam = async (req, res, next) => {
              // If setting a new captain (not null)
              if (newCaptainId !== null) {
                  // 1. Check if the new captain player exists
-                 const [playerCheck] = await connection.query('SELECT 1 FROM Players WHERE player_id = ?', [newCaptainId]);
+                 const [playerCheck] = await connection.query('SELECT 1 FROM players WHERE player_id = ?', [newCaptainId]);
                  if (playerCheck.length === 0) {
                      await connection.rollback();
                      return res.status(400).json({ message: `Player ID ${newCaptainId} does not exist.` });
                  }
                  // 2. Check if the new captain is actually ON THIS TEAM for THIS SEASON
                  const [teamPlayerCheck] = await connection.query(
-                     'SELECT 1 FROM TeamPlayers WHERE team_id = ? AND player_id = ? AND season_id = ?',
+                     'SELECT 1 FROM teamplayers WHERE team_id = ? AND player_id = ? AND season_id = ?',
                      [id, newCaptainId, teamSeasonId]
                  );
                  if (teamPlayerCheck.length === 0) {
@@ -5417,8 +5417,8 @@ exports.updateTeam = async (req, res, next) => {
          // Fetch the final updated team details to return
          const [finalTeam] = await connection.query(
              `SELECT t.*, p.name as captain_name
-              FROM Teams t
-              LEFT JOIN Players p ON t.captain_player_id = p.player_id
+              FROM teams t
+              LEFT JOIN players p ON t.captain_player_id = p.player_id
               WHERE t.team_id = ?`, [id]
           );
 
@@ -5452,9 +5452,9 @@ exports.addPlayerToTeam = async (req, res, next) => {
     try {
         await connection.beginTransaction();
         // Pre-checks (team exists, player exists, player not already assigned) - Keep as before
-        const [teamCheck] = await connection.query('SELECT 1 FROM Teams WHERE team_id = ? AND season_id = ?', [team_id, season_id]); if (teamCheck.length === 0) { await connection.rollback(); return res.status(400).json({ message: `Team ID ${team_id} not found for season ${season_id}.` }); }
-        const [playerCheck] = await connection.query('SELECT 1 FROM Players WHERE player_id = ?', [player_id]); if (playerCheck.length === 0) { await connection.rollback(); return res.status(400).json({ message: `Player ID ${player_id} does not exist.` }); }
-        const [existingAssignment] = await connection.query('SELECT team_id FROM TeamPlayers WHERE player_id = ? AND season_id = ?', [player_id, season_id]); if (existingAssignment.length > 0) { await connection.rollback(); return res.status(400).json({ message: `Player ${player_id} is already assigned to team ${existingAssignment[0].team_id} for season ${season_id}. Remove them first.` }); }
+        const [teamCheck] = await connection.query('SELECT 1 FROM teams WHERE team_id = ? AND season_id = ?', [team_id, season_id]); if (teamCheck.length === 0) { await connection.rollback(); return res.status(400).json({ message: `Team ID ${team_id} not found for season ${season_id}.` }); }
+        const [playerCheck] = await connection.query('SELECT 1 FROM players WHERE player_id = ?', [player_id]); if (playerCheck.length === 0) { await connection.rollback(); return res.status(400).json({ message: `Player ID ${player_id} does not exist.` }); }
+        const [existingAssignment] = await connection.query('SELECT team_id FROM teamplayers WHERE player_id = ? AND season_id = ?', [player_id, season_id]); if (existingAssignment.length > 0) { await connection.rollback(); return res.status(400).json({ message: `Player ${player_id} is already assigned to team ${existingAssignment[0].team_id} for season ${season_id}. Remove them first.` }); }
 
         // Captain handling (Keep as before)
         if (is_captain) { await connection.query('UPDATE TeamPlayers SET is_captain = FALSE WHERE team_id = ? AND season_id = ?', [team_id, season_id]); await connection.query('UPDATE Teams SET captain_player_id = ? WHERE team_id = ?', [player_id, team_id]); }
@@ -5490,12 +5490,12 @@ exports.removePlayerFromTeam = async (req, res, next) => {
     try {
         await connection.beginTransaction();
         // Get assignment details (Keep as before)
-        const [assignmentInfo] = await connection.query(`SELECT tp.player_id, tp.team_id, t.captain_player_id FROM TeamPlayers tp JOIN Teams t ON tp.team_id = t.team_id WHERE tp.team_player_id = ?`, [teamPlayerId]);
+        const [assignmentInfo] = await connection.query(`SELECT tp.player_id, tp.team_id, t.captain_player_id FROM teamplayers tp JOIN teams t ON tp.team_id = t.team_id WHERE tp.team_player_id = ?`, [teamPlayerId]);
         if (assignmentInfo.length === 0) { await connection.rollback(); return res.status(404).json({ message: 'Team player assignment not found.' }); }
         const { player_id, team_id, captain_player_id } = assignmentInfo[0];
 
         // Delete assignment (Keep as before)
-        const [deleteResult] = await connection.query('DELETE FROM TeamPlayers WHERE team_player_id = ?', [teamPlayerId]);
+        const [deleteResult] = await connection.query('DELETE FROM teamplayers WHERE team_player_id = ?', [teamPlayerId]);
         if (deleteResult.affectedRows === 0) { await connection.rollback(); return res.status(404).json({ message: 'Team player assignment could not be deleted (not found?).' }); }
 
         // Handle captain (Keep as before)
@@ -5527,12 +5527,12 @@ exports.removePlayerFromTeam = async (req, res, next) => {
 //     // CHECK YOUR SCHEMA CONSTRAINTS CAREFULLY!
 //     try {
 //         // Check existence first
-//         const [existing] = await pool.query('SELECT team_id FROM Teams WHERE team_id = ?', [id]);
+//         const [existing] = await pool.query('SELECT team_id FROM teams WHERE team_id = ?', [id]);
 //         if (existing.length === 0) {
 //             return res.status(404).json({ message: 'Team not found.' });
 //         }
 //         // Perform delete
-//         const [result] = await pool.query('DELETE FROM Teams WHERE team_id = ?', [id]);
+//         const [result] = await pool.query('DELETE FROM teams WHERE team_id = ?', [id]);
 //         if (result.affectedRows === 0) {
 //              return res.status(404).json({ message: 'Team not found or could not be deleted.' });
 //         }
@@ -5574,7 +5574,7 @@ exports.protect = async (req, res, next) => {
 
             // Fetch admin user details from DB using ID from token payload
             // Exclude password hash for security
-            const [admins] = await pool.query('SELECT admin_id, username, email FROM Admins WHERE admin_id = ?', [decoded.id]);
+            const [admins] = await pool.query('SELECT admin_id, username, email FROM admins WHERE admin_id = ?', [decoded.id]);
 
             if (admins.length === 0) {
                  // If user associated with token no longer exists
@@ -5986,7 +5986,7 @@ let liveMatchesState = {};
 //     batsmanStrike: { id: 101, name: 'Rohit Sharma', runs: 35, balls: 20 }, // Might be simplified or part of players list
 //     bowler: { id: 110, name: 'Yuzvendra Chahal', oversDecimal: 0.0, runs: 8, wickets: 0 }, // Simplified
 //     lastEvent: "Ball 4.6: WICKET! Caught (Hit Six). Innings End.",
-//     lastBallCommentary: "Over 4.6: Chahal to Rohit Sharma, WICKET! Caught by Kohli (Hit Six!)", // From BallByBall table via backend emit
+//     lastBallCommentary: "Over 4.6: Chahal to Rohit Sharma, WICKET! Caught by Kohli (Hit Six!)", // From ballbyball table via backend emit
 //     recentCommentary: ["Over 4.6: ...", "Over 4.5: ..."] // Array of recent commentary strings
 //   },
 //   ...
@@ -6078,7 +6078,7 @@ function initializeSocket(io) {
 
 
         // --- IMPORTANT: 'scoreBall' listener is REMOVED ---
-        // The logic for processing a ball, updating the database (BallByBall, PlayerMatchStats),
+        // The logic for processing a ball, updating the database (ballbyball, PlayerMatchStats),
         // calculating the new state, and determining end of over/innings/match
         // now resides in the backend HTTP endpoint controller: `controllers/admin/scoringController.js -> scoreSingleBall`.
         // That controller function, AFTER successfully committing database changes,

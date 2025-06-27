@@ -34,7 +34,7 @@ const generateToken = (id) => {
 
     try {
         // Find admin by username in the database
-        const [admins] = await pool.query('SELECT admin_id, username, email, password_hash FROM Admins WHERE username = ?', [username]);
+        const [admins] = await pool.query('SELECT admin_id, username, email, password_hash FROM admins WHERE username = ?', [username]);
 
         // Check if admin exists
         if (admins.length === 0) {
@@ -74,7 +74,7 @@ exports.loginAdmin = async (req, res, next) => {
     }
 
     try {
-        const [admins] = await pool.query('SELECT admin_id, username, email, password_hash FROM Admins WHERE username = ?', [username]);
+        const [admins] = await pool.query('SELECT admin_id, username, email, password_hash FROM admins WHERE username = ?', [username]);
 
         if (admins.length === 0) {
              console.log("[Backend Login] Admin user not found in DB."); // <-- ADD THIS
@@ -129,7 +129,7 @@ exports.registerAdmin = async (req, res, next) => {
 
     try {
         // Check if username or email already exists
-        const [existingAdmin] = await pool.query('SELECT admin_id FROM Admins WHERE username = ? OR email = ?', [username, email]);
+        const [existingAdmin] = await pool.query('SELECT admin_id FROM admins WHERE username = ? OR email = ?', [username, email]);
         if (existingAdmin.length > 0) {
             return res.status(400).json({ message: 'Admin with that username or email already exists' });
         }
@@ -147,7 +147,7 @@ exports.registerAdmin = async (req, res, next) => {
         const newAdminId = result.insertId;
 
         // Fetch the newly created admin's info (excluding hash)
-        const [newAdmin] = await pool.query('SELECT admin_id, username, email FROM Admins WHERE admin_id = ?', [newAdminId]);
+        const [newAdmin] = await pool.query('SELECT admin_id, username, email FROM admins WHERE admin_id = ?', [newAdminId]);
 
         if (newAdmin.length > 0) {
              // Respond with new admin details and a token (log them in immediately)

@@ -20,14 +20,14 @@ exports.getStandings = async (req, res, next) => {
 
     try {
         // 1. Get all teams for the season
-        const [teams] = await connection.query('SELECT team_id, name FROM Teams WHERE season_id = ?', [seasonIdNum]);
+        const [teams] = await connection.query('SELECT team_id, name FROM teams WHERE season_id = ?', [seasonIdNum]);
         if (teams.length === 0) {
             return res.json([]); // Return empty array if no teams in the season
         }
 
         // 2. Get all completed OR abandoned matches for the season
         const [matches] = await connection.query(
-            'SELECT match_id, team1_id, team2_id, winner_team_id, decision, toss_winner_team_id, status FROM Matches WHERE season_id = ? AND status IN (?, ?)',
+            'SELECT match_id, team1_id, team2_id, winner_team_id, decision, toss_winner_team_id, status FROM matches WHERE season_id = ? AND status IN (?, ?)',
             [seasonIdNum, 'Completed', 'Abandoned'] // Fetch both Completed and Abandoned
         );
 
@@ -85,7 +85,7 @@ exports.getStandings = async (req, res, next) => {
                 // Fetch Ball-by-Ball data
                 const [ballsData] = await connection.query(`
                     SELECT inning_number, runs_scored, extra_runs, is_extra, extra_type, is_bye
-                    FROM BallByBall
+                    FROM ballbyball
                     WHERE match_id = ?
                     ORDER BY inning_number, ball_id
                 `, [match.match_id]);

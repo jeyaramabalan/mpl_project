@@ -18,7 +18,7 @@ exports.protect = async (req, res, next) => {
 
             // Fetch admin user details from DB using ID from token payload
             // Exclude password hash for security
-            const [admins] = await pool.query('SELECT admin_id, username, email FROM Admins WHERE admin_id = ?', [decoded.id]);
+            const [admins] = await pool.query('SELECT admin_id, username, email FROM admins WHERE admin_id = ?', [decoded.id]);
 
             if (admins.length === 0) {
                  // If user associated with token no longer exists
