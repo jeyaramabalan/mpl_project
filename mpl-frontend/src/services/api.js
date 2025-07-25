@@ -2,7 +2,8 @@
 import axios from 'axios';
 
 // Determine the base URL for the API from environment variables or use a default
-const API_URL = import.meta.env.VITE_API_URL || 'https://mpl.supersalessoft.com/api';
+// const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5173/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 console.log(`API Service configured for URL: ${API_URL}`);
 
 // Create an Axios instance with default configuration
