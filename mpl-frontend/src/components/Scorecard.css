@@ -158,3 +158,53 @@
     }
      /* Optional: Hide columns if needed */
 }
+
+/* Fall of Wickets Styling */
+.fow-container {
+    background-color: #383838;
+}
+.fow-grid {
+    display: flex;          /* Use flexbox for stacking */
+    flex-direction: column; /* Stack items vertically */
+    gap: 0.5rem;            /* Space between each row */
+}
+.fow-item {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    font-size: 0.95em;
+    color: #ccc;
+    white-space: nowrap; /* Prevent wrapping */
+}
+.fow-score {
+    font-weight: bold;
+    color: #fff;
+    flex-basis: 60px; /* Assign a fixed base width for alignment */
+    flex-shrink: 0;
+}
+.fow-player {
+    flex-basis: 100px; /* Assign a fixed base width for alignment */
+    /*flex-grow: 1;  Allow player name to take up remaining space */
+}
+.fow-overs {
+    font-size: 0.9em;
+    color: #aaa;
+    flex-basis: 60px; /* Assign a fixed base width for alignment */
+    flex-shrink: 0;
+}
+
+/* Light Mode for Fall of Wickets */
+@media (prefers-color-scheme: light) {
+    .fow-container {
+        background-color: #f9f9f9;
+    }
+    .fow-item {
+        color: #555;
+    }
+    .fow-score {
+        color: #000;
+    }
+    .fow-overs {
+        color: #777;
+    }
+}

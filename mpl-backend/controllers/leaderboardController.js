@@ -12,23 +12,45 @@ const calculateEcon = (runs, oversDecimal) => {
     const properOvers = totalBalls / 6;
     return runs / properOvers;
 };
+// Helper function to format overs display
+const formatOversDisplay = (oversDecimal) => {
+    if (oversDecimal == null || isNaN(oversDecimal)) return "-";
+    const completedOvers = Math.floor(oversDecimal);
+    const ballsInPartialOver = Math.round((oversDecimal - completedOvers) * 10);
+    if (ballsInPartialOver >= 6) return `${completedOvers + 1}.0`; // Handle cases like 4.6 -> 5.0
+    return `${completedOvers}.${ballsInPartialOver}`;
+};
 
 /**
- * @desc    Get leaderboards (Batting, Bowling, Impact) for a season
- * @route   GET /api/leaderboard?season_id=X
+ * @desc    Get leaderboards (Batting, Bowling, Impact) for a season OR for all-time
+ * @route   GET /api/leaderboard?season_id=X or /api/leaderboard?season_id=all
  * @access  Public
  */
-exports.getLeaderboards = async (req, res, next) => {
+exports.getLeaderboard = async (req, res, next) => { // Renamed for consistency with frontend
     const { season_id } = req.query;
 
-    if (!season_id || isNaN(parseInt(season_id))) {
+    if (!season_id) {
+        return res.status(400).json({ message: 'season_id query parameter is required.' });
+    }
+    
+    // --- START OF MERGED CHANGES ---
+
+    // Allow 'all' as a valid season_id, otherwise it must be a number
+    if (season_id !== 'all' && isNaN(parseInt(season_id))) {
         return res.status(400).json({ message: 'Valid season_id query parameter is required.' });
     }
 
     try {
-        const seasonIdNum = parseInt(season_id);
+        let seasonFilterQuery = '';
+        let queryParams = [];
 
-        // Base query joining PlayerMatchStats and Players, filtered by season
+        if (season_id !== 'all') {
+            const seasonIdNum = parseInt(season_id);
+            seasonFilterQuery = `WHERE m.season_id = ?`;
+            queryParams.push(seasonIdNum);
+        }
+        // If season_id is 'all', the filter remains empty, and queryParams is empty.
+
         const baseQuery = `
             SELECT
                 p.player_id,
@@ -51,15 +73,18 @@ exports.getLeaderboards = async (req, res, next) => {
             FROM playermatchstats pms
             JOIN players p ON pms.player_id = p.player_id
             JOIN matches m ON pms.match_id = m.match_id
-            WHERE m.season_id = ?
+            ${seasonFilterQuery}
             GROUP BY p.player_id, p.name
         `;
 
-        const [allStats] = await pool.query(baseQuery, [seasonIdNum]);
+        const [allStats] = await pool.query(baseQuery, queryParams);
+
+        // --- END OF MERGED CHANGES ---
+        // (The rest of your processing logic remains the same)
 
         // Process for leaderboards
         const battingLeaders = allStats
-            .filter(s => s.total_runs > 0 || s.matches_played > 0) // Consider players who played
+            .filter(s => s.total_runs > 0 || s.matches_played > 0)
             .map(s => ({
                 player_id: s.player_id,
                 player_name: s.player_name,
@@ -67,28 +92,26 @@ exports.getLeaderboards = async (req, res, next) => {
                 runs: s.total_runs,
                 avg: calculateAvg(s.total_runs, s.times_out),
                 sr: calculateSR(s.total_runs, s.total_balls_faced),
-                hs: s.highest_score, // Simple highest for now
+                hs: s.highest_score,
                 fours: s.total_fours,
                 twos: s.total_twos,
             }))
-            .sort((a, b) => b.runs - a.runs) // Sort by runs descending
-            .slice(0, 20); // Limit to top 20
+            .sort((a, b) => b.runs - a.runs)
+            .slice(0, 20);
 
         const bowlingLeaders = allStats
-            .filter(s => s.total_overs_bowled > 0) // Consider only players who bowled
+            .filter(s => s.total_overs_bowled > 0)
             .map(s => ({
                 player_id: s.player_id,
                 player_name: s.player_name,
                 matches: s.matches_played,
                 wickets: s.total_wickets,
                 runs: s.total_runs_conceded,
-                overs: formatOversDisplay(s.total_overs_bowled), // Format overs
+                overs: formatOversDisplay(s.total_overs_bowled),
                 econ: calculateEcon(s.total_runs_conceded, s.total_overs_bowled),
-                // avg: calculateBowlAvg(s.total_runs_conceded, s.total_wickets), // Need helper
-                // sr: calculateBowlSR(s.total_overs_bowled, s.total_wickets) // Need helper
             }))
-            .sort((a, b) => b.wickets - a.wickets || (a.econ ?? 999) - (b.econ ?? 999)) // Sort by wickets, then econ asc
-            .slice(0, 20); // Limit
+            .sort((a, b) => b.wickets - a.wickets || (a.econ ?? 999) - (b.econ ?? 999))
+            .slice(0, 20);
 
         const impactLeaders = allStats
              .map(s => ({
@@ -100,8 +123,8 @@ exports.getLeaderboards = async (req, res, next) => {
                 bowl_impact: s.total_bowling_impact,
                 field_impact: s.total_fielding_impact,
              }))
-             .sort((a, b) => b.total_impact - a.total_impact) // Sort by total impact desc
-             .slice(0, 20); // Limit
+             .sort((a, b) => b.total_impact - a.total_impact)
+             .slice(0, 20);
 
         res.json({
             batting: battingLeaders,
@@ -113,13 +136,4 @@ exports.getLeaderboards = async (req, res, next) => {
         console.error("Get Leaderboards Error:", error);
         next(error);
     }
-};
-
-// Helper function to format overs display (duplicate from above, consider moving to shared utils)
-const formatOversDisplay = (oversDecimal) => {
-    if (oversDecimal == null || isNaN(oversDecimal)) return "-";
-    const completedOvers = Math.floor(oversDecimal);
-    const ballsInPartialOver = Math.round((oversDecimal - completedOvers) * 10);
-    if (ballsInPartialOver === 0 && oversDecimal === completedOvers) return `${completedOvers}.0`;
-    return `${completedOvers}.${ballsInPartialOver}`;
 };

@@ -17,10 +17,12 @@ function StandingsPage() {
         const fetchSeasons = async () => {
             setLoadingSeasons(true);
             try {
-                const { data } = await api.get('/seasons/public'); // Fetch all seasons
-                setSeasons(data);
-                if (data.length > 0) {
-                    setSelectedSeason(data[0].season_id); // Default to latest
+                const { data } = await api.get('/seasons/public');
+                // Sort descending by season_id to ensure newest first
+                const sortedSeasons = [...data].sort((a, b) => b.season_id - a.season_id);
+                setSeasons(sortedSeasons);
+                if (sortedSeasons.length > 0) {
+                    setSelectedSeason(sortedSeasons[0].season_id); // Default to newest season
                 }
             } catch (err) { setError('Failed to load seasons.'); }
             finally { setLoadingSeasons(false); }

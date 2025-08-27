@@ -1,6 +1,6 @@
 // mpl-project/mpl-frontend/src/App.jsx
 import React, { Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { Route, Routes, Navigate } from 'react-router-dom';
 
 // --- Core Components ---
 import Navbar from './components/Navbar';
@@ -31,13 +31,12 @@ const AdminResolveMatchPage = lazy(() => import('./pages/admin/AdminResolveMatch
 // Not Found Page
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
-
 function App() {
     return (
-        <Router> {/* BrowserRouter provides routing context */}
+        <>
             <Navbar /> {/* Navigation bar present on all pages */}
             <main> {/* Main content area */}
-                 {/* Suspense provides a fallback UI while lazy-loaded components are loading */}
+                {/* Suspense provides a fallback UI while lazy-loaded components are loading */}
                 <Suspense fallback={<LoadingFallback />}>
                     <Routes> {/* Defines the available routes */}
 
@@ -75,13 +74,13 @@ function App() {
 
                         {/* --- Catch-all 404 Not Found Route --- */}
                         {/* This route matches any path not defined above */}
-                         <Route path="*" element={<NotFoundPage />} />
+                        <Route path="*" element={<NotFoundPage />} />
 
                     </Routes>
-                 </Suspense>
+                </Suspense>
             </main>
             {/* Optional: Footer component */}
-        </Router>
+        </>
     );
 }
 

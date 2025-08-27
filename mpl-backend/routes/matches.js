@@ -1,7 +1,7 @@
 // mpl-project/mpl-backend/routes/matches.js
 const express = require('express');
 //const { getFixtures, getMatchDetails } = require('../controllers/matchController');
-const { getFixtures, getMatchDetails, getMatchCommentary } = require('../controllers/matchController')
+const { getFixtures, getMatchDetails, getMatchCommentary, getMatchState } = require('../controllers/matchController')
 // const { protect } = require('../middleware/authMiddleware'); // Maybe needed if creating matches via API
 
 const router = express.Router();
@@ -18,6 +18,9 @@ router.get('/:id', getMatchDetails);
 
 // Route to get ball-by-ball commentary
 router.get('/:id/commentary', getMatchCommentary);
+
+// Route to get match state (live, completed, etc.)
+router.get('/:id/state', getMatchState);
 
 // --- Admin Routes (Example - if creating matches via API) ---
 // POST /api/matches

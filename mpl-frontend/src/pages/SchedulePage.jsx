@@ -16,12 +16,12 @@ function SchedulePage() {
     useEffect(() => {
         const fetchSeasons = async () => {
             try {
-                const { data } = await api.get('/seasons/public'); //New public season api call
-                setSeasons(data);
-                // Optionally set the default selectedSeason to the latest one
-                if (data.length > 0) {
-                   // Find the most recent year or highest ID? Assuming sorted by year desc
-                   setSelectedSeason(data[0].season_id);
+                const { data } = await api.get('/seasons/public');
+                // Sort descending by season_id to ensure newest first
+                const sortedSeasons = [...data].sort((a, b) => b.season_id - a.season_id);
+                setSeasons(sortedSeasons);
+                if (sortedSeasons.length > 0) {
+                    setSelectedSeason(sortedSeasons[0].season_id); // Default to newest season
                 }
             } catch (err) {
                 console.error("Failed to fetch seasons:", err);

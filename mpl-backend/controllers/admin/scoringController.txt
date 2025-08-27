@@ -293,6 +293,50 @@ exports.getLiveMatchState = async (req, res, next) => {
         }
         console.log(`--- getLiveMatchState: Determined Inning=${inningNumber}, Batting=${battingTeamId}, Bowling=${bowlingTeamId} ---`);
 
+        /*
+        let inningNumber = 1;
+        // Determine inning based on status and ball data
+        if (status === 'InningsBreak' || status === 'Completed') {
+            inningNumber = 2;
+        } else if (status === 'Live') {
+            const [lastBall] = await pool.query('SELECT inning_number FROM ballbyball WHERE match_id = ? ORDER BY ball_id DESC LIMIT 1', [matchId]);
+            if (lastBall.length > 0) {
+                inningNumber = lastBall[0].inning_number;
+                // If last ball was inning 1, check if inning 1 should have ended
+                if (inningNumber === 1) {
+                    const maxWickets = 5; const maxOvers = 5;
+                    const [inn1Stats] = await pool.query(`
+                        SELECT
+                            COUNT(CASE WHEN pms.is_out = TRUE THEN 1 END) as wickets,
+                            MAX(b.over_number) as last_over_num,
+                            (SELECT COUNT(*) FROM ballbyball b2 WHERE b2.match_id = ? AND b2.inning_number = 1 AND b2.over_number = MAX(b.over_number) AND (b2.is_extra = false OR b2.extra_type = 'NoBall')) as balls_in_last_over
+                        FROM playermatchstats pms
+                        LEFT JOIN ballbyball b ON pms.match_id = b.match_id AND pms.team_id = ? AND b.inning_number = 1
+                        WHERE pms.match_id = ? AND pms.team_id = ?
+                     `, [matchId, (decision === 'Bat' ? toss_winner_team_id : (toss_winner_team_id == team1_id ? team2_id : team1_id)), matchId, (decision === 'Bat' ? toss_winner_team_id : (toss_winner_team_id == team1_id ? team2_id : team1_id))]);
+
+                    if (inn1Stats[0].wickets >= maxWickets || (inn1Stats[0].last_over_num === maxOvers && inn1Stats[0].balls_in_last_over >= 6)) {
+                        console.warn(`Match ${matchId}: Status is Live, but Inning 1 seems complete based on DB. Setting inningNumber=2 for state recovery.`);
+                        inningNumber = 2; // Correct state for processing
+                    }
+                }
+            } else {
+                inningNumber = 1; // Live but no balls bowled yet
+            }
+        } else if (status === 'Setup') {
+            inningNumber = 1;
+        }
+
+        let battingTeamId, bowlingTeamId;
+        if (inningNumber === 1) {
+            battingTeamId = (decision === 'Bat') ? toss_winner_team_id : (toss_winner_team_id == team1_id ? team2_id : team1_id);
+            bowlingTeamId = (battingTeamId == team1_id) ? team2_id : team1_id;
+        } else { // Inning 2 (or break/completed)
+            bowlingTeamId = (decision === 'Bat') ? toss_winner_team_id : (toss_winner_team_id == team1_id ? team2_id : team1_id);
+            battingTeamId = (bowlingTeamId == team1_id) ? team2_id : team1_id;
+        }
+        console.log(`--- getLiveMatchState: Determined Inning=${inningNumber}, Batting=${battingTeamId}, Bowling=${bowlingTeamId} ---`);
+        */
         // --- 3. Calculate Current Score, Wickets, Overs, Target ---
         const [summaryScoreData] = await pool.query(`SELECT SUM(runs_scored + extra_runs) as totalScore FROM ballbyball WHERE match_id = ? AND inning_number = ?`, [matchId, inningNumber]);
         const [summaryWicketData] = await pool.query(`SELECT COUNT(*) as totalWickets FROM playermatchstats WHERE match_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, battingTeamId]);
@@ -358,15 +402,12 @@ exports.getLiveMatchState = async (req, res, next) => {
         //console.log(`--- getLiveMatchState: Last commentary event: ${lastBallCommentary} ---`);
 
         // --- 5. Fetch Recent Commentary with Enriched Ball Summary ---
-        // MERGE FIX: This query now gets the full ball object and joins with matches 
-        // to determine if a ball was part of the super over. Limit is increased.
         const [recentCommentaryData] = await pool.query(`
-            SELECT b.*, (b.over_number = m.super_over_number) AS is_super_over_ball
-            FROM ballbyball b
-            JOIN matches m ON b.match_id = m.match_id
-            WHERE b.match_id = ?
-            ORDER BY b.ball_id DESC
-            LIMIT 50
+            SELECT over_number, ball_number_in_over, runs_scored, is_bye, is_extra, extra_type, extra_runs, is_wicket, commentary_text
+            FROM ballbyball
+            WHERE match_id = ?
+            ORDER BY ball_id DESC
+            LIMIT 10
         `, [matchId]);
 
         const recentBallsSummary = recentCommentaryData.length > 0
@@ -415,13 +456,6 @@ exports.getLiveMatchState = async (req, res, next) => {
             seasonId: season_id,
             resultSummary: match.result_summary, winnerTeamId: match.winner_team_id
         };
-                // MERGE FIX: If the match is completed, calculate and add the authoritative 
-        // first innings score to the state object for the summary page display.
-        if (status === 'Completed') {
-            const [scoreDataInning1] = await pool.query(`SELECT SUM(runs_scored + extra_runs) as score FROM ballbyball WHERE match_id = ? AND inning_number = 1`, [matchId]);
-            fullLiveState.innings1_score = Number(scoreDataInning1[0]?.score) || 0;
-        }
-
         console.log(`--- getLiveMatchState: Sending full state for match ${matchId} ---`);
         res.json(fullLiveState);
 
@@ -784,14 +818,10 @@ exports.scoreSingleBall = async (req, res, next) => {
             if (inningNumber === 1) { updatedStatus = 'InningsBreak'; nextInningNumber = 2; console.log(`Match ${matchId}: Innings 1 ended. Status -> InningsBreak`); }
             else { // Innings 2 ended
                 matchCompleted = true; updatedStatus = 'Completed';
+
+
                 // Calculate winner/result
-                const [finalScores] = await connection.query(`SELECT inning_number, SUM(runs_scored + extra_runs) as total_score FROM ballbyball WHERE match_id = ? GROUP BY inning_number ORDER BY inning_number`, [matchId]); 
-                //const inn1Score = finalScores.find(s => s.inning_number === 1)?.total_score || 0;
-                //const inn2Score = finalScores.find(s => s.inning_number === 2)?.total_score || 0;
-                const inn1Score = parseInt(finalScores.find(s => s.inning_number === 1)?.total_score, 10) || 0;
-                const inn2Score = parseInt(finalScores.find(s => s.inning_number === 2)?.total_score, 10) || 0;
-                console.log("Inn1Score", inn1Score)
-                console.log("Inn2Score", inn2Score)
+                const [finalScores] = await connection.query(`SELECT inning_number, SUM(runs_scored + extra_runs) as total_score FROM ballbyball WHERE match_id = ? GROUP BY inning_number ORDER BY inning_number`, [matchId]); const inn1Score = finalScores.find(s => s.inning_number === 1)?.total_score || 0; const inn2Score = finalScores.find(s => s.inning_number === 2)?.total_score || 0;
                 if (inn2Score >= targetScore) {
                     winnerTeamId = battingTeamId;
                     winnerTeamName = winnerTeamId;
@@ -818,15 +848,10 @@ exports.scoreSingleBall = async (req, res, next) => {
                     }
                     resultSummary = `${winnerTeamName} won by ${inn1Score - inn2Score} runs.`;
                 }
-                else if (inn2Score == inn1Score){
-                    resultSummary = 'Match Tied.'; winnerTeamId = null;
-                    console.log(`Match ${matchId}: Innings 2 ended. Status -> Completed. Result: ${resultSummary}`);
-                }
                 else {
-                    resultSummary = 'Error.'; winnerTeamId = null;
-                    console.log(`Match ${matchId}: Innings 2 ended. Status -> Completed. Result: ${resultSummary}`);
+                    resultSummary = 'Match Tied.'; winnerTeamId = null;
                 }
-                
+                console.log(`Match ${matchId}: Innings 2 ended. Status -> Completed. Result: ${resultSummary}`);
             }
         } else if (inningNumber === 2 && targetScore !== null) {
             const [currentInningScoreData] = await connection.query(`SELECT SUM(runs_scored + extra_runs) as score FROM ballbyball WHERE match_id = ? AND inning_number = 2`, [matchId]); const currentInningScore = currentInningScoreData[0]?.score || 0;

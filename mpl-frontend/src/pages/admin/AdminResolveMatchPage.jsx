@@ -25,10 +25,17 @@ function AdminResolveMatchPage() {
             setLoadingSeasons(true);
             try {
                 const { data } = await api.get('/admin/seasons');
-                setSeasons(data);
-                if (data.length > 0) setSelectedSeason(data[0].season_id);
-            } catch (err) { setError('Failed to load seasons.'); }
-            finally { setLoadingSeasons(false); }
+                const sortedSeasons = [...data].sort((a, b) => b.season_id - a.season_id); // or sort by start_date
+                setSeasons(sortedSeasons);
+
+                if (sortedSeasons.length > 0) {
+                    setSelectedSeason(sortedSeasons[0].season_id); // Reliably selects latest
+                }
+            } catch (err) {
+                setError('Failed to load seasons.');
+            } finally {
+                setLoadingSeasons(false);
+            }
         };
         fetchSeasons();
     }, []);

@@ -24,6 +24,8 @@ function AdminSeasonsPage() {
         }
     }, []);
 
+
+
     useEffect(() => {
         fetchSeasons();
     }, [fetchSeasons]);

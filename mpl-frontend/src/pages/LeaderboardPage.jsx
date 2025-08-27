@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 import LoadingFallback from '../components/LoadingFallback';
-import './LeaderboardPage.css'; // Create this CSS file
+import './LeaderboardPage.css';
 
 const LeaderboardTable = ({ title, data, columns }) => {
     if (!data) return <p>Loading {title}...</p>;
@@ -24,19 +24,32 @@ const LeaderboardTable = ({ title, data, columns }) => {
                         {data.map((player, index) => (
                             <tr key={player.player_id}>
                                 <td>{index + 1}</td>
-                                {columns.map((col) => (
-                                    <td key={col.key}>
-                                        {col.key === 'player_name' ? (
-                                            <Link to={`/players/${player.player_id}`}>{player[col.key]}</Link>
-                                        ) : col.key === 'avg' ? (
-                                            player[col.key] === Infinity ? "Not Out" : (player[col.key]?.toFixed(2) ?? '-')
-                                        ) : col.key === 'sr' || col.key === 'econ' ? (
-                                            player[col.key]?.toFixed(2) ?? '-'
-                                         ) : (
-                                             player[col.key] ?? '-'
-                                         )}
-                                    </td>
-                                ))}
+                                {columns.map((col) => {
+                                    const value = player[col.key];
+                                    let displayValue = value ?? '-';
+
+                                    // Check if the column is one that needs number formatting
+                                    const isNumericColumn = ['avg', 'sr', 'econ', 'total_impact', 'bat_impact', 'bowl_impact', 'field_impact'].includes(col.key);
+
+                                    if (isNumericColumn) {
+                                        // Handle the specific case for 'avg' where Infinity means "Not Out"
+                                        if (col.key === 'avg' && (value === Infinity || value === 'Infinity')) {
+                                            displayValue = "Not Out";
+                                        } else {
+                                            // THE FIX: Convert value to a Number before calling toFixed
+                                            const numericValue = Number(value);
+                                            if (!isNaN(numericValue)) {
+                                                displayValue = numericValue.toFixed(2);
+                                            } else {
+                                                displayValue = '-';
+                                            }
+                                        }
+                                    } else if (col.key === 'player_name') {
+                                        displayValue = <Link to={`/players/${player.player_id}`}>{value}</Link>;
+                                    }
+
+                                    return <td key={col.key}>{displayValue}</td>;
+                                })}
                             </tr>
                         ))}
                     </tbody>
@@ -53,32 +66,36 @@ function LeaderboardPage() {
     const [loadingSeasons, setLoadingSeasons] = useState(true);
     const [loadingData, setLoadingData] = useState(false);
     const [error, setError] = useState('');
-    const [activeTab, setActiveTab] = useState('batting'); // 'batting', 'bowling', 'impact'
+    const [activeTab, setActiveTab] = useState('batting');
 
-    // Fetch Seasons
     useEffect(() => {
         const fetchSeasons = async () => {
             setLoadingSeasons(true);
             try {
-                const { data } = await api.get('/seasons/public'); // Use admin route to get all seasons
-                setSeasons(data);
-                if (data.length > 0) {
-                    setSelectedSeason(data[0].season_id); // Default to first/latest season
+                const { data } = await api.get('/seasons/public');
+                const sortedSeasons = [...data].sort((a, b) => b.season_id - a.season_id);
+                setSeasons(sortedSeasons);
+                if (sortedSeasons.length > 0) {
+                    setSelectedSeason(sortedSeasons[0].season_id);
+                } else {
+                    setSelectedSeason('all');
                 }
-            } catch (err) { setError('Failed to load seasons.'); }
+            } catch (err) { 
+                setError('Failed to load seasons. Displaying all-time stats.'); 
+                setSelectedSeason('all');
+            }
             finally { setLoadingSeasons(false); }
         };
         fetchSeasons();
     }, []);
 
-    // Fetch Leaderboard Data when season changes
     useEffect(() => {
         if (!selectedSeason) return;
-
         const fetchLeaderboards = async () => {
             setLoadingData(true);
-            setError('');
-            setLeaderboardData({ batting: null, bowling: null, impact: null }); // Clear old data
+            // Don't clear the season loading error
+            // setError(''); 
+            setLeaderboardData({ batting: null, bowling: null, impact: null });
             try {
                 const { data } = await api.get(`/leaderboard?season_id=${selectedSeason}`);
                 setLeaderboardData({
@@ -87,8 +104,8 @@ function LeaderboardPage() {
                     impact: data.impact || []
                 });
             } catch (err) {
-                setError(typeof err === 'string' ? err : `Failed to load leaderboards for season ${selectedSeason}.`);
-                setLeaderboardData({ batting: [], bowling: [], impact: [] }); // Set empty on error
+                setError(`Failed to load leaderboards.`);
+                setLeaderboardData({ batting: [], bowling: [], impact: [] });
             } finally {
                 setLoadingData(false);
             }
@@ -96,62 +113,34 @@ function LeaderboardPage() {
         fetchLeaderboards();
     }, [selectedSeason]);
 
-    const battingColumns = [
-        { key: 'player_name', header: 'Player' },
-        { key: 'matches', header: 'Mat' },
-        { key: 'runs', header: 'Runs' },
-        { key: 'hs', header: 'HS' },
-        { key: 'avg', header: 'Avg' },
-        { key: 'sr', header: 'SR' },
-        { key: 'twos', header: '2s' },
-        { key: 'fours', header: '4s' },
-    ];
-
-    const bowlingColumns = [
-        { key: 'player_name', header: 'Player' },
-        { key: 'matches', header: 'Mat' },
-        { key: 'overs', header: 'Overs' },
-        { key: 'wickets', header: 'Wkts' },
-        { key: 'runs', header: 'Runs' },
-        { key: 'econ', header: 'Econ' },
-        // Add Avg, SR if calculated
-    ];
-
-    const impactColumns = [
-         { key: 'player_name', header: 'Player' },
-         { key: 'matches', header: 'Mat' },
-         { key: 'total_impact', header: 'Total Impact' },
-         { key: 'bat_impact', header: 'Batting' },
-         { key: 'bowl_impact', header: 'Bowling' },
-         { key: 'field_impact', header: 'Fielding' },
-    ];
-
+    const battingColumns = [ { key: 'player_name', header: 'Player' }, { key: 'matches', header: 'Mat' }, { key: 'runs', header: 'Runs' }, { key: 'hs', header: 'HS' }, { key: 'avg', header: 'Avg' }, { key: 'sr', header: 'SR' }, { key: 'twos', header: '2s' }, { key: 'fours', header: '4s' } ];
+    const bowlingColumns = [ { key: 'player_name', header: 'Player' }, { key: 'matches', header: 'Mat' }, { key: 'overs', header: 'Overs' }, { key: 'wickets', header: 'Wkts' }, { key: 'runs', header: 'Runs' }, { key: 'econ', header: 'Econ' } ];
+    const impactColumns = [ { key: 'player_name', header: 'Player' }, { key: 'matches', header: 'Mat' }, { key: 'total_impact', header: 'Total Impact' }, { key: 'bat_impact', header: 'Batting' }, { key: 'bowl_impact', header: 'Bowling' }, { key: 'field_impact', header: 'Fielding' } ];
 
     return (
         <div className="leaderboard-page">
             <h2>Season Leaderboards</h2>
-
             {loadingSeasons ? <LoadingFallback /> : (
                 <div className="filter-section">
-                    <label htmlFor="season-select-leaderboard">Select Season:</label>
+                    <label htmlFor="season-select-leaderboard">Select Stats:</label>
                     <select
                         id="season-select-leaderboard"
                         value={selectedSeason}
                         onChange={(e) => setSelectedSeason(e.target.value)}
                         disabled={loadingData}
                     >
-                        <option value="" disabled>-- Select --</option>
                         {seasons.map(s => (
                             <option key={s.season_id} value={s.season_id}>
                                 {s.name} ({s.year})
                             </option>
                         ))}
+                        <option value="all">
+                            All-Time Stats
+                        </option>
                     </select>
                 </div>
             )}
-
             {error && <p className="error-message">{error}</p>}
-
             {selectedSeason && (
                  <>
                     <div className="tabs">
@@ -159,7 +148,6 @@ function LeaderboardPage() {
                         <button onClick={() => setActiveTab('bowling')} className={activeTab === 'bowling' ? 'active' : ''}>Top Bowlers</button>
                         <button onClick={() => setActiveTab('impact')} className={activeTab === 'impact' ? 'active' : ''}>Impact Leaders</button>
                     </div>
-
                     <div className="leaderboard-content">
                         {loadingData ? <LoadingFallback message="Loading leaderboard data..." /> : (
                             <>

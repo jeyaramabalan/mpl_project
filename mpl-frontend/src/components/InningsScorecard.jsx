@@ -1,34 +1,30 @@
 // src/components/InningsScorecard.jsx
 import React from 'react';
-import { Link } from 'react-router-dom'; // Import Link
-import './Scorecard.css'; // Import specific CSS for scorecards
+import { Link } from 'react-router-dom';
+import './Scorecard.css';
 
-const InningsScorecard = ({ stats, teamName, inningsNumber }) => {
-    if (!stats || stats.length === 0) {
+const InningsScorecard = ({ stats, teamName, inningsNumber, summary }) => {
+    if (!stats) {
         return <p>Batting scorecard data not available for {teamName} (Innings {inningsNumber}).</p>;
     }
 
-    // Helper to calculate Strike Rate safely
     const calculateSR = (runs, balls) => {
         if (!balls || balls === 0 || isNaN(runs) || isNaN(balls)) return "-";
         const rate = (parseInt(runs) / parseInt(balls)) * 100;
-        return rate.toFixed(1); // Format to 1 decimal place
+        return rate.toFixed(1);
     };
 
-    // Helper to format dismissal
     const formatDismissal = (stat) => {
-        if (!stat.is_out) return <span className="not-out">Not Out</span>; // Style 'Not Out' differently
-        let dismissal = stat.how_out || "Out";
-        // Example: Add links if backend provides bowler/fielder names/IDs linked to dismissal
-        // if (stat.bowler_id) dismissal += ` b ${stat.bowler_name || stat.bowler_id}`;
-        // if (stat.fielder_id) dismissal += ` c ${stat.fielder_name || stat.fielder_id}`;
-        return dismissal;
+        if (stat.did_not_bat) return <span className="did-not-bat">did not bat</span>;
+        if (!stat.is_out) return <span className="not-out">not out</span>;
+        // The detailed dismissal text is now calculated in the parent and passed down
+        return stat.how_out || "out"; 
     };
 
     return (
         <div className="scorecard-container">
             <h4>{teamName} - Innings {inningsNumber} Batting</h4>
-            <div className="table-responsive"> {/* Wrapper for horizontal scroll */}
+            <div className="table-responsive">
                 <table className="scorecard-table batting-scorecard">
                     <thead>
                         <tr>
@@ -42,25 +38,34 @@ const InningsScorecard = ({ stats, teamName, inningsNumber }) => {
                         </tr>
                     </thead>
                     <tbody>
-                        {stats.filter(filt=>filt.balls_faced>0).map((stat) => (
+                        {stats.map((stat) => (
                             <tr key={`${inningsNumber}-bat-${stat.player_id}`}>
-                                {/* Add Link to player name */}
                                 <td className="player-name">
-                                    <Link to={`/players/${stat.player_id}`}>{stat.player_name}</Link>
+                                    <Link to={`/players/${stat.player_id}`}>{stat.player_name || stat.name}</Link>
                                 </td>
                                 <td className="dismissal">{formatDismissal(stat)}</td>
-                                <td className="runs">{stat.runs_scored ?? 0}</td>
-                                <td className="balls">{stat.balls_faced ?? 0}</td>
-                                <td className="twos">{stat.twos ?? 0}</td>
-                                <td className="fours">{stat.fours ?? 0}</td>
+                                <td className="runs">{stat.runs_scored ?? ''}</td>
+                                <td className="balls">{stat.balls_faced ?? ''}</td>
+                                <td className="twos">{stat.twos ?? ''}</td>
+                                <td className="fours">{stat.fours ?? ''}</td>
                                 <td className="strike-rate">{calculateSR(stat.runs_scored, stat.balls_faced)}</td>
                             </tr>
                         ))}
-                        {/* TODO: Add Totals row */}
+                        {summary && (
+                            <>
+                                <tr className="extras-row">
+                                    <td className="summary-label">Extras</td>
+                                    <td colSpan="6" className="summary-value">{summary.extras} {summary.extras_detail}</td>
+                                </tr>
+                                <tr className="total-row">
+                                    <td className="summary-label">Total</td>
+                                    <td colSpan="6" className="summary-value">{summary.total} ({summary.wickets} wkts, {summary.overs} Ov)</td>
+                                </tr>
+                            </>
+                        )}
                     </tbody>
                 </table>
             </div>
-            {/* TODO: Add Extras breakdown */}
         </div>
     );
 };

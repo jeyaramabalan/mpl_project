@@ -9,7 +9,7 @@ const TeamForm = ({ onSubmit, initialData = {}, seasons = [], loading }) => {
     const [formData, setFormData] = useState({
         name: initialData.name || '',
         season_id: initialData.season_id || (seasons.length > 0 ? seasons[0].season_id : ''), // Default to first season?
-        budget: initialData.budget || '10000.00', // Default budget?
+        budget: initialData.budget || '300.00', // Default budget?
         captain_player_id: initialData.captain_player_id || '', // Keep as string, handle null on submit
     });
 
@@ -18,7 +18,7 @@ const TeamForm = ({ onSubmit, initialData = {}, seasons = [], loading }) => {
         setFormData({
             name: initialData.name || '',
             season_id: initialData.season_id || (seasons.length > 0 ? seasons[0].season_id : ''),
-            budget: initialData.budget || '10000.00',
+            budget: initialData.budget || '300.00',
             captain_player_id: initialData.captain_player_id || '',
         });
     }, [initialData, seasons]);
@@ -154,11 +154,12 @@ function AdminTeamsPage() {
         const fetchSeasons = async () => {
             setLoadingSeasons(true);
             try {
-                const { data } = await api.get('/admin/seasons?status=Ongoing'); // Fetch seasons (maybe filter active/planned?)
-                setSeasons(data);
-                if (data.length > 0) {
-                    // Automatically select the first season in the list initially
-                    setSelectedSeasonId(data[0].season_id);
+                const { data } = await api.get('/admin/seasons?status=Ongoing');
+                // Optional: sort descending by start_date or season_id (depending on your schema)
+                const sortedSeasons = [...data].sort((a, b) => b.season_id - a.season_id);
+                setSeasons(sortedSeasons);
+                if (sortedSeasons.length > 0) {
+                    setSelectedSeasonId(sortedSeasons[0].season_id);
                 }
             } catch (err) {
                 setError(typeof err === 'string' ? err : 'Failed to load seasons.');

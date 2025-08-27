@@ -71,7 +71,7 @@ exports.getFixtures = async (req, res, next) => {
  * @desc    Get full details for a single match (for viewer detail page)
  * @route   GET /api/matches/:id
  * @access  Public
- */
+
 exports.getMatchDetails = async (req, res, next) => {
     const { id } = req.params; // Match ID
 
@@ -83,7 +83,7 @@ exports.getMatchDetails = async (req, res, next) => {
          // Query to fetch comprehensive match details
          const query = `
             SELECT
-                m.*, -- Select all columns from Matches table
+                m.*, -- Select all columns from matches table
                 s.name as season_name,
                 t1.name as team1_name,
                 t2.name as team2_name,
@@ -134,7 +134,77 @@ exports.getMatchDetails = async (req, res, next) => {
         next(error);
     }
 };
+*/
 
+exports.getMatchDetails = async (req, res, next) => {
+    const { id } = req.params; // Match ID
+    if (isNaN(parseInt(id))) { return res.status(400).json({ message: 'Invalid Match ID.' }); }
+
+    try {
+        // Query to fetch comprehensive match details
+        const query = `
+           SELECT m.*, s.name as season_name, t1.name as team1_name, t2.name as team2_name,
+                  twt.name as toss_winner_name, wt.name as winner_team_name, mom.name as man_of_the_match_name
+           FROM Matches m
+           JOIN Seasons s ON m.season_id = s.season_id
+           JOIN Teams t1 ON m.team1_id = t1.team_id
+           JOIN Teams t2 ON m.team2_id = t2.team_id
+           LEFT JOIN Teams twt ON m.toss_winner_team_id = twt.team_id
+           LEFT JOIN Teams wt ON m.winner_team_id = wt.team_id
+           LEFT JOIN Players mom ON m.man_of_the_match_player_id = mom.player_id
+           WHERE m.match_id = ?
+       `;
+        const [matches] = await pool.query(query, [id]);
+
+        if (matches.length === 0) { return res.status(404).json({ message: 'Match not found.' }); }
+        let matchDetails = matches[0]; // Use let to allow modification
+
+        // If the match is completed, also fetch the detailed player stats and final summaries
+        let playerStats = [];
+        if (matchDetails.status === 'Completed') {
+            const [stats] = await pool.query(
+               `SELECT pms.*, p.name as player_name, CASE WHEN pms.team_id = m.team1_id THEN 1 ELSE 2 END as team_number
+                FROM PlayerMatchStats pms
+                JOIN Players p ON pms.player_id = p.player_id
+                JOIN Matches m ON pms.match_id = m.match_id
+                WHERE pms.match_id = ?
+                ORDER BY team_number, p.name`, [id]
+           );
+            playerStats = stats;
+
+            // --- CORRECTED & ENHANCED: Calculate Final Innings Summaries from BallByBall ---
+            console.log(`Calculating final summaries for completed match ${id}`);
+            const [inningsSummaries] = await pool.query(`
+                SELECT
+                    inning_number,
+                    SUM(runs_scored + extra_runs) as total_score,
+                    SUM(is_wicket) as total_wickets,
+                    COUNT(CASE WHEN is_extra = false OR extra_type = 'NoBall' THEN 1 END) as total_legal_balls
+                FROM BallByBall
+                WHERE match_id = ?
+                GROUP BY inning_number
+                ORDER BY inning_number
+            `, [id]);
+
+            // Attach summaries to the matchDetails object
+            matchDetails.innings_summaries = inningsSummaries.map(summary => {
+                const overs = Math.floor(summary.total_legal_balls / 6);
+                const balls = summary.total_legal_balls % 6;
+                return {
+                    inning_number: summary.inning_number,
+                    score: parseInt(summary.total_score), // Ensure it's a number
+                    wickets: parseInt(summary.total_wickets), // Ensure it's a number
+                    overs_display: `${overs}.${balls}`
+                };
+            });
+            console.log("Calculated Innings Summaries:", matchDetails.innings_summaries);
+            // --- END ---
+        }
+
+        res.json({ ...matchDetails, playerStats });
+
+    } catch (error) { console.error("Get Match Details Error:", error); next(error); }
+};
 
 // @desc    Get ball-by-ball commentary for a match
 // @route   GET /api/matches/:id/commentary
@@ -167,6 +237,19 @@ exports.getMatchCommentary = async (req, res, next) => {
     }
 };
 
+exports.getMatchState = async (req, res, next) => {
+  const { id } = req.params;
+  if (isNaN(parseInt(id))) return res.status(400).json({ message: 'Invalid Match ID.' });
+
+  try {
+    const [state] = await pool.query(`SELECT status FROM matches WHERE match_id = ?`, [id]);
+    if (state.length === 0) return res.status(404).json({ message: 'Match state not found.' });
+    res.json(state[0]);
+  } catch (error) {
+    console.error(`Get Match State Error for Match ${id}:`, error);
+    next(error);
+  }
+};
 
 // --- Placeholder Admin Functions (Implement if creating/managing matches via API) ---
 

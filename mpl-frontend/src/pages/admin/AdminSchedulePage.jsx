@@ -161,33 +161,36 @@ function AdminSchedulePage() {
         setLoading(true);
         setError('');
         try {
-             // Fetch seasons and all teams in parallel
-             const [seasonsRes, teamsRes] = await Promise.all([
-                api.get('/admin/seasons'), // Use admin route if different access needed
-                api.get('/admin/teams') // Fetch all teams across all seasons for the form
-             ]);
-            setSeasons(seasonsRes.data || []);
-            setAllTeams(teamsRes.data || []);
+            const [seasonsRes, teamsRes] = await Promise.all([
+                api.get('/admin/seasons'),
+                api.get('/admin/teams')
+            ]);
 
-             // Set default filter to the first season if available
-             if (seasonsRes.data?.length > 0 && !selectedSeasonFilter) {
-                 setSelectedSeasonFilter(seasonsRes.data[0].season_id);
-             } else if (seasonsRes.data?.length > 0 && selectedSeasonFilter) {
-                 // If a filter was already set, fetch matches for it
-                 fetchMatches(selectedSeasonFilter);
-             } else {
-                 // No seasons or no filter, load empty matches
-                 setMatches([]);
-                 setLoading(false); // Stop loading if no season to fetch matches for
-             }
+            const seasons = seasonsRes.data || [];
+            const teams = teamsRes.data || [];
+
+            // Sort seasons descending by season_id or start_date
+            const sortedSeasons = [...seasons].sort((a, b) => b.season_id - a.season_id);
+            setSeasons(sortedSeasons);
+            setAllTeams(teams);
+
+            if (sortedSeasons.length > 0) {
+                if (!selectedSeasonFilter) {
+                    setSelectedSeasonFilter(sortedSeasons[0].season_id); // Safely set default
+                } else {
+                    fetchMatches(selectedSeasonFilter); // Season already selected
+                }
+            } else {
+                setMatches([]); // No seasons, no matches
+                setLoading(false);
+            }
 
         } catch (err) {
             console.error("Failed to load initial data:", err);
             setError(typeof err === 'string' ? err : 'Failed to load necessary data (Seasons/Teams).');
-             setLoading(false);
+            setLoading(false);
         }
-        // Loading is set to false inside fetchMatches or above if no matches fetched
-    }, [selectedSeasonFilter]); // Include filter
+    }, [selectedSeasonFilter]);
 
     const fetchMatches = useCallback(async (seasonId) => {
          if (!seasonId) {
