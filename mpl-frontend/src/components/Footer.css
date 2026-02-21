@@ -1,0 +1,96 @@
+/* ============================================================
+   MPL Footer styles
+   Dark blue bar; social icons (left), Contact/FAQ (center), copyright (right).
+   ============================================================ */
+
+/* Footer bar: full width, navy, pushed to bottom via margin-top: auto on parent flex */
+.mpl-footer {
+  background-color: var(--mpl-navy-header, #0d2340);
+  color: #fff;
+  width: 100%;
+  margin-top: auto;
+  padding: 1.25rem 1.5rem;
+}
+
+/* Inner wrapper: flex row, space-between on desktop */
+.mpl-footer-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+/* Social icons: circular buttons */
+.mpl-footer-social {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.mpl-footer-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  font-size: 1rem;
+  font-weight: bold;
+  transition: background 0.2s, color 0.2s;
+}
+.mpl-footer-icon:hover {
+  background: var(--mpl-yellow, #f4c430);
+  color: var(--mpl-navy, #0f2847);
+}
+
+/* Contact Us | FAQ links */
+.mpl-footer-links {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.mpl-footer-links a {
+  color: #fff;
+  font-size: 0.95rem;
+  text-decoration: none;
+}
+.mpl-footer-links a:hover {
+  color: var(--mpl-yellow);
+  text-decoration: underline;
+}
+
+.mpl-footer-sep {
+  color: rgba(255,255,255,0.5);
+  font-size: 0.9rem;
+}
+
+/* Copyright line */
+.mpl-footer-copy {
+  font-size: 0.85rem;
+  color: rgba(255,255,255,0.85);
+}
+
+/* --- Responsive: stack sections vertically, centered --- */
+@media (max-width: 768px) {
+  .mpl-footer-inner {
+    flex-direction: column;
+    text-align: center;
+  }
+  .mpl-footer-social {
+    order: 1;
+  }
+  .mpl-footer-links {
+    order: 2;
+  }
+  .mpl-footer-copy {
+    order: 3;
+    font-size: 0.8rem;
+  }
+}

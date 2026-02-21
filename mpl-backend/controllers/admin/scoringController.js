@@ -42,7 +42,7 @@ function calculateImpactPoints(ballData) {
     // --- Batting Points (Applied only for legal deliveries where runs are scored off the bat) ---
     if (!is_extra && !is_bye) {
         if (runsOffBat === 0) {
-            points.batsman = -0.5;
+            points.batsman = -0.25;
         } else if (runsOffBat === 1) {
             points.batsman = 1;
         } else if (runsOffBat === 2) {
