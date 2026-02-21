@@ -38,8 +38,8 @@ const server = http.createServer(app); // Create HTTP server instance using the 
 const io = new Server(server, {
     // Configure CORS for Socket.IO connections to allow requests from the frontend URL
     cors: {
-        //origin: process.env.FRONTEND_URL || "http://localhost:5173", // Allow frontend origin
-        origin: process.env.FRONTEND_URL || "https://mpl.supersalessoft.com", // Allow frontend origin
+        origin: process.env.FRONTEND_URL || "http://localhost:5173", // Allow frontend origin
+        //origin: process.env.FRONTEND_URL || "https://mpl.supersalessoft.com", // Allow frontend origin
         methods: ["GET", "POST"] // Allowed HTTP methods for CORS negotiation
     },
     // Optional: Adjust ping settings if needed for network stability
@@ -50,8 +50,8 @@ const io = new Server(server, {
 
 // --- Global Middleware ---
 // Enable CORS for all API routes (restrict origin in production)
-//app.use(cors({ origin: process.env.FRONTEND_URL || "http://localhost:5173" }));
-app.use(cors({ origin: process.env.FRONTEND_URL || "https://mpl.supersalessoft.com" }));
+app.use(cors({ origin: process.env.FRONTEND_URL || "http://localhost:5173" }));
+//app.use(cors({ origin: process.env.FRONTEND_URL || "https://mpl.supersalessoft.com" }));
 
 // Parse incoming JSON request bodies
 app.use(express.json());

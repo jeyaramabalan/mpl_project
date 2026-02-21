@@ -112,13 +112,13 @@ exports.getMatchDetails = async (req, res, next) => {
         if (matchDetails.status === 'Completed') {
              const [stats] = await pool.query(
                 `SELECT
-                    pms.*, -- Select all columns from PlayerMatchStats
+                    pms.*, -- Select all columns from playermatchstats
                     p.name as player_name,
                      -- Determine which team (1 or 2) this player belongs to for display grouping
                     CASE WHEN pms.team_id = m.team1_id THEN 1 ELSE 2 END as team_number
                  FROM playermatchstats pms
                  JOIN players p ON pms.player_id = p.player_id
-                 JOIN matches m ON pms.match_id = m.match_id -- Join Matches to determine team number
+                 JOIN matches m ON pms.match_id = m.match_id -- Join matches to determine team number
                  WHERE pms.match_id = ?
                  ORDER BY team_number, p.name`, // Order by team, then player name for scorecard
                 [id]
@@ -145,13 +145,13 @@ exports.getMatchDetails = async (req, res, next) => {
         const query = `
            SELECT m.*, s.name as season_name, t1.name as team1_name, t2.name as team2_name,
                   twt.name as toss_winner_name, wt.name as winner_team_name, mom.name as man_of_the_match_name
-           FROM Matches m
-           JOIN Seasons s ON m.season_id = s.season_id
-           JOIN Teams t1 ON m.team1_id = t1.team_id
-           JOIN Teams t2 ON m.team2_id = t2.team_id
-           LEFT JOIN Teams twt ON m.toss_winner_team_id = twt.team_id
-           LEFT JOIN Teams wt ON m.winner_team_id = wt.team_id
-           LEFT JOIN Players mom ON m.man_of_the_match_player_id = mom.player_id
+           FROM matches m
+           JOIN seasons s ON m.season_id = s.season_id
+           JOIN teams t1 ON m.team1_id = t1.team_id
+           JOIN teams t2 ON m.team2_id = t2.team_id
+           LEFT JOIN teams twt ON m.toss_winner_team_id = twt.team_id
+           LEFT JOIN teams wt ON m.winner_team_id = wt.team_id
+           LEFT JOIN players mom ON m.man_of_the_match_player_id = mom.player_id
            WHERE m.match_id = ?
        `;
         const [matches] = await pool.query(query, [id]);
@@ -164,15 +164,15 @@ exports.getMatchDetails = async (req, res, next) => {
         if (matchDetails.status === 'Completed') {
             const [stats] = await pool.query(
                `SELECT pms.*, p.name as player_name, CASE WHEN pms.team_id = m.team1_id THEN 1 ELSE 2 END as team_number
-                FROM PlayerMatchStats pms
-                JOIN Players p ON pms.player_id = p.player_id
-                JOIN Matches m ON pms.match_id = m.match_id
+                FROM playermatchstats pms
+                JOIN players p ON pms.player_id = p.player_id
+                JOIN matches m ON pms.match_id = m.match_id
                 WHERE pms.match_id = ?
                 ORDER BY team_number, p.name`, [id]
            );
             playerStats = stats;
 
-            // --- CORRECTED & ENHANCED: Calculate Final Innings Summaries from BallByBall ---
+            // --- CORRECTED & ENHANCED: Calculate Final Innings Summaries from ballbyball ---
             console.log(`Calculating final summaries for completed match ${id}`);
             const [inningsSummaries] = await pool.query(`
                 SELECT
@@ -180,7 +180,7 @@ exports.getMatchDetails = async (req, res, next) => {
                     SUM(runs_scored + extra_runs) as total_score,
                     SUM(is_wicket) as total_wickets,
                     COUNT(CASE WHEN is_extra = false OR extra_type = 'NoBall' THEN 1 END) as total_legal_balls
-                FROM BallByBall
+                FROM ballbyball
                 WHERE match_id = ?
                 GROUP BY inning_number
                 ORDER BY inning_number
@@ -242,9 +242,51 @@ exports.getMatchState = async (req, res, next) => {
   if (isNaN(parseInt(id))) return res.status(400).json({ message: 'Invalid Match ID.' });
 
   try {
-    const [state] = await pool.query(`SELECT status FROM matches WHERE match_id = ?`, [id]);
-    if (state.length === 0) return res.status(404).json({ message: 'Match state not found.' });
-    res.json(state[0]);
+    // Get match status
+    const [matchRows] = await pool.query(`SELECT status, team1_id, team2_id FROM matches WHERE match_id = ?`, [id]);
+    if (matchRows.length === 0) return res.status(404).json({ message: 'Match not found.' });
+
+    const match = matchRows[0];
+
+    // Get latest ball(s) for commentary
+    const [balls] = await pool.query(`
+      SELECT b.*, batsman.name as batsman_name, bowler.name as bowler_name, fielder.name as fielder_name
+      FROM ballbyball b
+      JOIN players batsman ON b.batsman_on_strike_player_id = batsman.player_id
+      JOIN players bowler ON b.bowler_player_id = bowler.player_id
+      LEFT JOIN players fielder ON b.fielder_player_id = fielder.player_id
+      WHERE b.match_id = ?
+      ORDER BY b.inning_number ASC, b.over_number ASC, b.ball_number_in_over ASC, b.ball_id ASC
+    `, [id]);
+
+    const latestBall = balls[0];
+
+    // Calculate live score
+    const [scoreRows] = await pool.query(`
+      SELECT
+        SUM(runs_scored + extra_runs) as score,
+        SUM(is_wicket) as wickets,
+        COUNT(CASE WHEN is_extra = false OR extra_type = 'NoBall' THEN 1 END) as legal_balls
+      FROM ballbyball
+      WHERE match_id = ?
+    `, [id]);
+
+    const scoreData = scoreRows[0];
+    const overs = Math.floor(scoreData.legal_balls / 6);
+    const ballsInOver = scoreData.legal_balls % 6;
+
+    res.json({
+  matchId: parseInt(id),
+  status: match.status,
+  score: scoreData.score || 0,
+  wickets: scoreData.wickets || 0,
+  overs,
+  balls: ballsInOver,
+  battingTeamId: match.team1_id,
+  bowlingTeamId: match.team2_id,
+  commentary: balls // ✅ now includes all commentary
+});
+
   } catch (error) {
     console.error(`Get Match State Error for Match ${id}:`, error);
     next(error);

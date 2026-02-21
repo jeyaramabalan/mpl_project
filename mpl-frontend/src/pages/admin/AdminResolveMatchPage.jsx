@@ -56,7 +56,7 @@ function AdminResolveMatchPage() {
                 // status: statusesToFetch.join(',') // Example if API supports comma-separated statuses
             };
              // Fetch ALL matches for the season and filter locally for now
-             const { data } = await api.get('/admin/matches', { params });
+             const { data } = await api.get('/matches', { params });
 
              // Filter for matches that might need resolution
              const filteredMatches = data.filter(m =>

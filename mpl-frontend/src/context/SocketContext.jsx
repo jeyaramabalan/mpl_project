@@ -3,8 +3,8 @@ import React, { createContext, useContext, useEffect, useState, useMemo, useCall
 import { io } from 'socket.io-client';
 
 // Determine the base URL for the Socket.IO server from environment variables or use a default
-//const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'https://mpl.supersalessoft.com';
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5173';
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'https://mpl.supersalessoft.com';
+//const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5173';
 console.log(`Socket Context configured for URL: ${SOCKET_URL}`);
 
 // Create the React Context object

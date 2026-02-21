@@ -35,5 +35,4 @@ router.get('/:id/state', getMatchState);
 // Delete a match fixture (needs protection)
 // router.delete('/:id', protect, deleteMatch);
 
-
 module.exports = router;
