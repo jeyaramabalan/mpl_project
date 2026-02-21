@@ -33,15 +33,16 @@
 .scorecard-table th,
 .scorecard-table td {
     border: 1px solid #555;
-    padding: 0.5rem 0.7rem; /* Slightly adjust padding */
+    padding: 0.6rem 0.85rem;
     text-align: left;
     vertical-align: middle;
 }
 
 .scorecard-table th {
-    background-color: #4a4a4a; /* Darker header */
-    font-weight: bold;
-    white-space: nowrap; /* Prevent headers from wrapping */
+    background-color: #3d3d3d;
+    font-weight: 600;
+    white-space: nowrap;
+    font-size: 0.95em;
 }
 
 .scorecard-table tbody tr:nth-child(even) {
@@ -52,14 +53,17 @@
     background-color: #4f4f4f; /* Hover effect */
 }
 
-/* Specific column styles */
+/* Player name: same size as table, not larger */
 .scorecard-table .player-name {
+    font-size: 1em;
     font-weight: 500;
-    min-width: 150px;
+    min-width: 120px;
 }
 .scorecard-table .player-name a {
     color: #a0a0ff;
     text-decoration: none;
+    font-size: inherit;
+    font-weight: inherit;
 }
 .scorecard-table .player-name a:hover {
     text-decoration: underline;
@@ -67,12 +71,16 @@
 }
 
 .scorecard-table .dismissal {
-    font-size: 0.9em;
+    font-size: 0.95em;
     color: #ccc;
     min-width: 120px;
 }
 .scorecard-table .dismissal .not-out {
-    color: #a0ffa0; /* Greenish for Not Out */
+    color: #a0ffa0;
+    font-style: italic;
+}
+.scorecard-table .dismissal .did-not-bat {
+    color: #888;
     font-style: italic;
 }
 
@@ -90,7 +98,36 @@
 .scorecard-table .wides,
 .scorecard-table .noballs {
     text-align: right;
-    font-variant-numeric: tabular-nums; /* Ensures numbers align well */
+    font-variant-numeric: tabular-nums;
+}
+
+/* Strike rate column: fixed min-width so decimals align */
+.scorecard-table .strike-rate {
+    min-width: 3.5rem;
+}
+
+/* Extras and Total rows: summary styling */
+.scorecard-table tr.extras-row,
+.scorecard-table tr.total-row {
+    background-color: #353535;
+    border-top: 2px solid #555;
+}
+.scorecard-table tr.extras-row td,
+.scorecard-table tr.total-row td {
+    padding: 0.55rem 0.85rem;
+}
+.scorecard-table .summary-label {
+    font-weight: 600;
+}
+.scorecard-table tr.total-row .summary-label,
+.scorecard-table tr.total-row .summary-value {
+    font-weight: 600;
+}
+.scorecard-table .summary-value.extras-breakdown,
+.scorecard-table tr.extras-row .summary-value {
+    font-size: 0.9em;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
 }
 
 /* Light mode adjustments */
@@ -126,7 +163,19 @@
     color: #555;
    }
    .scorecard-table .dismissal .not-out {
-    color: #008000; /* Darker green */
+    color: #008000;
+   }
+   .scorecard-table .dismissal .did-not-bat {
+    color: #999;
+   }
+   .scorecard-table tr.extras-row,
+   .scorecard-table tr.total-row {
+    background-color: #e0e0e0;
+    border-top-color: #ccc;
+   }
+   .scorecard-table tr.extras-row .summary-value,
+   .scorecard-table tr.total-row .summary-value {
+    color: #222;
    }
 }
 
@@ -140,8 +189,12 @@
     .scorecard-table td {
         padding: 0.4rem 0.6rem;
     }
-     .scorecard-container h4 {
-        font-size: 1.1em; /* Slightly smaller heading */
+    .scorecard-table tr.extras-row td,
+    .scorecard-table tr.total-row td {
+        padding: 0.45rem 0.6rem;
+    }
+    .scorecard-container h4 {
+        font-size: 1.1em;
     }
 }
 

@@ -44,10 +44,10 @@ const InningsScorecard = ({ stats, teamName, inningsNumber, summary }) => {
                                     <Link to={`/players/${stat.player_id}`}>{stat.player_name || stat.name}</Link>
                                 </td>
                                 <td className="dismissal">{formatDismissal(stat)}</td>
-                                <td className="runs">{stat.runs_scored ?? ''}</td>
-                                <td className="balls">{stat.balls_faced ?? ''}</td>
-                                <td className="twos">{stat.twos ?? ''}</td>
-                                <td className="fours">{stat.fours ?? ''}</td>
+                                <td className="runs">{stat.runs_scored ?? '–'}</td>
+                                <td className="balls">{stat.balls_faced ?? '–'}</td>
+                                <td className="twos">{stat.twos ?? '–'}</td>
+                                <td className="fours">{stat.fours ?? '–'}</td>
                                 <td className="strike-rate">{calculateSR(stat.runs_scored, stat.balls_faced)}</td>
                             </tr>
                         ))}
@@ -55,7 +55,7 @@ const InningsScorecard = ({ stats, teamName, inningsNumber, summary }) => {
                             <>
                                 <tr className="extras-row">
                                     <td className="summary-label">Extras</td>
-                                    <td colSpan="6" className="summary-value">{summary.extras} {summary.extras_detail}</td>
+                                    <td colSpan="6" className="summary-value extras-breakdown">{summary.extras} {summary.extras_detail}</td>
                                 </tr>
                                 <tr className="total-row">
                                     <td className="summary-label">Total</td>
