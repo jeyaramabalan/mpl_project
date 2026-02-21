@@ -340,36 +340,34 @@ exports.removePlayerFromTeam = async (req, res, next) => {
 };
 
 /**
- * @desc    Delete a team (Use with caution!)
+ * @desc    Delete a team (Use with caution! Fails if team is used in matches.)
  * @route   DELETE /api/admin/teams/:id
  * @access  Admin (Protected)
  */
-// exports.deleteTeam = async (req, res, next) => {
-//     const { id } = req.params;
-//     if (isNaN(parseInt(id))) {
-//         return res.status(400).json({ message: 'Invalid Team ID.' });
-//     }
-//     // WARNING: Deleting a team will likely cascade delete TeamPlayers,
-//     // and might fail if the team is involved in Matches unless those have ON DELETE SET NULL/CASCADE.
-//     // CHECK YOUR SCHEMA CONSTRAINTS CAREFULLY!
-//     try {
-//         // Check existence first
-//         const [existing] = await pool.query('SELECT team_id FROM teams WHERE team_id = ?', [id]);
-//         if (existing.length === 0) {
-//             return res.status(404).json({ message: 'Team not found.' });
-//         }
-//         // Perform delete
-//         const [result] = await pool.query('DELETE FROM teams WHERE team_id = ?', [id]);
-//         if (result.affectedRows === 0) {
-//              return res.status(404).json({ message: 'Team not found or could not be deleted.' });
-//         }
-//         res.status(200).json({ message: 'Team deleted successfully.' });
-//     } catch (error) {
-//         console.error("Delete Team Error:", error);
-//         // Handle FK constraint errors (e.g., if team is in use in Matches table)
-//         if (error.code === 'ER_ROW_IS_REFERENCED_2') {
-//             return res.status(400).json({ message: 'Cannot delete team. It is referenced in existing matches or other records.' });
-//         }
-//         next(error);
-//     }
-// };
+exports.deleteTeam = async (req, res, next) => {
+    const { id } = req.params;
+    if (isNaN(parseInt(id))) {
+        return res.status(400).json({ message: 'Invalid Team ID.' });
+    }
+    try {
+        const [existing] = await pool.query('SELECT team_id FROM teams WHERE team_id = ?', [id]);
+        if (existing.length === 0) {
+            return res.status(404).json({ message: 'Team not found.' });
+        }
+        const [matchRefs] = await pool.query('SELECT 1 FROM matches WHERE team_a_id = ? OR team_b_id = ? LIMIT 1', [id, id]);
+        if (matchRefs.length > 0) {
+            return res.status(400).json({ message: 'Cannot delete team. It is used in one or more matches.' });
+        }
+        const [result] = await pool.query('DELETE FROM teams WHERE team_id = ?', [id]);
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Team not found or could not be deleted.' });
+        }
+        res.status(200).json({ message: 'Team deleted successfully.' });
+    } catch (error) {
+        console.error("Delete Team Error:", error);
+        if (error.code === 'ER_ROW_IS_REFERENCED_2') {
+            return res.status(400).json({ message: 'Cannot delete team. It is referenced in existing records.' });
+        }
+        next(error);
+    }
+};

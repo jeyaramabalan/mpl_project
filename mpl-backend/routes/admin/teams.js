@@ -7,7 +7,7 @@ const {
     getTeamDetails,
     addPlayerToTeam,
     removePlayerFromTeam,
-    // deleteTeam // Implement if needed
+    deleteTeam,
 } = require('../../controllers/admin/teamController');
 
 const router = express.Router();
@@ -33,8 +33,7 @@ router.get('/:id', getTeamDetails);
 router.put('/:id', updateTeam);
 
 // DELETE /api/admin/teams/:id
-// Delete a team (implement controller logic, consider implications)
-// router.delete('/:id', deleteTeam);
+router.delete('/:id', deleteTeam);
 
 
 // --- Team Player Management (within a team/season) ---

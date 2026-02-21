@@ -270,6 +270,12 @@ const MatchDetailPage = () => {
       
       <div className="score-summary-section">
         <ScoreDisplay state={liveScoreState} matchDetails={matchDetails} innings1Data={finalInnings1Data} innings2Data={finalInnings2Data} />
+        {displayStatus === "Completed" && processedScorecards && (
+          <div className="extras-breakdown" style={{ marginTop: '0.75rem', fontSize: '0.95rem' }}>
+            <p><strong>Extras – Innings 1:</strong> {processedScorecards.innings1.summary.extras} {processedScorecards.innings1.summary.extras_detail}</p>
+            <p><strong>Extras – Innings 2:</strong> {processedScorecards.innings2.summary.extras} {processedScorecards.innings2.summary.extras_detail}</p>
+          </div>
+        )}
         {displayStatus === "Completed" && matchDetails.man_of_the_match_name && ( <p className="mom-info"> <strong>Man of the Match:</strong>{" "} {matchDetails.man_of_the_match_name} </p> )}
       </div>
       

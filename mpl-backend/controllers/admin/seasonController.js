@@ -147,36 +147,35 @@ exports.updateSeason = async (req, res, next) => {
 
 
 /**
- * @desc    Delete a season (Use with caution!)
+ * @desc    Delete a season (Use with caution! Fails if season has teams or matches.)
  * @route   DELETE /api/admin/seasons/:id
  * @access  Admin (Protected)
  */
-// exports.deleteSeason = async (req, res, next) => {
-//     const { id } = req.params;
-//     if (isNaN(parseInt(id))) {
-//         return res.status(400).json({ message: 'Invalid Season ID.' });
-//     }
-//     // WARNING: Deleting a season might cascade and delete related teams, matches, stats etc.
-//     // depending on your FOREIGN KEY constraints (ON DELETE CASCADE). Double-check schema.
-//     // Consider logical deletion (setting an 'is_deleted' flag) instead of physical deletion.
-//     try {
-//          const [existing] = await pool.query('SELECT season_id FROM seasons WHERE season_id = ?', [id]);
-//         if (existing.length === 0) {
-//             return res.status(404).json({ message: 'Season not found.' });
-//         }
-
-//         // Perform deletion
-//         const [result] = await pool.query('DELETE FROM seasons WHERE season_id = ?', [id]);
-
-//          if (result.affectedRows === 0) {
-//              return res.status(404).json({ message: 'Season not found or already deleted.' });
-//          }
-
-//         res.status(200).json({ message: 'Season deleted successfully.' }); // Or 204 No Content
-
-//     } catch (error) {
-//         console.error("Delete Season Error:", error);
-//         // Handle potential foreign key constraint errors if cascade is not set up correctly
-//         next(error);
-//     }
-// };
+exports.deleteSeason = async (req, res, next) => {
+    const { id } = req.params;
+    if (isNaN(parseInt(id))) {
+        return res.status(400).json({ message: 'Invalid Season ID.' });
+    }
+    try {
+        const [existing] = await pool.query('SELECT season_id FROM seasons WHERE season_id = ?', [id]);
+        if (existing.length === 0) {
+            return res.status(404).json({ message: 'Season not found.' });
+        }
+        const [teamsCount] = await pool.query('SELECT 1 FROM teams WHERE season_id = ? LIMIT 1', [id]);
+        if (teamsCount.length > 0) {
+            return res.status(400).json({ message: 'Cannot delete season. It has teams. Remove teams first.' });
+        }
+        const [matchesCount] = await pool.query('SELECT 1 FROM matches WHERE season_id = ? LIMIT 1', [id]);
+        if (matchesCount.length > 0) {
+            return res.status(400).json({ message: 'Cannot delete season. It has matches. Remove matches first.' });
+        }
+        const [result] = await pool.query('DELETE FROM seasons WHERE season_id = ?', [id]);
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Season not found or already deleted.' });
+        }
+        res.status(200).json({ message: 'Season deleted successfully.' });
+    } catch (error) {
+        console.error("Delete Season Error:", error);
+        next(error);
+    }
+};

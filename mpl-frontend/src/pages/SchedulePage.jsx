@@ -120,7 +120,16 @@ function SchedulePage() {
                                 <td>{new Date(match.match_datetime).toLocaleString()}</td>
                                 <td>{match.team1_name} vs {match.team2_name}</td>
                                 <td>{match.venue}</td>
-                                <td>{match.status}</td>
+                                <td>
+                                    {match.status === 'Live' ? (
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                                            <span className="live-badge" style={{ backgroundColor: '#dc3545', color: '#fff', padding: '0.2em 0.5em', borderRadius: '4px', fontWeight: 700, fontSize: '0.85rem' }}>LIVE</span>
+                                            {match.status}
+                                        </span>
+                                    ) : (
+                                        match.status
+                                    )}
+                                </td>
                                 <td>
                                     {match.status === 'Completed' ? (
                                         <>

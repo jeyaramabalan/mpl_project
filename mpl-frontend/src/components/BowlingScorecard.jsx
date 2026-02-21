@@ -32,6 +32,18 @@ const BowlingScorecard = ({ stats, teamName, inningsNumber }) => {
         return `${completedOvers}.${ballsInPartialOver}`;
     };
 
+    const totals = stats.reduce(
+        (acc, s) => ({
+            overs: acc.overs + Number(s.overs_bowled || 0),
+            maidens: acc.maidens + Number(s.maidens ?? 0),
+            runs: acc.runs + Number(s.runs_conceded ?? 0),
+            wkts: acc.wkts + Number(s.wickets_taken ?? 0),
+            wd: acc.wd + Number(s.wides ?? 0),
+            nb: acc.nb + Number(s.no_balls ?? 0),
+        }),
+        { overs: 0, maidens: 0, runs: 0, wkts: 0, wd: 0, nb: 0 }
+    );
+    const totalEcon = totals.overs > 0 ? (totals.runs / totals.overs).toFixed(2) : '-';
 
     return (
         <div className="scorecard-container">
@@ -52,7 +64,6 @@ const BowlingScorecard = ({ stats, teamName, inningsNumber }) => {
                     </thead>
                     <tbody>
                         {stats.map((stat) => (
-                            // Make sure backend provides unique key, like player_id for this bowler
                             <tr key={`${inningsNumber}-bowl-${stat.player_id}`}>
                                 <td className="player-name">
                                     <Link to={`/players/${stat.player_id}`}>{stat.player_name}</Link>
@@ -66,7 +77,16 @@ const BowlingScorecard = ({ stats, teamName, inningsNumber }) => {
                                 <td className="noballs">{stat.no_balls ?? 0}</td>
                             </tr>
                         ))}
-                        {/* TODO: Add Totals row */}
+                        <tr className="total-row">
+                            <td className="summary-label">Total</td>
+                            <td className="overs">{formatOvers(totals.overs)}</td>
+                            <td className="maidens">{totals.maidens}</td>
+                            <td className="runs-conceded">{totals.runs}</td>
+                            <td className="wickets">{totals.wkts}</td>
+                            <td className="economy">{totalEcon}</td>
+                            <td className="wides">{totals.wd}</td>
+                            <td className="noballs">{totals.nb}</td>
+                        </tr>
                     </tbody>
                 </table>
             </div>

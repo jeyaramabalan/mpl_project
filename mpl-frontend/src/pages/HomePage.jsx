@@ -9,12 +9,11 @@ import LoadingFallback from '../components/LoadingFallback';
 import './HomePage.css';
 
 function HomePage() {
-    // List of scheduled matches (sorted by date); used for hero strip, next match, and first 3 cards
     const [matches, setMatches] = useState([]);
+    const [liveMatches, setLiveMatches] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
-    // Fetch scheduled matches once on mount; sort by match_datetime ascending
     useEffect(() => {
         let isMounted = true;
         const fetchMatches = async () => {
@@ -38,6 +37,22 @@ function HomePage() {
         };
         fetchMatches();
         return () => { isMounted = false; };
+    }, []);
+
+    useEffect(() => {
+        let isMounted = true;
+        const fetchLive = async () => {
+            try {
+                const { data } = await api.get('/matches', { params: { status: 'Live' } });
+                if (isMounted && data && Array.isArray(data)) setLiveMatches(data);
+                else if (isMounted) setLiveMatches([]);
+            } catch {
+                if (isMounted) setLiveMatches([]);
+            }
+        };
+        fetchLive();
+        const interval = setInterval(fetchLive, 30000);
+        return () => { isMounted = false; clearInterval(interval); };
     }, []);
 
     // First match = "next match"; first 3 = cards in upcoming section
@@ -64,6 +79,16 @@ function HomePage() {
                     <h1 className="home-hero-title">Welcome to the</h1>
                     <h1 className="home-hero-title-accent">Metalworks Premier League!</h1>
                     <p className="home-hero-subtitle">Featuring Community Spirit Through Box Cricket</p>
+                    {liveMatches.length > 0 && (
+                        <div className="home-hero-strip home-live-strip" style={{ backgroundColor: 'var(--mpl-danger, #dc3545)', color: '#fff', padding: '0.4rem 0.8rem', borderRadius: '6px', marginBottom: '0.5rem' }}>
+                            <span style={{ fontWeight: 700, marginRight: '0.5rem' }}>LIVE</span>
+                            {liveMatches.map(m => (
+                                <Link key={m.match_id} to={`/matches/${m.match_id}`} style={{ color: '#fff', textDecoration: 'underline', marginRight: '1rem' }}>
+                                    {m.team1_name} vs {m.team2_name}
+                                </Link>
+                            ))}
+                        </div>
+                    )}
                     {nextMatch && (
                         <div className="home-hero-strip">
                             Match 1: {nextMatch.team1_name} vs {nextMatch.team2_name} — {formatMatchDate(nextMatch.match_datetime)}

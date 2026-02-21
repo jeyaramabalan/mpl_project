@@ -2,13 +2,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import LoadingFallback from '../../components/LoadingFallback';
+import ConfirmDialog from '../../components/ConfirmDialog';
 
 function AdminSeasonsPage() {
     const [seasons, setSeasons] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [isEditing, setIsEditing] = useState(null); // Holds season_id if editing, else null
+    const [isEditing, setIsEditing] = useState(null);
     const [formData, setFormData] = useState({ year: '', name: '', start_date: '', end_date: '', status: 'Planned' });
+    const [deleteSeasonTarget, setDeleteSeasonTarget] = useState(null);
 
     const fetchSeasons = useCallback(async () => {
         setLoading(true);
@@ -91,11 +93,28 @@ function AdminSeasonsPage() {
         }
     };
 
-    // TODO: Implement handleDelete
+    const handleDeleteSeason = async () => {
+        if (!deleteSeasonTarget) return;
+        const seasonId = deleteSeasonTarget.season_id;
+        setError('');
+        setLoading(true);
+        try {
+            await api.delete(`/admin/seasons/${seasonId}`);
+            setDeleteSeasonTarget(null);
+            if (isEditing === seasonId) resetForm();
+            fetchSeasons();
+        } catch (err) {
+            setError(typeof err === 'string' ? err : (err.response?.data?.message || 'Failed to delete season.'));
+        } finally {
+            setLoading(false);
+        }
+    };
 
     return (
         <div>
             <h2>Manage Seasons</h2>
+
+            <ConfirmDialog open={!!deleteSeasonTarget} title="Delete season" message={deleteSeasonTarget ? `Delete season "${deleteSeasonTarget.name}" (${deleteSeasonTarget.year})? This cannot be undone.` : ''} confirmLabel="Delete" cancelLabel="Cancel" variant="danger" onConfirm={handleDeleteSeason} onCancel={() => setDeleteSeasonTarget(null)} />
 
             {/* Add/Edit Form */}
             <form onSubmit={handleSubmit} style={{ marginBottom: '2rem', padding: '1rem', border: '1px solid #ccc', borderRadius: '5px' }}>
@@ -187,8 +206,7 @@ function AdminSeasonsPage() {
                                 <td>{season.status}</td>
                                 <td>
                                     <button onClick={() => handleEditClick(season)} disabled={loading || isEditing === season.season_id} style={{padding: '0.3em 0.6em', fontSize: '0.9rem'}}>Edit</button>
-                                    {/* TODO: Add Delete Button */}
-                                     {/* <button onClick={() => handleDelete(season.season_id)} disabled={loading} style={{backgroundColor: '#dc3545', marginLeft: '0.5rem'}}>Delete</button> */}
+                                    <button type="button" onClick={() => setDeleteSeasonTarget(season)} disabled={loading} style={{ backgroundColor: '#dc3545', marginLeft: '0.5rem', padding: '0.3em 0.6em', fontSize: '0.9rem' }}>Delete</button>
                                 </td>
                             </tr>
                         ))}

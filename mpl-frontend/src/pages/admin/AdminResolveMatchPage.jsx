@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import LoadingFallback from '../../components/LoadingFallback';
+import SearchablePlayerSelect from '../../components/SearchablePlayerSelect';
 
 function AdminResolveMatchPage() {
     const [seasons, setSeasons] = useState([]);
@@ -14,10 +15,11 @@ function AdminResolveMatchPage() {
     const [error, setError] = useState('');
 
     // Form state
-    const [resolutionStatus, setResolutionStatus] = useState('Completed'); // Completed | Abandoned
-    const [winnerTeamId, setWinnerTeamId] = useState(''); // team_id or '' for tie/abandoned
+    const [resolutionStatus, setResolutionStatus] = useState('Completed');
+    const [winnerTeamId, setWinnerTeamId] = useState('');
     const [resultSummary, setResultSummary] = useState('');
-    const [momPlayerId, setMomPlayerId] = useState(''); // Optional
+    const [momPlayerId, setMomPlayerId] = useState('');
+    const [matchPlayers, setMatchPlayers] = useState([]); // Players from both teams for MoM dropdown
 
     // Fetch Seasons
     useEffect(() => {
@@ -81,13 +83,50 @@ function AdminResolveMatchPage() {
     const handleMatchSelect = (matchId) => {
         const match = matches.find(m => m.match_id === parseInt(matchId));
         setSelectedMatch(match || null);
-        // Reset form fields when selecting a new match
         setResolutionStatus('Completed');
-        setWinnerTeamId(match?.winner_team_id ?? ''); // Pre-fill if already set
+        setWinnerTeamId(match?.winner_team_id ?? '');
         setResultSummary(match?.result_summary || '');
-        setMomPlayerId(match?.man_of_the_match_player_id || '');
+        setMomPlayerId(match?.man_of_the_match_player_id ?? '');
+        setMatchPlayers([]);
         setError('');
     };
+
+    // Fetch players from both teams when selectedMatch changes
+    useEffect(() => {
+        if (!selectedMatch || !selectedSeason) {
+            setMatchPlayers([]);
+            return;
+        }
+        const teamA = selectedMatch.team1_id ?? selectedMatch.team_a_id;
+        const teamB = selectedMatch.team2_id ?? selectedMatch.team_b_id;
+        if (!teamA || !teamB) {
+            setMatchPlayers([]);
+            return;
+        }
+        let cancelled = false;
+        const fetchPlayers = async () => {
+            try {
+                const [resA, resB] = await Promise.all([
+                    api.get(`/admin/teams/${teamA}?season_id=${selectedSeason}`),
+                    api.get(`/admin/teams/${teamB}?season_id=${selectedSeason}`),
+                ]);
+                if (cancelled) return;
+                const playersA = (resA.data?.players || []).map(p => ({ player_id: p.player_id, name: p.name }));
+                const playersB = (resB.data?.players || []).map(p => ({ player_id: p.player_id, name: p.name }));
+                const seen = new Set();
+                const combined = [...playersA, ...playersB].filter(p => {
+                    if (seen.has(p.player_id)) return false;
+                    seen.add(p.player_id);
+                    return true;
+                });
+                setMatchPlayers(combined);
+            } catch {
+                if (!cancelled) setMatchPlayers([]);
+            }
+        };
+        fetchPlayers();
+        return () => { cancelled = true; };
+    }, [selectedMatch, selectedSeason]);
 
     // Handle form submission
     const handleSubmitResolution = async (e) => {
@@ -196,9 +235,15 @@ function AdminResolveMatchPage() {
 
                     {resolutionStatus === 'Completed' && (
                          <div>
-                            <label htmlFor="momPlayerId">Man of the Match (Player ID - Optional):</label>
-                            <input type="number" id="momPlayerId" value={momPlayerId} onChange={(e) => setMomPlayerId(e.target.value)} disabled={submitting} placeholder="Enter Player ID"/>
-                             {/* TODO: Replace with a searchable player dropdown filtered by teams in match */}
+                            <SearchablePlayerSelect
+                                id="momPlayerId"
+                                label="Man of the Match (Optional)"
+                                players={matchPlayers}
+                                value={momPlayerId}
+                                onChange={setMomPlayerId}
+                                placeholder="Search player from either team..."
+                                disabled={submitting}
+                            />
                          </div>
                     )}
 

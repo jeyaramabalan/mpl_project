@@ -1,11 +1,13 @@
 // mpl-project/mpl-frontend/src/pages/admin/AdminTeamsPage.jsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom'; // If linking to team details page
+import { Link } from 'react-router-dom';
 import api from '../../services/api';
 import LoadingFallback from '../../components/LoadingFallback';
+import SearchablePlayerSelect from '../../components/SearchablePlayerSelect';
+import ConfirmDialog from '../../components/ConfirmDialog';
 
 // --- Reusable Components (Consider moving to components folder) ---
-const TeamForm = ({ onSubmit, initialData = {}, seasons = [], loading }) => {
+const TeamForm = ({ onSubmit, initialData = {}, seasons = [], players = [], loading }) => {
     const [formData, setFormData] = useState({
         name: initialData.name || '',
         season_id: initialData.season_id || (seasons.length > 0 ? seasons[0].season_id : ''), // Default to first season?
@@ -59,18 +61,27 @@ const TeamForm = ({ onSubmit, initialData = {}, seasons = [], loading }) => {
                 <input type="number" id="budget" name="budget" value={formData.budget} onChange={handleChange} step="0.01" disabled={loading} />
             </div>
             <div>
-                <label htmlFor="captain_player_id">Captain Player ID (Optional):</label>
-                <input type="number" id="captain_player_id" name="captain_player_id" value={formData.captain_player_id} onChange={handleChange} disabled={loading} />
-                {/* TODO: Replace with Player Search/Select dropdown for better UX */}
+                <SearchablePlayerSelect
+                    id="captain_player_id"
+                    label="Captain (Optional)"
+                    players={players}
+                    value={formData.captain_player_id}
+                    onChange={(v) => setFormData({ ...formData, captain_player_id: v })}
+                    placeholder="Select captain..."
+                    disabled={loading}
+                />
             </div>
             <button type="submit" disabled={loading}>{loading ? 'Saving...' : (initialData.team_id ? 'Update Team' : 'Add Team')}</button>
         </form>
     );
 };
 
-const PlayerAssignment = ({ teamId, seasonId, teamPlayers = [], availablePlayers = [], onAssign, onRemove, loading }) => {
+const PlayerAssignment = ({ teamId, seasonId, teamPlayers = [], availablePlayers = [], onAssign, onBulkAssign, onRemove, loading }) => {
      const [selectedPlayerId, setSelectedPlayerId] = useState('');
      const [purchasePrice, setPurchasePrice] = useState('');
+     const [removeTarget, setRemoveTarget] = useState(null);
+     const [bulkSelectedIds, setBulkSelectedIds] = useState(new Set());
+     const [bulkPurchasePrice, setBulkPurchasePrice] = useState('');
 
      const handleAssign = (e) => {
          e.preventDefault();
@@ -80,17 +91,32 @@ const PlayerAssignment = ({ teamId, seasonId, teamPlayers = [], availablePlayers
              player_id: parseInt(selectedPlayerId),
              season_id: seasonId,
              purchase_price: purchasePrice ? parseFloat(purchasePrice) : null,
-             // is_captain: false // Captain is set via Team edit
          });
-         setSelectedPlayerId(''); // Reset form
+         setSelectedPlayerId('');
          setPurchasePrice('');
+     };
+
+     const toggleBulkSelect = (playerId) => {
+         setBulkSelectedIds(prev => {
+             const next = new Set(prev);
+             if (next.has(playerId)) next.delete(playerId);
+             else next.add(playerId);
+             return next;
+         });
+     };
+
+     const handleBulkAssign = (e) => {
+         e.preventDefault();
+         if (bulkSelectedIds.size === 0 || !onBulkAssign) return;
+         onBulkAssign(teamId, seasonId, Array.from(bulkSelectedIds), bulkPurchasePrice ? parseFloat(bulkPurchasePrice) : null);
+         setBulkSelectedIds(new Set());
+         setBulkPurchasePrice('');
      };
 
     return (
         <div style={{ marginTop: '1.5rem', borderTop: '1px solid #eee', paddingTop: '1rem' }}>
              <h4>Manage Players for this Team ({teamPlayers.length} assigned)</h4>
-             {/* List Assigned Players */}
-            {teamPlayers.length > 0 ? (
+             {teamPlayers.length > 0 ? (
                  <ul>
                     {teamPlayers.map(p => (
                         <li key={p.team_player_id} style={{ marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -99,36 +125,37 @@ const PlayerAssignment = ({ teamId, seasonId, teamPlayers = [], availablePlayers
                                 {p.is_captain && ' (C)'}
                                 {p.purchase_price && ` - $${p.purchase_price}`}
                             </span>
-                             <button
-                                onClick={() => onRemove(p.team_player_id)}
-                                disabled={loading}
-                                style={{ backgroundColor: '#dc3545', padding: '0.2em 0.5em', fontSize: '0.8rem' }}
-                            >
-                                Remove
-                            </button>
+                             <button type="button" onClick={() => setRemoveTarget({ team_player_id: p.team_player_id, name: p.name })} disabled={loading} style={{ backgroundColor: '#dc3545', padding: '0.2em 0.5em', fontSize: '0.8rem' }}>Remove</button>
                         </li>
                     ))}
                  </ul>
             ) : <p>No players assigned to this team for this season yet.</p>}
 
-            {/* Assign Player Form */}
-             <form onSubmit={handleAssign} style={{ marginTop: '1rem' }}>
-                <select value={selectedPlayerId} onChange={(e) => setSelectedPlayerId(e.target.value)} required disabled={loading || availablePlayers.length === 0}>
-                    <option value="">Select Player to Add</option>
-                     {/* Only show players NOT already in ANY team for this season */}
-                     {availablePlayers.map(p => <option key={p.player_id} value={p.player_id}>{p.name} ({p.player_id})</option>)}
-                 </select>
-                 <input
-                     type="number"
-                     placeholder="Purchase Price (Optional)"
-                     value={purchasePrice}
-                     onChange={(e) => setPurchasePrice(e.target.value)}
-                     step="0.01"
-                     style={{marginLeft: '0.5rem', width: '150px'}}
-                     disabled={loading}
-                 />
-                 <button type="submit" disabled={loading || !selectedPlayerId} style={{marginLeft: '0.5rem'}}>Assign Player</button>
+            <ConfirmDialog open={!!removeTarget} title="Remove player" message={removeTarget ? `Remove ${removeTarget.name} from this team?` : ''} confirmLabel="Remove" cancelLabel="Cancel" onConfirm={() => { if (removeTarget) { onRemove(removeTarget.team_player_id); setRemoveTarget(null); } }} onCancel={() => setRemoveTarget(null)} />
+
+             <form onSubmit={handleAssign} style={{ marginTop: '1rem', display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '0.5rem' }}>
+                <SearchablePlayerSelect players={availablePlayers} value={selectedPlayerId} onChange={setSelectedPlayerId} placeholder="Select player to add..." disabled={loading || availablePlayers.length === 0} />
+                 <input type="number" placeholder="Purchase Price (Optional)" value={purchasePrice} onChange={(e) => setPurchasePrice(e.target.value)} step="0.01" style={{ width: '140px', padding: '0.5rem' }} disabled={loading} />
+                 <button type="submit" disabled={loading || !selectedPlayerId}>Assign Player</button>
             </form>
+
+            {availablePlayers.length > 0 && (
+                <div style={{ marginTop: '1.5rem', padding: '0.75rem', background: '#f8f9fa', borderRadius: '6px' }}>
+                    <h5 style={{ marginTop: 0 }}>Bulk assign players</h5>
+                    <p style={{ fontSize: '0.9rem', color: '#555' }}>Select players below and assign them all to this team.</p>
+                    <div style={{ maxHeight: '160px', overflowY: 'auto', marginBottom: '0.5rem' }}>
+                        {availablePlayers.map(p => (
+                            <label key={p.player_id} style={{ display: 'block', marginBottom: '0.25rem' }}>
+                                <input type="checkbox" checked={bulkSelectedIds.has(p.player_id)} onChange={() => toggleBulkSelect(p.player_id)} disabled={loading} /> {p.name}
+                            </label>
+                        ))}
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.5rem' }}>
+                        <input type="number" placeholder="Purchase price (optional, for all)" value={bulkPurchasePrice} onChange={(e) => setBulkPurchasePrice(e.target.value)} step="0.01" style={{ width: '160px', padding: '0.4rem' }} disabled={loading} />
+                        <button type="button" onClick={handleBulkAssign} disabled={loading || bulkSelectedIds.size === 0}>{bulkSelectedIds.size === 0 ? 'Assign selected' : `Assign ${bulkSelectedIds.size} player(s)`}</button>
+                    </div>
+                </div>
+            )}
 
         </div>
     );
@@ -147,7 +174,8 @@ function AdminTeamsPage() {
     const [loadingPlayers, setLoadingPlayers] = useState(false);
     const [error, setError] = useState('');
 
-    const [editingTeam, setEditingTeam] = useState(null); // Holds team object if editing
+    const [editingTeam, setEditingTeam] = useState(null);
+    const [deleteTeamTarget, setDeleteTeamTarget] = useState(null);
 
     // Fetch seasons on mount
     useEffect(() => {
@@ -275,16 +303,46 @@ function AdminTeamsPage() {
     };
 
     const handleRemovePlayer = async (teamPlayerId) => {
-         if (!window.confirm("Are you sure you want to remove this player from the team?")) return;
-         setLoadingTeams(true);
-         setError('');
+        setLoadingTeams(true);
+        setError('');
         try {
             await api.delete(`/admin/teams/players/${teamPlayerId}`);
-            fetchTeamsAndAssignments(); // Refresh assignments and team player lists
+            fetchTeamsAndAssignments();
         } catch (err) {
             setError(typeof err === 'string' ? err : 'Failed to remove player.');
         } finally {
-             setLoadingTeams(false);
+            setLoadingTeams(false);
+        }
+    };
+
+    const handleBulkAssign = async (teamId, seasonId, playerIds, purchasePrice) => {
+        setLoadingTeams(true);
+        setError('');
+        try {
+            for (const playerId of playerIds) {
+                await api.post('/admin/teams/players', { team_id: teamId, player_id: playerId, season_id: seasonId, purchase_price: purchasePrice ?? null });
+            }
+            fetchTeamsAndAssignments();
+        } catch (err) {
+            setError(typeof err === 'string' ? err : (err.response?.data?.message || 'Failed to assign one or more players.'));
+        } finally {
+            setLoadingTeams(false);
+        }
+    };
+
+    const handleDeleteTeam = async () => {
+        if (!deleteTeamTarget) return;
+        setLoadingTeams(true);
+        setError('');
+        try {
+            await api.delete(`/admin/teams/${deleteTeamTarget.team_id}`);
+            setDeleteTeamTarget(null);
+            setEditingTeam(null);
+            fetchTeamsAndAssignments();
+        } catch (err) {
+            setError(typeof err === 'string' ? err : (err.response?.data?.message || 'Failed to delete team.'));
+        } finally {
+            setLoadingTeams(false);
         }
     };
 
@@ -324,8 +382,9 @@ function AdminTeamsPage() {
                      <h3>{editingTeam ? `Editing Team: ${editingTeam.name}` : 'Add New Team'}</h3>
                      <TeamForm
                          onSubmit={handleTeamSubmit}
-                         initialData={editingTeam ? { ...editingTeam, season_id: selectedSeasonId } : { season_id: selectedSeasonId } } // Pass season_id
-                         seasons={seasons} // Pass seasons for the dropdown (only used if adding)
+                         initialData={editingTeam ? { ...editingTeam, season_id: selectedSeasonId } : { season_id: selectedSeasonId } }
+                         seasons={seasons}
+                         players={allPlayers}
                          loading={loadingTeams}
                      />
                      {editingTeam && <button onClick={() => setEditingTeam(null)} style={{marginTop: '0.5rem', backgroundColor: '#6c757d'}}>Cancel Edit</button>}
@@ -336,6 +395,8 @@ function AdminTeamsPage() {
             {/* Teams List for Selected Season */}
             {selectedSeasonId && loadingTeams && <LoadingFallback message="Loading teams..." />}
             {selectedSeasonId && !loadingTeams && teams.length === 0 && <p>No teams found for this season. Add one above.</p>}
+
+            <ConfirmDialog open={!!deleteTeamTarget} title="Delete team" message={deleteTeamTarget ? `Delete team "${deleteTeamTarget.name}"? This cannot be undone.` : ''} confirmLabel="Delete" cancelLabel="Cancel" variant="danger" onConfirm={handleDeleteTeam} onCancel={() => setDeleteTeamTarget(null)} />
 
             {selectedSeasonId && !loadingTeams && teams.length > 0 && (
                 <div>
@@ -350,7 +411,7 @@ function AdminTeamsPage() {
                                 </div>
                                 <div>
                                      <button onClick={() => setEditingTeam(team)} disabled={loadingTeams || !!editingTeam}>Edit Team</button>
-                                     {/* TODO: Add delete team button */}
+                                     <button type="button" onClick={() => setDeleteTeamTarget(team)} disabled={loadingTeams || !!editingTeam} style={{ marginLeft: '0.5rem', backgroundColor: '#dc3545' }}>Delete Team</button>
                                 </div>
                             </div>
 
@@ -358,9 +419,10 @@ function AdminTeamsPage() {
                              <PlayerAssignment
                                 teamId={team.team_id}
                                 seasonId={parseInt(selectedSeasonId)}
-                                teamPlayers={team.players || []} // Ensure players array exists
+                                teamPlayers={team.players || []}
                                 availablePlayers={availablePlayersForAssignment}
                                 onAssign={handleAssignPlayer}
+                                onBulkAssign={handleBulkAssign}
                                 onRemove={handleRemovePlayer}
                                 loading={loadingTeams || loadingPlayers}
                              />

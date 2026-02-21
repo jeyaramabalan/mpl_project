@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import LoadingFallback from '../../components/LoadingFallback';
+import ConfirmDialog from '../../components/ConfirmDialog';
 
 // --- Match Form Component ---
 const MatchForm = ({ onSubmit, initialData = {}, seasons = [], teams = [], loading, onCancel }) => {
@@ -155,7 +156,8 @@ function AdminSchedulePage() {
     const [loading, setLoading] = useState(true); // Combined loading state
     const [formLoading, setFormLoading] = useState(false); // Specific loading for form submission
     const [error, setError] = useState('');
-    const [showAddForm, setShowAddForm] = useState(false); // Toggle for add form visibility
+    const [showAddForm, setShowAddForm] = useState(false);
+    const [deleteMatchTarget, setDeleteMatchTarget] = useState(null);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -256,23 +258,21 @@ function AdminSchedulePage() {
     };
 
     const handleCancelEdit = () => {
-        setEditingMatch(null); // Clear editing state, hide form
+        setEditingMatch(null);
     };
 
-    const handleDeleteClick = async (matchId) => {
-        if (!window.confirm(`Are you sure you want to delete Match ID ${matchId}? This action cannot be undone.`)) {
-            return;
-        }
+    const handleDeleteMatch = async () => {
+        if (!deleteMatchTarget) return;
         setError('');
-        setLoading(true); // Use main loading indicator for delete
+        setLoading(true);
         try {
-            await api.delete(`/api/admin/matches/${matchId}`);
-            fetchMatches(selectedSeasonFilter); // Refresh list
+            await api.delete(`/admin/matches/${deleteMatchTarget.match_id}`);
+            setDeleteMatchTarget(null);
+            fetchMatches(selectedSeasonFilter);
         } catch (err) {
-             setError(typeof err === 'string' ? err : 'Failed to delete match. It might have already started or been completed.');
-             setLoading(false); // Stop loading on error
+            setError(typeof err === 'string' ? err : (err.response?.data?.message || 'Failed to delete match.'));
+            setLoading(false);
         }
-        // setLoading(false) will be called by fetchMatches on success
     };
 
 
@@ -281,6 +281,8 @@ function AdminSchedulePage() {
             <h2>Manage Match Schedule</h2>
 
             {error && <p className="error-message">{error}</p>}
+
+            <ConfirmDialog open={!!deleteMatchTarget} title="Delete match" message={deleteMatchTarget ? `Delete match ID ${deleteMatchTarget.match_id} (${deleteMatchTarget.team1_name} vs ${deleteMatchTarget.team2_name})? This cannot be undone.` : ''} confirmLabel="Delete" cancelLabel="Cancel" variant="danger" onConfirm={handleDeleteMatch} onCancel={() => setDeleteMatchTarget(null)} />
 
             {/* Filter and Add Button */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
@@ -352,7 +354,7 @@ function AdminSchedulePage() {
                                      {/* Allow deleting only scheduled matches */}
                                      {match.status === 'Scheduled' && (
                                         <button
-                                            onClick={() => handleDeleteClick(match.match_id)}
+                                            onClick={() => setDeleteMatchTarget(match)}
                                             disabled={loading || formLoading}
                                             style={{ padding: '0.3em 0.6em', fontSize: '0.9rem', backgroundColor: '#dc3545' }}
                                         >

@@ -5,7 +5,7 @@ const {
     getSeasons,
     getSeasonById,
     updateSeason,
-    // deleteSeason // Uncomment if implemented
+    deleteSeason,
 } = require('../../controllers/admin/seasonController');
 
 const router = express.Router();
@@ -19,8 +19,8 @@ router.route('/')
 
 // Route for specific season by ID: /api/admin/seasons/:id
 router.route('/:id')
-    .get(getSeasonById) // GET /api/admin/seasons/:id - Get details of one season
-    .put(updateSeason)  // PUT /api/admin/seasons/:id - Update a season's details
-    // .delete(deleteSeason); // DELETE /api/admin/seasons/:id - Delete a season (implement controller logic first)
+    .get(getSeasonById)
+    .put(updateSeason)
+    .delete(deleteSeason);
 
 module.exports = router;
