@@ -1,0 +1,57 @@
+.skeleton-wrapper {
+    padding: 1rem;
+    min-height: 2rem;
+}
+
+.skeleton-line,
+.skeleton-card-block {
+    background: linear-gradient(
+        90deg,
+        var(--skeleton-bg, #e8e8e8) 25%,
+        var(--skeleton-shine, #f0f0f0) 50%,
+        var(--skeleton-bg, #e8e8e8) 75%
+    );
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.2s ease-in-out infinite;
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+}
+
+.skeleton-line:last-child,
+.skeleton-card .skeleton-line:last-child {
+    margin-bottom: 0;
+}
+
+.skeleton-card {
+    padding: 1rem;
+    border: 1px solid var(--skeleton-border, #eee);
+    border-radius: 8px;
+}
+
+.skeleton-card-block {
+    margin-bottom: 0.75rem;
+    border-radius: 6px;
+}
+
+.skeleton-table-header,
+.skeleton-table-row {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.skeleton-table-header .skeleton-line,
+.skeleton-table-row .skeleton-line {
+    margin-bottom: 0;
+}
+
+.skeleton-message {
+    margin-top: 0.75rem;
+    font-size: 0.9rem;
+    color: var(--text-muted, #666);
+}
+
+@keyframes skeleton-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}

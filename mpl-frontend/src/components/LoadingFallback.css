@@ -1,0 +1,9 @@
+.loading-fallback {
+    min-height: 3rem;
+}
+
+.loading-fallback-text {
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--text-muted, #666);
+}
