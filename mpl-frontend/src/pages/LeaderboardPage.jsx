@@ -7,10 +7,58 @@ import api from '../services/api';
 import LoadingFallback from '../components/LoadingFallback';
 import './LeaderboardPage.css';
 
-/** Reusable table for one leaderboard category (batting, bowling, or impact) */
+/** Sort indicator icons */
+const SortIcon = ({ direction }) => (
+    <span className="sort-icon" aria-hidden="true">
+        {direction === 'asc' ? ' ▲' : direction === 'desc' ? ' ▼' : ' ⇅'}
+    </span>
+);
+
+/** Reusable table for one leaderboard category (batting, bowling, or impact) with sortable columns */
 const LeaderboardTable = ({ title, data, columns }) => {
+    const [sortColumn, setSortColumn] = useState(null);
+    const [sortDirection, setSortDirection] = useState('desc');
+
     if (!data) return <p>Loading {title}...</p>;
     if (data.length === 0) return <p>No data available for {title}.</p>;
+
+    const handleSort = (colKey) => {
+        if (sortColumn === colKey) {
+            setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
+        } else {
+            setSortColumn(colKey);
+            setSortDirection(colKey === 'player_name' ? 'asc' : 'desc');
+        }
+    };
+
+    const sortedData = [...data].sort((a, b) => {
+        const col = sortColumn;
+        if (!col) return 0;
+
+        if (col === 'rank') {
+            const aIdx = data.indexOf(a);
+            const bIdx = data.indexOf(b);
+            return sortDirection === 'asc' ? aIdx - bIdx : bIdx - aIdx;
+        }
+
+        let aVal = a[col];
+        let bVal = b[col];
+        if (col === 'player_name') {
+            aVal = (aVal || '').toString().toLowerCase();
+            bVal = (bVal || '').toString().toLowerCase();
+            const cmp = aVal.localeCompare(bVal);
+            return sortDirection === 'asc' ? cmp : -cmp;
+        }
+        const aNum = Number(aVal);
+        const bNum = Number(bVal);
+        if (!isNaN(aNum) && !isNaN(bNum)) {
+            return sortDirection === 'asc' ? aNum - bNum : bNum - aNum;
+        }
+        if (aVal == null && bVal == null) return 0;
+        if (aVal == null) return sortDirection === 'asc' ? 1 : -1;
+        if (bVal == null) return sortDirection === 'asc' ? -1 : 1;
+        return 0;
+    });
 
     return (
         <div className="leaderboard-category">
@@ -19,12 +67,29 @@ const LeaderboardTable = ({ title, data, columns }) => {
                 <table className="leaderboard-table">
                     <thead>
                         <tr>
-                            <th>Rank</th>
-                            {columns.map((col) => <th key={col.key}>{col.header}</th>)}
+                            <th
+                                className="sortable"
+                                onClick={() => handleSort('rank')}
+                                role="columnheader"
+                                aria-sort={sortColumn === 'rank' ? (sortDirection === 'asc' ? 'ascending' : 'descending') : undefined}
+                            >
+                                Rank <SortIcon direction={sortColumn === 'rank' ? sortDirection : null} />
+                            </th>
+                            {columns.map((col) => (
+                                <th
+                                    key={col.key}
+                                    className="sortable"
+                                    onClick={() => handleSort(col.key)}
+                                    role="columnheader"
+                                    aria-sort={sortColumn === col.key ? (sortDirection === 'asc' ? 'ascending' : 'descending') : undefined}
+                                >
+                                    {col.header} <SortIcon direction={sortColumn === col.key ? sortDirection : null} />
+                                </th>
+                            ))}
                         </tr>
                     </thead>
                     <tbody>
-                        {data.map((player, index) => (
+                        {sortedData.map((player, index) => (
                             <tr key={player.player_id}>
                                 <td>{index + 1}</td>
                                 {columns.map((col) => {
