@@ -1,10 +1,13 @@
 // src/pages/LeaderboardPage.jsx
+// Season Leaderboards: tabs for Top Batters, Top Bowlers, Impact Leaders; season filter; tables with rank and stats.
+
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 import LoadingFallback from '../components/LoadingFallback';
 import './LeaderboardPage.css';
 
+/** Reusable table for one leaderboard category (batting, bowling, or impact) */
 const LeaderboardTable = ({ title, data, columns }) => {
     if (!data) return <p>Loading {title}...</p>;
     if (data.length === 0) return <p>No data available for {title}.</p>;
@@ -118,10 +121,11 @@ function LeaderboardPage() {
     const impactColumns = [ { key: 'player_name', header: 'Player' }, { key: 'matches', header: 'Mat' }, { key: 'total_impact', header: 'Total Impact' }, { key: 'bat_impact', header: 'Batting' }, { key: 'bowl_impact', header: 'Bowling' }, { key: 'field_impact', header: 'Fielding' } ];
 
     return (
-        <div className="leaderboard-page">
-            <h2>Season Leaderboards</h2>
+        <div className="leaderboard-page mpl-section">
+            <h1 className="mpl-page-title">Season Leaderboards</h1>
+            {/* Season selector; "All-Time Stats" option; data refetches when season changes */}
             {loadingSeasons ? <LoadingFallback /> : (
-                <div className="filter-section">
+                <div className="mpl-filters filter-section">
                     <label htmlFor="season-select-leaderboard">Select Stats:</label>
                     <select
                         id="season-select-leaderboard"
@@ -143,10 +147,11 @@ function LeaderboardPage() {
             {error && <p className="error-message">{error}</p>}
             {selectedSeason && (
                  <>
-                    <div className="tabs">
-                        <button onClick={() => setActiveTab('batting')} className={activeTab === 'batting' ? 'active' : ''}>Top Batters</button>
-                        <button onClick={() => setActiveTab('bowling')} className={activeTab === 'bowling' ? 'active' : ''}>Top Bowlers</button>
-                        <button onClick={() => setActiveTab('impact')} className={activeTab === 'impact' ? 'active' : ''}>Impact Leaders</button>
+                    {/* Tabs: switch between batting, bowling, impact leaderboards */}
+                    <div className="mpl-tabs tabs">
+                        <button type="button" onClick={() => setActiveTab('batting')} className={activeTab === 'batting' ? 'active' : ''}>Top Batters</button>
+                        <button type="button" onClick={() => setActiveTab('bowling')} className={activeTab === 'bowling' ? 'active' : ''}>Top Bowlers</button>
+                        <button type="button" onClick={() => setActiveTab('impact')} className={activeTab === 'impact' ? 'active' : ''}>Impact Leaders</button>
                     </div>
                     <div className="leaderboard-content">
                         {loadingData ? <LoadingFallback message="Loading leaderboard data..." /> : (

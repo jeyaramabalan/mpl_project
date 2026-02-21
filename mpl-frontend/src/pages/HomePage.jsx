@@ -1,98 +1,178 @@
 // src/pages/HomePage.jsx
+// Landing page: hero, upcoming match cards, next match strip, quick access cards, news & updates.
+// Fetches scheduled matches from API for hero strip, match cards, and next match.
+
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 import LoadingFallback from '../components/LoadingFallback';
-import './HomePage.css'; // Import CSS for styling
-// import mplLogo from '../assets/mpl-logo.png'; // <-- Import your logo here (adjust path)
+import './HomePage.css';
 
 function HomePage() {
-    const [nextMatch, setNextMatch] = useState(null);
+    // List of scheduled matches (sorted by date); used for hero strip, next match, and first 3 cards
+    const [matches, setMatches] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
+    // Fetch scheduled matches once on mount; sort by match_datetime ascending
     useEffect(() => {
         let isMounted = true;
-        // Defined the function to fetch the match
-        const fetchNextMatch = async () => {
+        const fetchMatches = async () => {
             setLoading(true);
             setError('');
             try {
-                const { data } = await api.get('/matches?status=Scheduled');
-
-                if (isMounted) {
-                    if (data && data.length > 0) {
-                        const sortedMatches = data.sort((a, b) => new Date(a.match_datetime) - new Date(b.match_datetime));
-                        setNextMatch(sortedMatches[0]);
-                    } else {
-                        setNextMatch(null);
-                    }
+                const { data } = await api.get('/matches', { params: { status: 'Scheduled' } });
+                if (isMounted && data && Array.isArray(data)) {
+                    const sorted = [...data].sort((a, b) => new Date(a.match_datetime) - new Date(b.match_datetime));
+                    setMatches(sorted);
+                } else if (isMounted) {
+                    setMatches([]);
                 }
             } catch (err) {
-                console.error("Failed to fetch next match:", err);
-                if (isMounted) setError('Could not load upcoming match info.');
+                console.error('Failed to fetch matches:', err);
+                if (isMounted) setError('Could not load upcoming matches.');
+                setMatches([]);
             } finally {
                 if (isMounted) setLoading(false);
             }
         };
-
-        // Correctly call the defined function
-        fetchNextMatch();
-
+        fetchMatches();
         return () => { isMounted = false; };
-    }, []); // Empty dependency array ensures this runs only once on mount
+    }, []);
+
+    // First match = "next match"; first 3 = cards in upcoming section
+    const nextMatch = matches.length > 0 ? matches[0] : null;
+    const upcomingThree = matches.slice(0, 3);
+
+    // Helpers for formatting match date/time and team initials for avatar placeholders
+    const formatMatchDate = (dateStr) => {
+        const d = new Date(dateStr);
+        return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+    };
+    const formatMatchTime = (dateStr) => {
+        const d = new Date(dateStr);
+        return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    };
+    const initials = (name) => (name || '').split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase();
 
     return (
         <div className="home-page">
-
-            {/* Section 1: Welcome & Logo */}
-            <section className="welcome-section">
-                 {/* Uncomment and adjust path when you have a logo */}
-                 {/* <div className="logo-container">
-                     <img src={mplLogo} alt="MPL Logo" className="home-logo" />
-                 </div> */}
-                 <h1>Welcome to the Metalworks Premier League (MPL)!</h1>
-                 <p className="tagline">Fostering Community Spirit Through Box Cricket.</p>
-                 <p>The MPL aims to organize an engaging and competitive Box Cricket tournament each summer for the residents of Metalworks and nearby apartments.</p>
+            {/* Hero: full-width band with title, subtitle, and optional match strip from next match */}
+            <section className="home-hero">
+                <div className="home-hero-overlay" />
+                <div className="home-hero-content">
+                    <h1 className="home-hero-title">Welcome to the</h1>
+                    <h1 className="home-hero-title-accent">Metalworks Premier League!</h1>
+                    <p className="home-hero-subtitle">Featuring Community Spirit Through Box Cricket</p>
+                    {nextMatch && (
+                        <div className="home-hero-strip">
+                            Match 1: {nextMatch.team1_name} vs {nextMatch.team2_name} — {formatMatchDate(nextMatch.match_datetime)}
+                        </div>
+                    )}
+                </div>
             </section>
 
-            <hr className="home-divider" />
-
-            {/* Section 2: Upcoming Match / Live Match Indicator */}
-            <section className="next-match-section">
-                <h2>Next Match</h2>
-                {loading && <LoadingFallback />}
-                {error && <p className="error-message">{error}</p>}
-                {!loading && !error && nextMatch ? (
-                    <div className="match-card">
-                        <p className="match-teams">{nextMatch.team1_name} vs {nextMatch.team2_name}</p>
-                        <p className="match-time">{new Date(nextMatch.match_datetime).toLocaleString([], {dateStyle: 'medium', timeStyle: 'short'})}</p>
-                        <p className="match-venue">Venue: {nextMatch.venue}</p>
-                        <Link to={`/matches/${nextMatch.match_id}`}>
-                            <button className="details-button">View Details</button>
-                        </Link>
-                    </div>
-                ) : (
-                    !loading && !error && <p>No upcoming matches scheduled currently.</p>
-                )}
-                 {/* TODO: Add logic here to check for LIVE matches and display a link/indicator */}
+            {/* Upcoming matches: up to 3 cards (team initials, label, date, View Match); then View Full Schedule button */}
+            <section className="home-section home-matches">
+                <div className="home-matches-timeline">
+                    {loading && <LoadingFallback />}
+                    {error && <p className="error-message">{error}</p>}
+                    {!loading && !error && upcomingThree.length > 0 && (
+                        <>
+                            <div className="home-match-cards">
+                                {upcomingThree.map((match, idx) => (
+                                    <div key={match.match_id} className="home-match-card mpl-card">
+                                        <div className="home-match-avatars">
+                                            <span className="home-match-avatar" title={match.team1_name}>{initials(match.team1_name)}</span>
+                                            <span className="home-match-vs">vs</span>
+                                            <span className="home-match-avatar" title={match.team2_name}>{initials(match.team2_name)}</span>
+                                        </div>
+                                        <p className="home-match-label">Match {idx + 1}</p>
+                                        <p className="home-match-teams">{match.team1_name} vs. {match.team2_name}</p>
+                                        <p className="home-match-date">{formatMatchDate(match.match_datetime)}</p>
+                                        <Link to={`/matches/${match.match_id}`} className="mpl-btn-primary home-match-btn">View Match</Link>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="home-matches-connector" aria-hidden="true">
+                                <span className="home-connector-dot" />
+                                <span className="home-connector-line" />
+                                <span className="home-connector-dot" />
+                                <span className="home-connector-line" />
+                                <span className="home-connector-dot" />
+                            </div>
+                            <div className="home-view-schedule-wrap">
+                                <Link to="/schedule" className="mpl-btn-primary home-view-schedule">View Full Schedule</Link>
+                            </div>
+                        </>
+                    )}
+                    {!loading && !error && upcomingThree.length === 0 && (
+                        <p className="home-no-matches">No upcoming matches scheduled. <Link to="/schedule">View schedule</Link>.</p>
+                    )}
+                </div>
             </section>
 
-            <hr className="home-divider" />
-
-            {/* Section 3: Quick Links */}
-            <section className="quick-links-section">
-                 <h2>Quick Links</h2>
-                 <ul>
-                     <li><Link to="/schedule">View Full Schedule & Results</Link></li>
-                     <li><Link to="/standings">View Team Standings</Link></li>
-                     <li><Link to="/leaderboard">View Player Leaderboards</Link></li>
-                     <li><Link to="/players">Browse Players</Link></li>
-                     {/* Add link to rules page if you create one */}
-                 </ul>
+            {/* Next Match: two panels side-by-side — "Next Match:" label (grey) and match details (teal) */}
+            <section className="home-section home-next-match-wrap">
+                <div className="home-next-match-label-box">
+                    <span className="home-next-match-label">Next Match:</span>
+                </div>
+                <div className="home-next-match-value-box">
+                    {loading && <span>Loading…</span>}
+                    {!loading && nextMatch ? (
+                        <>
+                            <p className="home-next-match-teams">{nextMatch.team1_name} vs. {nextMatch.team2_name}</p>
+                            <p className="home-next-match-datetime">{formatMatchDate(nextMatch.match_datetime)}, {formatMatchTime(nextMatch.match_datetime)}</p>
+                        </>
+                    ) : (
+                        !loading && <p className="home-next-match-teams">No upcoming match</p>
+                    )}
+                </div>
             </section>
 
+            {/* Quick Access: 4 cards — Schedule, Team Standings, Player Leaderboards, Browse Players */}
+            <section className="home-section home-quick-access">
+                <h2 className="mpl-page-title">Quick Access</h2>
+                <div className="home-quick-grid">
+                    <Link to="/schedule" className="home-quick-card mpl-card">
+                        <span className="home-quick-icon" aria-hidden="true">📅</span>
+                        <span className="home-quick-label">Schedule</span>
+                    </Link>
+                    <Link to="/standings" className="home-quick-card mpl-card">
+                        <span className="home-quick-icon" aria-hidden="true">🛡️</span>
+                        <span className="home-quick-label">Team Standings</span>
+                    </Link>
+                    <Link to="/leaderboard" className="home-quick-card mpl-card">
+                        <span className="home-quick-icon" aria-hidden="true">🏆</span>
+                        <span className="home-quick-label">Player Leaderboards</span>
+                    </Link>
+                    <Link to="/players" className="home-quick-card mpl-card">
+                        <span className="home-quick-icon" aria-hidden="true">👤</span>
+                        <span className="home-quick-label">Browse Players</span>
+                    </Link>
+                </div>
+            </section>
+
+            {/* News & Updates: placeholder cards; can later be driven by API or CMS */}
+            <section className="home-section home-news">
+                <h2 className="mpl-page-title">News & Updates</h2>
+                <div className="home-news-grid">
+                    <article className="home-news-card mpl-card">
+                        <div className="home-news-img home-news-img-placeholder" />
+                        <h3 className="home-news-title">Sherma&apos;s Century Leads Titans to Victory!</h3>
+                    </article>
+                    <article className="home-news-card mpl-card">
+                        <div className="home-news-img home-news-img-placeholder" />
+                        <h3 className="home-news-title">Team Celebrations — Season Highlights</h3>
+                    </article>
+                    <article className="home-news-card mpl-card">
+                        <div className="home-news-img home-news-img-placeholder" />
+                        <h3 className="home-news-title">New Match Rules for 2025 Season</h3>
+                    </article>
+                </div>
+            </section>
         </div>
     );
 }
+
 export default HomePage;

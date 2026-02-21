@@ -4,6 +4,7 @@ import { Route, Routes, Navigate } from 'react-router-dom';
 
 // --- Core Components ---
 import Navbar from './components/Navbar';
+import Footer from './components/Footer';
 import PrivateRoute from './components/PrivateRoute'; // Component to protect admin routes
 import LoadingFallback from './components/LoadingFallback'; // Loading indicator for lazy loading
 
@@ -17,6 +18,8 @@ const StandingsPage = lazy(() => import('./pages/StandingsPage'));
 const MatchDetailPage = lazy(() => import('./pages/MatchDetailPage')); // Live match viewer
 const AdminSchedulePage = lazy(() => import('./pages/admin/AdminSchedulePage'));
 const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
+const ContactPage = lazy(() => import('./pages/ContactPage'));
+const FAQPage = lazy(() => import('./pages/FAQPage'));
 // Admin Pages
 const AdminLoginPage = lazy(() => import('./pages/admin/AdminLoginPage'));
 const AdminDashboardPage = lazy(() => import('./pages/admin/AdminDashboardPage'));
@@ -48,6 +51,8 @@ function App() {
                         <Route path="/standings" element={<StandingsPage />} />
                         <Route path="/matches/:matchId" element={<MatchDetailPage />} />
                         <Route path="/leaderboard" element={<LeaderboardPage />} />
+                        <Route path="/contact" element={<ContactPage />} />
+                        <Route path="/faq" element={<FAQPage />} />
 
                         {/* --- Admin Routes --- */}
                         {/* Admin Login Page (Publicly accessible) */}
@@ -79,7 +84,8 @@ function App() {
                     </Routes>
                 </Suspense>
             </main>
-            {/* Optional: Footer component */}
+            {/* Footer: social links, Contact/FAQ, copyright; shown on all pages */}
+            <Footer />
         </>
     );
 }

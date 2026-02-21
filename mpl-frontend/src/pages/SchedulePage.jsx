@@ -1,4 +1,6 @@
 // mpl-project/mpl-frontend/src/pages/SchedulePage.jsx
+// Schedule & Results: list of fixtures with filters (season, status). Links to match details or live/setup.
+
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
@@ -8,7 +10,7 @@ function SchedulePage() {
     const [fixtures, setFixtures] = useState([]);
     const [seasons, setSeasons] = useState([]);
     const [selectedSeason, setSelectedSeason] = useState('');
-    const [selectedStatus, setSelectedStatus] = useState(''); // 'Scheduled', 'Live', 'Completed' etc.
+    const [selectedStatus, setSelectedStatus] = useState(''); // 'Scheduled', 'Live', 'Completed', 'Setup', 'Abandoned'
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
@@ -58,14 +60,14 @@ function SchedulePage() {
     }, [selectedSeason, selectedStatus, seasons]); // Refetch when filters change
 
     return (
-        <div>
-            <h2>MPL Schedule & Results</h2>
+        <div className="mpl-section">
+            <h1 className="mpl-page-title">MPL Schedule & Results</h1>
 
-            {/* Filter Controls */}
-            <div style={{ marginBottom: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                 {seasons.length > 0 && (
-                    <div>
-                        <label htmlFor="season-select" style={{ marginRight: '0.5rem' }}>Season:</label>
+            {/* Filter row: season dropdown and status dropdown; refetch on change */}
+            <div className="mpl-filters">
+                {seasons.length > 0 && (
+                    <div className="mpl-filter-group">
+                        <label htmlFor="season-select">Season:</label>
                         <select
                             id="season-select"
                             value={selectedSeason}
@@ -79,9 +81,9 @@ function SchedulePage() {
                             ))}
                         </select>
                     </div>
-                 )}
-                 <div>
-                    <label htmlFor="status-select" style={{ marginRight: '0.5rem' }}>Status:</label>
+                )}
+                <div className="mpl-filter-group">
+                    <label htmlFor="status-select">Status:</label>
                     <select
                         id="status-select"
                         value={selectedStatus}
@@ -94,13 +96,13 @@ function SchedulePage() {
                         <option value="Setup">Setup</option>
                         <option value="Abandoned">Abandoned</option>
                     </select>
-                 </div>
+                </div>
             </div>
-
 
             {loading && <LoadingFallback message="Loading schedule..." />}
             {error && <p className="error-message">Error: {error}</p>}
 
+            {/* Fixtures table: date/time, match, venue, status, and link to details or View Live/View Setup */}
             {!loading && !error && fixtures.length > 0 ? (
                 <table>
                     <thead>
@@ -126,10 +128,8 @@ function SchedulePage() {
                                         <Link to={`/matches/${match.match_id}`}>Details</Link>
                                         </>
                                     ) : match.status === 'Live' || match.status === 'Setup' ? (
-                                        <Link to={`/matches/${match.match_id}`}>
-                                            <button style={{ backgroundColor: '#dc3545', padding: '0.3em 0.6em', fontSize: '0.9rem' }}>
-                                                {match.status === 'Live' ? 'View Live' : 'View Setup'}
-                                            </button>
+                                        <Link to={`/matches/${match.match_id}`} className="mpl-btn-primary" style={{ padding: '0.35em 0.75em', fontSize: '0.9rem', display: 'inline-block' }}>
+                                            {match.status === 'Live' ? 'View Live' : 'View Setup'}
                                         </Link>
                                     ) : (
                                         <Link to={`/matches/${match.match_id}`}>View Details</Link>

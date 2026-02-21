@@ -1,8 +1,10 @@
 // src/pages/StandingsPage.jsx
+// Team Standings: points table for selected season (position, team, played, won, lost, NR, NRR, points).
+
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import LoadingFallback from '../components/LoadingFallback';
-import './StandingsPage.css'; // Create this CSS file
+import './StandingsPage.css';
 
 function StandingsPage() {
     const [seasons, setSeasons] = useState([]);
@@ -55,11 +57,12 @@ function StandingsPage() {
     }, [selectedSeason]);
 
     return (
-        <div className="standings-page">
-            <h2>Team Standings</h2>
+        <div className="standings-page mpl-section">
+            <h1 className="mpl-page-title">Team Standings</h1>
 
+            {/* Season dropdown; standings refetch when season changes */}
             {loadingSeasons ? <LoadingFallback /> : (
-                <div className="filter-section">
+                <div className="mpl-filters filter-section">
                     <label htmlFor="season-select-standings">Select Season:</label>
                     <select
                         id="season-select-standings"
@@ -85,6 +88,7 @@ function StandingsPage() {
                 <p>No standings available for this season yet (check if matches are completed).</p>
             )}
 
+            {/* Standings table: Pos, Team, Played, Won, Lost, NR, NRR, Pts */}
             {!loadingData && standings.length > 0 && (
                 <div className="table-responsive">
                     <table className="standings-table">

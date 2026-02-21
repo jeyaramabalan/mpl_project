@@ -1,7 +1,9 @@
 // mpl-project/mpl-frontend/src/pages/PlayersPage.jsx
+// Players list: table of all players (name, role) with link to player detail page.
+
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import api from '../services/api'; // Your configured Axios instance
+import api from '../services/api';
 import LoadingFallback from '../components/LoadingFallback';
 
 function PlayersPage() {
@@ -34,9 +36,9 @@ function PlayersPage() {
     if (error) return <div className="error-message">Error loading players: {error}</div>;
 
     return (
-        <div>
-            <h1>MPL Players</h1>
-            {/* Optional: Add search/filter functionality here */}
+        <div className="mpl-section">
+            <h1 className="mpl-page-title">MPL Players</h1>
+            {/* Players table: Name, Role, link to View Profile (player detail) */}
             {players.length > 0 ? (
                 <table>
                     <thead>

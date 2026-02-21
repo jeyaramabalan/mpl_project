@@ -1,159 +1,142 @@
-/* src/pages/LeaderboardPage.css */
+/* ============================================================
+   Leaderboard page styles (MPL theme)
+   Season filter, tabs (Batting/Bowling/Impact), table styling.
+   ============================================================ */
 
-.leaderboard-page h2 {
-    text-align: center;
-    margin-bottom: 1.5rem;
+.leaderboard-page .mpl-page-title {
+  margin-bottom: 1rem;
 }
 
+/* Season / stats selector */
 .filter-section {
-    margin-bottom: 2rem;
-    text-align: center;
+  margin-bottom: 1.5rem;
 }
 
 .filter-section label {
-    margin-right: 0.5rem;
-    font-weight: 500;
+  margin-right: 0.5rem;
+  font-weight: 600;
+  color: var(--mpl-navy);
 }
 
-.tabs {
-    display: flex;
-    justify-content: center;
-    margin-bottom: 1.5rem;
-    border-bottom: 2px solid #444;
+/* Tab buttons: grey default, yellow when active */
+.leaderboard-page .tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-bottom: 1.25rem;
+  border-bottom: none;
 }
 
-.tabs button {
-    padding: 0.8rem 1.5rem;
-    cursor: pointer;
-    border: none;
-    border-bottom: 3px solid transparent; /* Indicator for active tab */
-    background-color: transparent;
-    color: #ccc;
-    font-size: 1.1em;
-    margin: 0 5px -2px 5px; /* Overlap border */
-    transition: color 0.2s, border-color 0.2s;
+.leaderboard-page .tabs button {
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  border: 1px solid var(--mpl-grey-300);
+  border-radius: 6px;
+  background: var(--mpl-grey-200);
+  color: var(--mpl-text);
+  font-size: 1rem;
+  font-weight: 500;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
 }
 
-.tabs button:hover {
-    color: #fff;
+.leaderboard-page .tabs button:hover {
+  background: var(--mpl-grey-300);
+  color: var(--mpl-navy);
 }
 
-.tabs button.active {
-    color: #646cff;
-    border-bottom-color: #646cff;
-    font-weight: bold;
+.leaderboard-page .tabs button.active {
+  background: var(--mpl-yellow);
+  color: var(--mpl-navy);
+  border-color: var(--mpl-yellow);
+  font-weight: 600;
 }
 
+/* Wrapper for each leaderboard table (batting, bowling, impact) */
 .leaderboard-category {
-    margin-bottom: 2.5rem;
+  margin-bottom: 2rem;
 }
 
 .leaderboard-category h3 {
-    margin-bottom: 1rem;
-    color: #eee;
+  margin-bottom: 1rem;
+  color: var(--mpl-navy);
+  font-size: 1.2rem;
 }
 
+/* Table: navy header, white body, green links to player profiles */
 .leaderboard-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.95em;
-    background-color: #383838;
-    border-radius: 5px;
-    overflow: hidden; /* For rounded corners */
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95em;
+  background-color: var(--mpl-white);
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--mpl-grey-200);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
 .leaderboard-table th,
 .leaderboard-table td {
-    border: 1px solid #555;
-    padding: 0.6rem 0.8rem;
-    text-align: left;
-    vertical-align: middle;
+  border-bottom: 1px solid var(--mpl-grey-200);
+  padding: 0.6rem 0.8rem;
+  text-align: left;
+  vertical-align: middle;
 }
 
 .leaderboard-table th {
-    background-color: #4a4a4a;
-    font-weight: bold;
-    white-space: nowrap;
+  background-color: var(--mpl-navy);
+  color: var(--mpl-white);
+  font-weight: 600;
+  white-space: nowrap;
 }
 
-.leaderboard-table tbody tr:nth-child(even) {
-    background-color: #404040;
+.leaderboard-table tbody tr:hover td {
+  background-color: var(--mpl-grey-100);
 }
 
-.leaderboard-table tbody tr:hover {
-    background-color: #4f4f4f;
-}
-
-.leaderboard-table td:first-child, /* Rank column */
+.leaderboard-table td:first-child,
 .leaderboard-table th:first-child {
-    text-align: center;
-    width: 50px;
+  text-align: center;
+  width: 50px;
 }
 
 .leaderboard-table td a {
-    color: #a0a0ff;
-    text-decoration: none;
+  color: var(--mpl-green);
+  text-decoration: none;
+  font-weight: 500;
 }
 .leaderboard-table td a:hover {
-    text-decoration: underline;
-    color: #c0c0ff;
+  text-decoration: underline;
+  color: var(--mpl-green-light);
 }
 
-/* Right align numeric data */
+/* Right-align numeric columns; Rank and Player stay left/center */
 .leaderboard-table td:not(:nth-child(2)):not(:first-child),
 .leaderboard-table th:not(:nth-child(2)):not(:first-child) {
-     text-align: right;
-     font-variant-numeric: tabular-nums;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
-/* Light mode */
-@media (prefers-color-scheme: light) {
-    .leaderboard-table { background-color: #f9f9f9; }
-    .leaderboard-table th, .leaderboard-table td { border-color: #ddd; }
-    .leaderboard-table th { background-color: #e8e8e8; }
-    .leaderboard-table tbody tr:nth-child(even) { background-color: #f2f2f2; }
-    .leaderboard-table tbody tr:hover { background-color: #e9e9e9; }
-    .leaderboard-table td a { color: #0000d0; }
-    .leaderboard-table td a:hover { color: #0000ff; }
-    .tabs { border-color: #ccc; }
-    .tabs button { color: #555; }
-    .tabs button:hover { color: #000; }
-    .tabs button.active { color: #0000ff; border-color: #0000ff;}
-}
-
-/* Add these styles AT THE END of StandingsPage.css AND LeaderboardPage.css */
-
+/* --- Responsive: smaller table and tab padding --- */
 @media (max-width: 768px) {
-    .standings-table th, .standings-table td,
-    .leaderboard-table th, .leaderboard-table td {
-        padding: 0.5rem 0.6rem;
-        font-size: 0.9em;
-    }
-    .tabs button { /* Adjust tab size if needed */
-        padding: 0.6rem 1rem;
-        font-size: 1em;
-    }
-     .filter-section select {
-        padding: 0.5rem; /* Adjust dropdown size */
-    }
+  .leaderboard-table th,
+  .leaderboard-table td {
+    padding: 0.5rem 0.6rem;
+    font-size: 0.9em;
+  }
+  .leaderboard-page .tabs button {
+    padding: 0.5rem 0.9rem;
+    font-size: 0.95em;
+  }
 }
 
 @media (max-width: 480px) {
-    .standings-table th, .standings-table td,
-    .leaderboard-table th, .leaderboard-table td {
-        padding: 0.4rem 0.4rem;
-        font-size: 0.85em;
-    }
-     /* Optional: Hide less critical columns */
-     /* Example for Standings: Hide Played/Lost */
-     /*
-     .standings-table th:nth-child(3), .standings-table td:nth-child(3),
-     .standings-table th:nth-child(5), .standings-table td:nth-child(5) {
-        display: none;
-     }
-     */
-      .tabs button {
-        padding: 0.5rem 0.8rem;
-        font-size: 0.9em;
-    }
+  .leaderboard-table th,
+  .leaderboard-table td {
+    padding: 0.4rem;
+    font-size: 0.85em;
+  }
+  .leaderboard-page .tabs button {
+    padding: 0.45rem 0.75rem;
+    font-size: 0.9em;
+  }
 }
