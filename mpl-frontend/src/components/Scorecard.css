@@ -40,6 +40,7 @@
 
 .scorecard-table th {
     background-color: #3d3d3d;
+    color: #eee;
     font-weight: 600;
     white-space: nowrap;
     font-size: 0.95em;
@@ -130,53 +131,71 @@
     letter-spacing: 0.02em;
 }
 
-/* Light mode adjustments */
-@media (prefers-color-scheme: light) {
-  .scorecard-container {
-    border-color: #ddd;
-    background-color: #f9f9f9;
-  }
-  .scorecard-container h4 {
-    border-color: #ddd;
-    color: #333;
-  }
-  .scorecard-table th,
-  .scorecard-table td {
-    border-color: #ddd;
-  }
-  .scorecard-table th {
-    background-color: #e8e8e8;
-  }
-  .scorecard-table tbody tr:nth-child(even) {
-    background-color: #f2f2f2;
-  }
-  .scorecard-table tbody tr:hover {
-    background-color: #e9e9e9;
-  }
-   .scorecard-table .player-name a {
-    color: #0000d0;
-   }
-    .scorecard-table .player-name a:hover {
-    color: #0000ff;
-   }
-   .scorecard-table .dismissal {
-    color: #555;
-   }
-   .scorecard-table .dismissal .not-out {
-    color: #008000;
-   }
-   .scorecard-table .dismissal .did-not-bat {
-    color: #999;
-   }
-   .scorecard-table tr.extras-row,
-   .scorecard-table tr.total-row {
-    background-color: #e0e0e0;
-    border-top-color: #ccc;
-   }
-   .scorecard-table tr.extras-row .summary-value,
-   .scorecard-table tr.total-row .summary-value {
-    color: #222;
-   }
+/* Light theme scorecard (default and [data-theme="light"]) */
+[data-theme="light"] .scorecard-container {
+  border-color: #ddd;
+  background-color: #f9f9f9;
+}
+[data-theme="light"] .scorecard-container h4 {
+  border-color: #ddd;
+  color: #333;
+}
+[data-theme="light"] .scorecard-table th,
+[data-theme="light"] .scorecard-table td {
+  border-color: #ddd;
+}
+[data-theme="light"] .scorecard-table th {
+  background-color: #e8e8e8;
+  color: #222;
+}
+[data-theme="light"] .scorecard-table tbody tr:nth-child(even) {
+  background-color: #f2f2f2;
+}
+[data-theme="light"] .scorecard-table tbody tr:hover {
+  background-color: #e9e9e9;
+}
+[data-theme="light"] .scorecard-table .player-name a {
+  color: #0000d0;
+}
+[data-theme="light"] .scorecard-table .player-name a:hover {
+  color: #0000ff;
+}
+[data-theme="light"] .scorecard-table .dismissal {
+  color: #555;
+}
+[data-theme="light"] .scorecard-table .dismissal .not-out {
+  color: #008000;
+}
+[data-theme="light"] .scorecard-table .dismissal .did-not-bat {
+  color: #999;
+}
+[data-theme="light"] .scorecard-table tr.extras-row,
+[data-theme="light"] .scorecard-table tr.total-row {
+  background-color: #e0e0e0;
+  border-top-color: #ccc;
+}
+[data-theme="light"] .scorecard-table tr.extras-row .summary-value,
+[data-theme="light"] .scorecard-table tr.total-row .summary-value {
+  color: #222;
+}
+
+/* Dark theme scorecard (inherits from .scorecard-container defaults; ensure contrast) */
+[data-theme="dark"] .scorecard-container {
+  border-color: #444;
+  background-color: #252525;
+}
+[data-theme="dark"] .scorecard-container h4 {
+  color: #eee;
+  border-color: #444;
+}
+[data-theme="dark"] .scorecard-table th {
+  color: #eee;
+  background-color: #3d3d3d;
+}
+[data-theme="dark"] .scorecard-table tr.extras-row,
+[data-theme="dark"] .scorecard-table tr.total-row {
+  background-color: #2d2d2d;
+  border-top-color: #444;
 }
 
 /* Add these styles AT THE END of src/components/Scorecard.css */
@@ -246,18 +265,16 @@
     flex-shrink: 0;
 }
 
-/* Light Mode for Fall of Wickets */
-@media (prefers-color-scheme: light) {
-    .fow-container {
-        background-color: #f9f9f9;
-    }
-    .fow-item {
-        color: #555;
-    }
-    .fow-score {
-        color: #000;
-    }
-    .fow-overs {
-        color: #777;
-    }
+/* Light theme for Fall of Wickets */
+[data-theme="light"] .fow-container {
+    background-color: #f9f9f9;
+}
+[data-theme="light"] .fow-item {
+    color: #555;
+}
+[data-theme="light"] .fow-score {
+    color: #000;
+}
+[data-theme="light"] .fow-overs {
+    color: #777;
 }

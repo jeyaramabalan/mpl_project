@@ -35,7 +35,7 @@
     margin: 0;
     font-size: 2.5rem;
     font-weight: 700;
-    color: var(--mpl-navy, #0f2847);
+    color: var(--mpl-heading);
     line-height: 1.2;
 }
 
@@ -99,7 +99,7 @@
 
 .detail-value {
     font-weight: 600;
-    color: var(--mpl-navy, #0f2847);
+    color: var(--mpl-heading);
     font-size: 1rem;
 }
 
@@ -108,7 +108,7 @@
     margin: 0 0 1.5rem 0;
     font-size: 1.75rem;
     font-weight: 700;
-    color: var(--mpl-navy, #0f2847);
+    color: var(--mpl-heading);
 }
 
 /* --- Statistics Cards: Batting and Bowling with green headers --- */
@@ -201,7 +201,7 @@
 
 .impact-value {
     font-weight: 700;
-    color: var(--mpl-navy, #0f2847);
+    color: var(--mpl-heading);
     font-size: 1.1rem;
 }
 
@@ -251,6 +251,48 @@
     font-style: italic;
     padding: 1rem;
     text-align: center;
+}
+
+/* --- Performance Charts section --- */
+.player-charts-section {
+    margin-top: 2rem;
+}
+
+.player-detail-charts {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.chart-card {
+    padding: 1rem;
+    overflow: hidden;
+}
+
+.chart-title {
+    margin: 0 0 0.75rem 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--mpl-heading);
+}
+
+.chart-wrapper {
+    min-height: 220px;
+}
+
+.chart-wrapper-pie {
+    min-height: 240px;
+}
+
+.chart-card-pie .chart-wrapper-pie {
+    max-width: 320px;
+    margin: 0 auto;
+}
+
+/* Recharts theme-aware text (axes, legend) */
+.player-detail-charts .recharts-legend-item-text,
+.player-detail-charts .recharts-label {
+    fill: var(--mpl-text);
 }
 
 /* --- Responsive: stack columns on smaller screens --- */

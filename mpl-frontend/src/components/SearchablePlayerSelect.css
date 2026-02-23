@@ -7,7 +7,7 @@
   display: block;
   margin-bottom: 0.25rem;
   font-weight: 600;
-  color: var(--mpl-navy);
+  color: var(--mpl-heading);
 }
 
 .searchable-player-select-trigger {

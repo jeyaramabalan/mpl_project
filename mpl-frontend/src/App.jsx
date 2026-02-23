@@ -18,6 +18,7 @@ const StandingsPage = lazy(() => import('./pages/StandingsPage'));
 const MatchDetailPage = lazy(() => import('./pages/MatchDetailPage')); // Live match viewer
 const AdminSchedulePage = lazy(() => import('./pages/admin/AdminSchedulePage'));
 const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
+const ChampionsPage = lazy(() => import('./pages/ChampionsPage'));
 const ContactPage = lazy(() => import('./pages/ContactPage'));
 const FAQPage = lazy(() => import('./pages/FAQPage'));
 // Admin Pages
@@ -51,6 +52,7 @@ function App() {
                         <Route path="/standings" element={<StandingsPage />} />
                         <Route path="/matches/:matchId" element={<MatchDetailPage />} />
                         <Route path="/leaderboard" element={<LeaderboardPage />} />
+                        <Route path="/champions" element={<ChampionsPage />} />
                         <Route path="/contact" element={<ContactPage />} />
                         <Route path="/faq" element={<FAQPage />} />
 

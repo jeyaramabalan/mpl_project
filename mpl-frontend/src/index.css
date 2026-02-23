@@ -4,7 +4,8 @@
    ============================================================ */
 
 /* --- CSS Custom Properties (Brand Colors & Theme) --- */
-:root {
+:root,
+[data-theme="light"] {
   /* Brand colors: dark blue (header/footer), green/teal (primary actions), yellow (active/highlight), white/grey (backgrounds) */
   --mpl-navy: #0f2847;
   --mpl-navy-header: #0d2340;
@@ -20,6 +21,11 @@
   --mpl-grey-400: #9e9e9e;
   --mpl-text: #1a1a1a;
   --mpl-text-muted: #555;
+  --mpl-heading: #0f2847;
+  --mpl-border: #d0d0d0;
+  --mpl-danger: #c53030;
+  --mpl-danger-bg: #fff5f5;
+  --mpl-danger-border: #feb2b2;
 
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
   line-height: 1.5;
@@ -30,6 +36,31 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Dark theme overrides */
+[data-theme="dark"] {
+  --mpl-white: #252525;
+  --mpl-grey-100: #1a1a1a;
+  --mpl-grey-200: #2d2d2d;
+  --mpl-grey-300: #404040;
+  --mpl-grey-400: #6b6b6b;
+  --mpl-text: #e8e8e8;
+  --mpl-text-muted: #a0a0a0;
+  --mpl-heading: #b8d4e8;
+  --mpl-border: #404040;
+  --mpl-danger: #f87171;
+  --mpl-danger-bg: #450a0a;
+  --mpl-danger-border: #7f1d1d;
+  --skeleton-bg: #2d2d2d;
+  --skeleton-shine: #3a3a3a;
+  --skeleton-border: #404040;
+  --text-muted: #a0a0a0;
+}
+
+/* Table headers (navy background) must always have light text in dark mode */
+[data-theme="dark"] th {
+  color: #fff;
 }
 
 * {
@@ -71,7 +102,7 @@ main {
 .mpl-page-title {
   font-size: 1.75rem;
   font-weight: 700;
-  color: var(--mpl-navy);
+  color: var(--mpl-heading);
   margin: 0 0 1.5rem 0;
   padding-bottom: 0.5rem;
   border-bottom: 2px solid var(--mpl-green);
@@ -170,7 +201,7 @@ form {
 form label {
   margin-bottom: 0.25rem;
   font-weight: 600;
-  color: var(--mpl-navy);
+  color: var(--mpl-heading);
 }
 
 form input[type="text"],
@@ -284,9 +315,9 @@ nav .active:hover {
 
 /* Error message */
 .error-message {
-  color: #c53030;
-  background-color: #fff5f5;
-  border: 1px solid #feb2b2;
+  color: var(--mpl-danger);
+  background-color: var(--mpl-danger-bg);
+  border: 1px solid var(--mpl-danger-border);
   padding: 0.75rem 1rem;
   margin: 0.5rem 0;
   border-radius: 6px;
@@ -323,7 +354,7 @@ nav .active:hover {
 
 .mpl-filter-group label {
   font-weight: 600;
-  color: var(--mpl-navy);
+  color: var(--mpl-heading);
   margin: 0;
 }
 

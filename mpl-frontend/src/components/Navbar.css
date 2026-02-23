@@ -24,7 +24,7 @@
   flex-wrap: wrap;
 }
 
-/* Logo link (no image; circle with "MPL" text) */
+/* Logo link: image or circle with "MPL" text fallback */
 .mpl-nav-logo {
   display: flex;
   align-items: center;
@@ -33,7 +33,15 @@
   flex-shrink: 0;
 }
 
-/* Circular green badge for logo */
+.mpl-logo-img {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--mpl-green-light, #3db39e);
+}
+
+/* Circular green badge for logo (fallback when mpl.jpg missing) */
 .mpl-logo-circle {
   width: 44px;
   height: 44px;
@@ -83,12 +91,33 @@
   color: var(--mpl-navy);
 }
 
-/* Right-aligned: Admin Login (or Admin + Logout) and Sign Up button */
+/* Right-aligned: theme toggle, Admin, Sign Up */
 .nav-right {
   display: flex;
   align-items: center;
   gap: 0.75rem;
   margin-left: auto;
+}
+
+/* Dark / Light mode toggle */
+.mpl-theme-toggle {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #fff !important;
+  border: 1px solid rgba(255, 255, 255, 0.35) !important;
+  width: 40px;
+  height: 40px;
+  padding: 0 !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+.mpl-theme-toggle:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+  border-color: rgba(255, 255, 255, 0.6) !important;
 }
 
 .mpl-nav-admin-link {

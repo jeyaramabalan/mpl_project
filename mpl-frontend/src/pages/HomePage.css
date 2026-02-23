@@ -43,14 +43,53 @@
   pointer-events: none;
 }
 
-/* Centered text content inside hero */
+/* Hero: logo (left) + text (right) */
 .home-hero-content {
   position: relative;
   z-index: 1;
-  text-align: center;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
   padding: 2rem 1.5rem;
-  max-width: 800px;
+  max-width: 900px;
   margin: 0 auto;
+  text-align: left;
+}
+
+/* Logo circle (left) – mpl.jpg or MPL letter fallback */
+.home-hero-logo-wrap {
+  flex-shrink: 0;
+  width: 140px;
+  height: 140px;
+}
+.home-hero-logo-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 4px solid rgba(255,255,255,0.9);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+}
+.home-hero-logo-fallback {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.25);
+  border: 4px solid rgba(255,255,255,0.9);
+  color: #fff;
+  font-size: 2rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 0.02em;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+}
+.home-hero-text {
+  flex: 1;
+  min-width: 0;
 }
 
 .home-hero-title {
@@ -149,7 +188,7 @@
   margin: 0 0 0.35rem 0;
   font-weight: 700;
   font-size: 1rem;
-  color: var(--mpl-navy, #0f2847);
+  color: var(--mpl-heading);
 }
 
 .home-match-date {
@@ -198,7 +237,7 @@
 
 .home-no-matches {
   text-align: center;
-  color: var(--mpl-text-muted);
+  color: var(--mpl-text);
   padding: 1rem;
 }
 
@@ -229,7 +268,7 @@
 .home-next-match-label {
   font-weight: 700;
   font-size: 1rem;
-  color: var(--mpl-navy);
+  color: var(--mpl-heading);
 }
 
 .home-next-match-value-box {
@@ -279,7 +318,7 @@
   padding: 1.5rem 1rem;
   text-align: center;
   text-decoration: none;
-  color: var(--mpl-navy);
+  color: var(--mpl-heading);
   transition: transform 0.2s, box-shadow 0.2s;
   min-height: 120px;
 }
@@ -341,13 +380,57 @@
   background: linear-gradient(145deg, var(--mpl-grey-200) 0%, var(--mpl-grey-300) 100%);
 }
 
+/* First card: featured MoM photo or letter fallback */
+.home-news-featured-img-wrap {
+  width: 100%;
+  aspect-ratio: 4/3;
+  background: var(--mpl-grey-200);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.home-news-featured-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.home-news-featured-avatar {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--mpl-green, #2d8a6e);
+  color: #fff;
+  font-size: clamp(2rem, 8vw, 4rem);
+  font-weight: 700;
+}
+.home-news-card-linked .home-news-card-inner {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+.home-news-card-linked:hover .home-news-title {
+  color: var(--mpl-green, #2d8a6e);
+}
+
 .home-news-title {
   margin: 0;
   padding: 1rem;
   font-size: 1rem;
   font-weight: 600;
-  color: var(--mpl-navy);
+  color: var(--mpl-heading);
   line-height: 1.35;
+}
+
+/* Hero: stack logo above text and center on small screens */
+@media (max-width: 640px) {
+  .home-hero-content {
+    flex-direction: column;
+    text-align: center;
+  }
 }
 
 /* --- Responsive: stack cards, hide connector, reduce columns --- */

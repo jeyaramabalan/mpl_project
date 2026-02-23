@@ -15,7 +15,7 @@
 .filter-section label {
   margin-right: 0.5rem;
   font-weight: 600;
-  color: var(--mpl-navy);
+  color: var(--mpl-heading);
 }
 
 /* Allow horizontal scroll on small screens */
@@ -51,6 +51,10 @@
   color: var(--mpl-white);
   font-weight: 600;
   white-space: nowrap;
+}
+
+[data-theme="dark"] .standings-table th {
+  color: #fff;
 }
 
 .standings-table tbody tr:hover td {

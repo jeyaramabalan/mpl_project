@@ -1,0 +1,249 @@
+/* Champions page: table + cards, skeleton, empty state (MPL theme) */
+
+.champions-header {
+  margin-bottom: 1.5rem;
+}
+
+.champions-page .champions-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.champions-title-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.champions-intro {
+  margin: 0;
+  color: var(--mpl-text-muted, #555);
+  font-size: 0.95rem;
+}
+
+/* Skeleton loading */
+.champions-skeleton {
+  margin-top: 0.5rem;
+}
+
+.champions-skeleton-table {
+  background: var(--mpl-white);
+  border: 1px solid var(--mpl-grey-200);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.champions-skeleton-row {
+  height: 52px;
+  background: linear-gradient(90deg, var(--mpl-grey-100) 25%, var(--mpl-grey-200) 50%, var(--mpl-grey-100) 75%);
+  background-size: 200% 100%;
+  animation: champions-shimmer 1.2s ease-in-out infinite;
+  border-bottom: 1px solid var(--mpl-grey-200);
+}
+
+.champions-skeleton-row:last-child {
+  border-bottom: none;
+}
+
+@keyframes champions-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Empty state */
+.champions-empty {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  background: var(--mpl-grey-100);
+  border-radius: 12px;
+  border: 1px dashed var(--mpl-grey-300);
+}
+
+.champions-empty-icon {
+  font-size: 3rem;
+  display: block;
+  margin-bottom: 0.75rem;
+  opacity: 0.8;
+}
+
+.champions-empty-title {
+  margin: 0 0 0.35rem 0;
+  font-weight: 600;
+  font-size: 1.2rem;
+  color: var(--mpl-heading);
+}
+
+.champions-empty-text {
+  margin: 0;
+  color: var(--mpl-text-muted);
+  font-size: 0.95rem;
+}
+
+/* Table (desktop) */
+.champions-table-wrap {
+  margin-top: 0.5rem;
+}
+
+.champions-table {
+  width: 100%;
+  min-width: 480px;
+  border-collapse: collapse;
+  font-size: 0.95em;
+  background-color: var(--mpl-white);
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--mpl-grey-200);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.champions-table th,
+.champions-table td {
+  border-bottom: 1px solid var(--mpl-grey-200);
+  padding: 0.85rem 1rem;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.champions-table th {
+  background-color: var(--mpl-navy);
+  color: var(--mpl-white);
+  font-weight: 600;
+}
+
+.champions-table .th-icon {
+  margin-right: 0.35rem;
+  opacity: 0.95;
+}
+
+.champions-table .th-winner {
+  background-color: var(--mpl-navy-header, #0d2340);
+}
+
+.champions-table tbody tr.row-even td {
+  background-color: var(--mpl-white);
+}
+
+.champions-table tbody tr.row-odd td {
+  background-color: var(--mpl-grey-100);
+}
+
+.champions-table tbody tr:hover td {
+  background-color: var(--mpl-grey-200) !important;
+}
+
+.champions-table .winner-cell {
+  background-color: rgba(45, 138, 110, 0.08) !important;
+}
+
+.champions-table tbody tr.row-odd .winner-cell {
+  background-color: rgba(45, 138, 110, 0.12) !important;
+}
+
+.champions-table tbody tr:hover .winner-cell {
+  background-color: rgba(45, 138, 110, 0.15) !important;
+}
+
+.champions-table .season-cell {
+  font-weight: 500;
+  color: var(--mpl-heading);
+}
+
+.champions-table .action-cell {
+  white-space: nowrap;
+  width: 1%;
+}
+
+.champions-team-link {
+  color: var(--mpl-green, #2d8a6e);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.champions-team-link:hover {
+  text-decoration: underline;
+  color: var(--mpl-green-light, #3db39e);
+}
+
+.champions-view-final {
+  font-size: 0.9rem;
+  color: var(--mpl-teal, #2a9d8f);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.champions-view-final:hover {
+  text-decoration: underline;
+  color: var(--mpl-green-light, #3db39e);
+}
+
+[data-theme="dark"] .champions-table th {
+  color: #fff;
+}
+
+/* Cards (mobile) – hidden by default */
+.champions-cards {
+  display: none;
+}
+
+/* Responsive: hide table, show cards on small screens */
+@media (max-width: 640px) {
+  .champions-table-wrap {
+    display: none;
+  }
+
+  .champions-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 0.5rem;
+  }
+
+  .champions-card {
+    background: var(--mpl-white);
+    border: 1px solid var(--mpl-grey-200);
+    border-radius: 10px;
+    padding: 1.25rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  }
+
+  .champions-card-season {
+    font-weight: 600;
+    font-size: 1.05rem;
+    color: var(--mpl-heading);
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--mpl-grey-200);
+  }
+
+  .champions-card-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+  }
+
+  .champions-card-row:last-of-type {
+    margin-bottom: 1rem;
+  }
+
+  .champions-card-label {
+    font-size: 0.9rem;
+    color: var(--mpl-text-muted);
+    margin-right: 0.5rem;
+  }
+
+  .champions-card-btn {
+    display: inline-block;
+    margin-top: 0.25rem;
+    font-size: 0.9rem;
+    color: var(--mpl-teal);
+    font-weight: 500;
+    text-decoration: none;
+  }
+
+  .champions-card-btn:hover {
+    text-decoration: underline;
+    color: var(--mpl-green-light);
+  }
+}

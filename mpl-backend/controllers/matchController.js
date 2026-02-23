@@ -293,6 +293,47 @@ exports.getMatchState = async (req, res, next) => {
   }
 };
 
+/**
+ * @desc    Get champions per season (final = last match of season; only completed seasons with a winner)
+ * @route   GET /api/matches/champions
+ * @access  Public
+ */
+exports.getChampions = async (req, res, next) => {
+  try {
+    const query = `
+      SELECT
+        s.season_id,
+        s.name AS season_name,
+        s.year,
+        m.match_id,
+        m.winner_team_id,
+        wt.name AS winner_team_name,
+        CASE WHEN m.winner_team_id = m.team1_id THEN m.team2_id ELSE m.team1_id END AS runner_team_id,
+        CASE WHEN m.winner_team_id = m.team1_id THEN t2.name ELSE t1.name END AS runner_team_name
+      FROM matches m
+      JOIN seasons s ON m.season_id = s.season_id
+      JOIN teams t1 ON m.team1_id = t1.team_id
+      JOIN teams t2 ON m.team2_id = t2.team_id
+      JOIN teams wt ON m.winner_team_id = wt.team_id
+      WHERE m.status = 'Completed'
+        AND m.winner_team_id IS NOT NULL
+        AND m.match_id = (
+          SELECT m2.match_id
+          FROM matches m2
+          WHERE m2.season_id = m.season_id
+          ORDER BY m2.match_datetime DESC, m2.match_id DESC
+          LIMIT 1
+        )
+      ORDER BY s.year DESC, s.season_id DESC
+    `;
+    const [rows] = await pool.query(query);
+    res.json(rows);
+  } catch (error) {
+    console.error('Get Champions Error:', error);
+    next(error);
+  }
+};
+
 // --- Placeholder Admin Functions (Implement if creating/managing matches via API) ---
 
 /**

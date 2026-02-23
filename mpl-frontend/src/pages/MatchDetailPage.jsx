@@ -1,13 +1,47 @@
 // mpl-project/mpl-frontend/src/pages/MatchDetailPage.jsx
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  CartesianGrid,
+  ReferenceDot,
+} from "recharts";
 import { useSocket } from "../context/SocketContext";
 import api from "../services/api";
 import LoadingFallback from "../components/LoadingFallback";
 import InningsScorecard from "../components/InningsScorecard";
 import BowlingScorecard from "../components/BowlingScorecard";
-import FallOfWickets from "../components/FallOfWickets"; // This import is now correct
+import FallOfWickets from "../components/FallOfWickets";
 import "./MatchDetailPage.css";
+
+// e.g. "2.3" -> 2 + 3/6 = 2.5 (over.ball for worm X-axis)
+const oversToDecimal = (oversStr) => {
+  const parts = String(oversStr || "0.0").split(".");
+  const over = parseInt(parts[0], 10) || 0;
+  const ball = parseInt(parts[1], 10) || 0;
+  return over + ball / 6;
+};
+
+// Interpolate runs from worm data at given x so wicket dot sits on the line
+const wormYAt = (wormData, x, teamKey) => {
+  const data = wormData.data;
+  if (!data || data.length === 0) return 0;
+  const xLo = Math.floor(Math.max(0, x));
+  const xHi = Math.ceil(Math.min(5, x));
+  const lo = data.find((d) => d.over === xLo);
+  const hi = data.find((d) => d.over === xHi);
+  if (!lo || !hi) return lo?.[teamKey] ?? hi?.[teamKey] ?? 0;
+  if (xLo === xHi) return lo[teamKey] ?? 0;
+  const yLo = lo[teamKey] ?? 0;
+  const yHi = hi[teamKey] ?? 0;
+  return yLo + (yHi - yLo) * ((x - xLo) / (xHi - xLo));
+};
 
 // --- CommentaryItem Component ---
 const CommentaryItem = ({ ball }) => {
@@ -65,6 +99,9 @@ const MatchDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState('summary');
+  const [momImageError, setMomImageError] = useState(false);
+  const matchIdParam = useParams().id;
+  useEffect(() => { setMomImageError(false); }, [matchIdParam]);
   const commentaryContainerRef = useRef(null);
 
   useEffect(() => {
@@ -241,6 +278,59 @@ const MatchDetailPage = () => {
     return { innings1: processInnings(1), innings2: processInnings(2) };
   }, [matchDetails]);
 
+  // Worm chart: cumulative runs vs overs (excluding super over) for both innings
+  const wormData = useMemo(() => {
+    if (matchDetails?.status !== "Completed" || !matchDetails.ballByBall || !processedScorecards) return null;
+    const balls = matchDetails.ballByBall;
+    const superOverNum = matchDetails.super_over_number != null ? Number(matchDetails.super_over_number) : null;
+    const name1 = processedScorecards.innings1.batTeamName;
+    const name2 = processedScorecards.innings2.batTeamName;
+
+    const getCumulativeByOver = (inningNumber) => {
+      const result = [0]; // index 0 = after 0 overs
+      for (let o = 1; o <= 5; o++) {
+        const prev = result[o - 1] ?? 0;
+        if (o === superOverNum) {
+          result[o] = prev;
+        } else {
+          const runsThisOver = balls
+            .filter((b) => b.inning_number === inningNumber && Number(b.over_number) === o)
+            .reduce((s, b) => s + Number(b.runs_scored || 0) + Number(b.extra_runs || 0), 0);
+          result[o] = prev + runsThisOver;
+        }
+      }
+      return result;
+    };
+
+    const cumul1 = getCumulativeByOver(1);
+    const cumul2 = getCumulativeByOver(2);
+    const overs1 = processedScorecards.innings1.summary?.overs;
+    const overs2 = processedScorecards.innings2.summary?.overs;
+    const end1 = overs1 != null ? oversToDecimal(overs1) : 5;
+    const end2 = overs2 != null ? oversToDecimal(overs2) : 5;
+
+    let data = [0, 1, 2, 3, 4, 5].map((over) => {
+      const row = { over, [name1]: cumul1[over] ?? 0, [name2]: cumul2[over] ?? 0 };
+      // If an innings ended before 5 overs, don't draw that line past their last over (end at 4)
+      if (over === 5) {
+        if (end1 < 5) row[name1] = null;
+        if (end2 < 5) row[name2] = null;
+      }
+      return row;
+    });
+
+    // Ensure last point before 5 shows final total for innings that ended early
+    const total1 = processedScorecards.innings1.summary?.total ?? 0;
+    const total2 = processedScorecards.innings2.summary?.total ?? 0;
+    const row4 = data.find((d) => d.over === 4);
+    if (row4) {
+      if (end1 < 5) row4[name1] = total1;
+      if (end2 < 5) row4[name2] = total2;
+    }
+
+    return { data, name1, name2 };
+  }, [matchDetails, processedScorecards]);
+
   let finalInnings1Data = null;
   let finalInnings2Data = null;
   if (matchDetails?.status === "Completed" && processedScorecards) {
@@ -270,18 +360,41 @@ const MatchDetailPage = () => {
       
       <div className="score-summary-section">
         <ScoreDisplay state={liveScoreState} matchDetails={matchDetails} innings1Data={finalInnings1Data} innings2Data={finalInnings2Data} />
-        {displayStatus === "Completed" && processedScorecards && (
-          <div className="extras-breakdown" style={{ marginTop: '0.75rem', fontSize: '0.95rem' }}>
-            <p><strong>Extras – Innings 1:</strong> {processedScorecards.innings1.summary.extras} {processedScorecards.innings1.summary.extras_detail}</p>
-            <p><strong>Extras – Innings 2:</strong> {processedScorecards.innings2.summary.extras} {processedScorecards.innings2.summary.extras_detail}</p>
+        {displayStatus === "Completed" && (processedScorecards || matchDetails.man_of_the_match_name) && (
+          <div className="extras-mom-section">
+            {matchDetails.man_of_the_match_name && (
+              <div className="extras-mom-photo">
+                {matchDetails.man_of_the_match_player_id && !momImageError ? (
+                  <img
+                    src={`/images/players/${matchDetails.man_of_the_match_player_id}.jpg`}
+                    alt={matchDetails.man_of_the_match_name}
+                    className="extras-mom-avatar extras-mom-avatar-img"
+                    onError={() => setMomImageError(true)}
+                  />
+                ) : (
+                  <div className="extras-mom-avatar" title={matchDetails.man_of_the_match_name}>
+                    {(matchDetails.man_of_the_match_name || "?").charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="extras-mom-text">
+              {processedScorecards && (
+                <div className="extras-breakdown" style={{ fontSize: '0.95rem' }}>
+                  <p><strong>Extras – Innings 1:</strong> {processedScorecards.innings1.summary.extras} {processedScorecards.innings1.summary.extras_detail}</p>
+                  <p><strong>Extras – Innings 2:</strong> {processedScorecards.innings2.summary.extras} {processedScorecards.innings2.summary.extras_detail}</p>
+                </div>
+              )}
+              {matchDetails.man_of_the_match_name && ( <p className="mom-info"> <strong>Man of the Match:</strong>{" "} {matchDetails.man_of_the_match_name} </p> )}
+            </div>
           </div>
         )}
-        {displayStatus === "Completed" && matchDetails.man_of_the_match_name && ( <p className="mom-info"> <strong>Man of the Match:</strong>{" "} {matchDetails.man_of_the_match_name} </p> )}
       </div>
       
       <nav className="match-tabs">
         <button className={`tab-button ${activeTab === 'scorecard' ? 'active' : ''}`} onClick={() => setActiveTab('scorecard')}>Scorecard</button>
         <button className={`tab-button ${activeTab === 'commentary' ? 'active' : ''}`} onClick={() => setActiveTab('commentary')}>Ball-by-Ball</button>
+        <button className={`tab-button ${activeTab === 'worm' ? 'active' : ''}`} onClick={() => setActiveTab('worm')}>Worm</button>
       </nav>
 
       <div className="tab-content">
@@ -324,6 +437,34 @@ const MatchDetailPage = () => {
         )}
         {activeTab === 'scorecard' && displayStatus !== "Completed" && (
             <p style={{marginTop: '2rem', textAlign: 'center'}}>Detailed scorecard will be available after the match is completed.</p>
+        )}
+
+        {activeTab === 'worm' && displayStatus === "Completed" && wormData && processedScorecards && (
+          <div className="worm-section">
+            <h3 className="worm-title">Worm</h3>
+            <div className="worm-chart-wrapper">
+              <ResponsiveContainer width="100%" height={320}>
+                <LineChart data={wormData.data} margin={{ top: 12, right: 20, left: 8, bottom: 28 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--mpl-grey-300, #555)" />
+                  <XAxis dataKey="over" type="number" domain={[0, 5]} ticks={[0, 1, 2, 3, 4, 5]} tick={{ fill: 'var(--mpl-text, #e8e8e8)', fontSize: 12 }} label={{ value: 'Overs', position: 'insideBottom', offset: -6, fill: 'var(--mpl-text-muted, #a0a0a0)' }} />
+                  <YAxis tick={{ fill: 'var(--mpl-text, #e8e8e8)', fontSize: 12 }} label={{ value: 'Runs', angle: -90, position: 'insideLeft', fill: 'var(--mpl-text-muted, #a0a0a0)' }} />
+                  <Tooltip contentStyle={{ backgroundColor: 'var(--mpl-white)', color: 'var(--mpl-text)', border: '1px solid var(--mpl-grey-300)' }} labelFormatter={(v) => `Over ${v}`} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} verticalAlign="top" align="right" layout="horizontal" />
+                  <Line type="monotone" dataKey={wormData.name1} name={wormData.name1} stroke="var(--mpl-green, #2d8a6e)" strokeWidth={2} dot={{ r: 4, fill: "var(--mpl-green, #2d8a6e)" }} connectNulls={false} />
+                  <Line type="monotone" dataKey={wormData.name2} name={wormData.name2} stroke="var(--mpl-yellow, #f4c430)" strokeWidth={2} dot={{ r: 4, fill: "var(--mpl-yellow, #f4c430)" }} connectNulls={false} />
+                  {[
+                    ...(processedScorecards.innings1.fallOfWickets || []).map((w) => ({ x: oversToDecimal(w.overs), y: wormYAt(wormData, oversToDecimal(w.overs), wormData.name1), fill: "var(--mpl-green, #2d8a6e)" })),
+                    ...(processedScorecards.innings2.fallOfWickets || []).map((w) => ({ x: oversToDecimal(w.overs), y: wormYAt(wormData, oversToDecimal(w.overs), wormData.name2), fill: "var(--mpl-yellow, #f4c430)" })),
+                  ].map((dot, i) => (
+                    <ReferenceDot key={`wicket-${i}`} x={dot.x} y={dot.y} r={8} fill={dot.fill} stroke="var(--mpl-danger, #c53030)" strokeWidth={2} />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
+        {activeTab === 'worm' && (displayStatus !== "Completed" || !wormData) && (
+          <p style={{ marginTop: '2rem', textAlign: 'center' }}>Worm chart will be available after the match is completed.</p>
         )}
       </div>
 

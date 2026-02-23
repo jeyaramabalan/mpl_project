@@ -1,7 +1,7 @@
 // mpl-project/mpl-backend/routes/matches.js
 const express = require('express');
 //const { getFixtures, getMatchDetails } = require('../controllers/matchController');
-const { getFixtures, getMatchDetails, getMatchCommentary, getMatchState } = require('../controllers/matchController')
+const { getFixtures, getMatchDetails, getMatchCommentary, getMatchState, getChampions } = require('../controllers/matchController')
 // const { protect } = require('../middleware/authMiddleware'); // Maybe needed if creating matches via API
 
 const router = express.Router();
@@ -11,6 +11,9 @@ const router = express.Router();
 // GET /api/matches
 // Get list of fixtures (can filter by query params like ?season_id=X&status=Scheduled)
 router.get('/', getFixtures);
+
+// GET /api/matches/champions - Season champions (winner/runner from final match per season)
+router.get('/champions', getChampions);
 
 // GET /api/matches/:id
 // Get details for a single match (for viewer page)

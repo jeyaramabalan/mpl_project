@@ -5,6 +5,8 @@ const {
     getAllPlayers,
     getPlayerById,
     getPlayerStats,
+    getPlayerStatsByMatch,
+    getPlayerStatsBySeason,
     updatePlayer, // Assuming implementation exists
     deletePlayer // Assuming implementation exists
 } = require('../controllers/playerController');
@@ -20,6 +22,10 @@ router.get('/', getAllPlayers);
 // GET /api/players/:id - Get details of a specific player by ID
 router.get('/:id', getPlayerById);
 
+// GET /api/players/:id/stats/by-match?limit=5 - Last N matches per-match stats
+router.get('/:id/stats/by-match', getPlayerStatsByMatch);
+// GET /api/players/:id/stats/by-season?limit=5 - Last N seasons aggregated stats
+router.get('/:id/stats/by-season', getPlayerStatsBySeason);
 // GET /api/players/:id/stats?season_id=X - Get stats for a player (career or specific season)
 router.get('/:id/stats', getPlayerStats);
 

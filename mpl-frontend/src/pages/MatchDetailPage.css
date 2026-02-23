@@ -92,9 +92,64 @@
 }
 
 .mom-info {
-    margin-top: 1rem;
+    margin-top: 0.5rem;
+    margin-bottom: 0;
     font-weight: 500;
     color: #f0e68c;
+}
+
+/* Extras + MoM section: photo left, text right, same height */
+.extras-mom-section {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 0.75rem;
+    min-height: 80px;
+}
+.extras-mom-photo {
+    flex-shrink: 0;
+    width: 80px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.extras-mom-avatar,
+.extras-mom-avatar-img {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+}
+.extras-mom-avatar-img {
+    object-fit: cover;
+    border: 2px solid var(--mpl-green-light, #3db39e);
+}
+.extras-mom-avatar {
+    background: var(--mpl-green, #2d8a6e);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    font-weight: 700;
+    border: 2px solid var(--mpl-green-light, #3db39e);
+}
+.extras-mom-text {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+.extras-mom-text .extras-breakdown {
+    margin: 0;
+}
+.extras-mom-text .extras-breakdown p {
+    margin: 0.25rem 0;
+}
+.extras-mom-text .extras-breakdown p:first-child {
+    margin-top: 0;
 }
 
 /* --- NEW: Tab Navigation --- */
@@ -218,43 +273,62 @@
 }
 
 
-/* Light Mode Adjustments */
-@media (prefers-color-scheme: light) {
-    .match-header { background-color: #f0f0f0; }
-    .match-header h2 { color: #333; }
-    .match-header p { color: #555; }
-    .match-header .status-live { color: #dc3545; }
-    .match-header .status-completed { color: #28a745; }
-    .match-header .status-scheduled,
-    .match-header .status-setup,
-    .match-header .status-inningsbreak { color: #b8860b; }
-    .match-header .status-abandoned { color: #888; }
+/* Light theme adjustments (follows app theme toggle) */
+[data-theme="light"] .match-header { background-color: #f0f0f0; }
+[data-theme="light"] .match-header h2 { color: #333; }
+[data-theme="light"] .match-header p { color: #555; }
+[data-theme="light"] .match-header .status-live { color: #dc3545; }
+[data-theme="light"] .match-header .status-completed { color: #28a745; }
+[data-theme="light"] .match-header .status-scheduled,
+[data-theme="light"] .match-header .status-setup,
+[data-theme="light"] .match-header .status-inningsbreak { color: #b8860b; }
+[data-theme="light"] .match-header .status-abandoned { color: #888; }
 
-    .score-summary-box { border-color: #ddd; background-color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-    .score-summary-box .batting-bowling-info { color: #666; }
-    .score-summary-box .main-score { color: #213547; }
-    .score-summary-box .overs-info { color: #444; }
-    .score-summary-box .target-info { color: #b8860b; }
-    .score-summary-box .result-summary { border-color: #ddd; color: #28a745; }
-    .score-summary-box .last-ball-commentary { border-color: #ddd; color: #555; }
+[data-theme="light"] .score-summary-box { border-color: #ddd; background-color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+[data-theme="light"] .score-summary-box .batting-bowling-info { color: #666; }
+[data-theme="light"] .score-summary-box .main-score { color: #213547; }
+[data-theme="light"] .score-summary-box .overs-info { color: #444; }
+[data-theme="light"] .score-summary-box .target-info { color: #b8860b; }
+[data-theme="light"] .score-summary-box .result-summary { border-color: #ddd; color: #28a745; }
+[data-theme="light"] .score-summary-box .last-ball-commentary { border-color: #ddd; color: #555; }
 
-    .mom-info { color: #b8860b; }
+[data-theme="light"] .mom-info { color: #b8860b; }
+[data-theme="light"] .extras-mom-avatar { background: var(--mpl-green, #2d8a6e); border-color: var(--mpl-green-light, #3db39e); }
 
-    .match-tabs { border-color: #ccc; }
-    .tab-button { color: #555; }
-    .tab-button:hover { background-color: #e9e9e9; color: #111; }
-    .tab-button.active { color: #dc3545; border-color: #dc3545; }
+[data-theme="light"] .match-tabs { border-color: #ccc; }
+[data-theme="light"] .tab-button { color: #555; }
+[data-theme="light"] .tab-button:hover { background-color: #e9e9e9; color: #111; }
+[data-theme="light"] .tab-button.active { color: #dc3545; border-color: #dc3545; }
 
-    .commentary-box { border-color: #ddd; background-color: #fdfdfd; }
-    .commentary-item { border-color: #eee; }
-    .commentary-over { color: #777; }
-    .commentary-text-content { color: #333; }
+[data-theme="light"] .commentary-box { border-color: #ddd; background-color: #fdfdfd; }
+[data-theme="light"] .commentary-item { border-color: #eee; }
+[data-theme="light"] .commentary-over { color: #777; }
+[data-theme="light"] .commentary-text-content { color: #333; }
 
-    .section-divider { border-color: #ccc; }
-    .innings-divider { border-color: #ddd; }
+[data-theme="light"] .section-divider { border-color: #ccc; }
+[data-theme="light"] .innings-divider { border-color: #ddd; }
+
+[data-theme="light"] .worm-title { color: #333; }
+[data-theme="light"] .worm-chart-wrapper { background: #f5f5f5; border-color: #ddd; }
+
+/* Worm chart section */
+.worm-section {
+  margin-top: 1rem;
+  padding: 1rem 0;
 }
-
-/* Add to src/pages/MatchDetailPage.css */
+.worm-title {
+  margin: 0 0 1rem 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--mpl-heading, #fff);
+}
+.worm-chart-wrapper {
+  min-height: 320px;
+  background: var(--mpl-grey-100, #2d2d2d);
+  border-radius: 8px;
+  padding: 0.5rem;
+  border: 1px solid var(--mpl-grey-300, #444);
+}
 
 .score-summary-box.completed {
     /* Styles for the completed summary box */
@@ -273,15 +347,13 @@
     color: #fff;
 }
 
-/* Light Mode */
-@media (prefers-color-scheme: light) {
-    .score-summary-box .final-innings-score {
-         color: #333;
-    }
-    .score-summary-box .final-innings-score strong {
-        color: #000;
-    }
-    .score-summary-box .result-summary {
-        border-color: #ddd; color: #28a745;
-    }
+[data-theme="light"] .score-summary-box .final-innings-score {
+    color: #333;
+}
+[data-theme="light"] .score-summary-box .final-innings-score strong {
+    color: #000;
+}
+[data-theme="light"] .score-summary-box .result-summary {
+    border-color: #ddd;
+    color: #28a745;
 }

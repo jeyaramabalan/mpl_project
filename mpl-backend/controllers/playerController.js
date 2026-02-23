@@ -151,7 +151,126 @@ exports.getPlayerStats = async (req, res, next) => {
     } catch (error) { console.error("Get Player Stats Error:", error); next(error); }
     // finally { if (connection) connection.release(); } // Remove if not using connection
 };
-    
+
+/**
+ * @desc    Get player stats for last N matches (per-match breakdown)
+ * @route   GET /api/players/:id/stats/by-match?limit=5
+ * @access  Public
+ */
+exports.getPlayerStatsByMatch = async (req, res, next) => {
+    const playerId = req.params.id;
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 5, 1), 50);
+
+    if (isNaN(parseInt(playerId))) {
+        return res.status(400).json({ message: 'Invalid Player ID.' });
+    }
+
+    try {
+        const [rows] = await pool.query(
+            `SELECT
+                pms.match_id,
+                m.match_datetime,
+                pms.runs_scored,
+                pms.balls_faced,
+                COALESCE(pms.fours, 0) as fours,
+                COALESCE(pms.wickets_taken, 0) as wickets_taken,
+                COALESCE(pms.runs_conceded, 0) as runs_conceded,
+                COALESCE(pms.overs_bowled, 0) as overs_bowled,
+                COALESCE(pms.batting_impact_points, 0) as batting_impact_points,
+                COALESCE(pms.bowling_impact_points, 0) as bowling_impact_points,
+                COALESCE(pms.fielding_impact_points, 0) as fielding_impact_points
+            FROM playermatchstats pms
+            INNER JOIN matches m ON pms.match_id = m.match_id
+            WHERE pms.player_id = ?
+            ORDER BY m.match_datetime DESC
+            LIMIT ?`,
+            [playerId, limit]
+        );
+
+        const matches = rows.map((r) => ({
+            match_id: r.match_id,
+            match_datetime: r.match_datetime,
+            runs_scored: r.runs_scored ?? 0,
+            balls_faced: r.balls_faced ?? 0,
+            fours: r.fours ?? 0,
+            wickets_taken: r.wickets_taken ?? 0,
+            runs_conceded: r.runs_conceded ?? 0,
+            overs_bowled: parseFloat(r.overs_bowled ?? 0),
+            batting_impact_points: parseFloat(r.batting_impact_points ?? 0),
+            bowling_impact_points: parseFloat(r.bowling_impact_points ?? 0),
+            fielding_impact_points: parseFloat(r.fielding_impact_points ?? 0),
+            total_impact: parseFloat((r.batting_impact_points ?? 0) + (r.bowling_impact_points ?? 0) + (r.fielding_impact_points ?? 0)),
+        }));
+
+        res.json({ matches });
+    } catch (error) {
+        console.error('Get Player Stats By Match Error:', error);
+        next(error);
+    }
+};
+
+/**
+ * @desc    Get player stats aggregated by last N seasons
+ * @route   GET /api/players/:id/stats/by-season?limit=5
+ * @access  Public
+ */
+exports.getPlayerStatsBySeason = async (req, res, next) => {
+    const playerId = req.params.id;
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 5, 1), 20);
+
+    if (isNaN(parseInt(playerId))) {
+        return res.status(400).json({ message: 'Invalid Player ID.' });
+    }
+
+    try {
+        const [rows] = await pool.query(
+            `SELECT
+                s.season_id,
+                s.year,
+                s.name as season_name,
+                COUNT(DISTINCT pms.match_id) as matches_played,
+                COALESCE(SUM(pms.runs_scored), 0) as total_runs,
+                COALESCE(SUM(pms.balls_faced), 0) as total_balls_faced,
+                COALESCE(SUM(pms.wickets_taken), 0) as total_wickets,
+                COALESCE(SUM(pms.runs_conceded), 0) as total_runs_conceded,
+                COALESCE(SUM(pms.overs_bowled), 0) as total_overs_bowled,
+                COALESCE(SUM(pms.batting_impact_points), 0) as batting_impact,
+                COALESCE(SUM(pms.bowling_impact_points), 0) as bowling_impact,
+                COALESCE(SUM(pms.fielding_impact_points), 0) as fielding_impact,
+                COALESCE(SUM(pms.batting_impact_points), 0) + COALESCE(SUM(pms.bowling_impact_points), 0) + COALESCE(SUM(pms.fielding_impact_points), 0) as total_impact
+            FROM playermatchstats pms
+            INNER JOIN matches m ON pms.match_id = m.match_id
+            INNER JOIN seasons s ON m.season_id = s.season_id
+            WHERE pms.player_id = ?
+            GROUP BY s.season_id, s.year, s.name
+            ORDER BY s.year DESC, s.season_id DESC
+            LIMIT ?`,
+            [playerId, limit]
+        );
+
+        const seasons = rows.map((r) => ({
+            season_id: r.season_id,
+            year: r.year,
+            name: r.season_name,
+            matches_played: r.matches_played,
+            total_runs: r.total_runs,
+            total_balls_faced: r.total_balls_faced ?? 0,
+            total_wickets: r.total_wickets ?? 0,
+            total_runs_conceded: r.total_runs_conceded ?? 0,
+            total_overs_bowled: parseFloat(r.total_overs_bowled ?? 0),
+            total_impact: parseFloat(r.total_impact ?? 0),
+            batting_impact: parseFloat(r.batting_impact ?? 0),
+            bowling_impact: parseFloat(r.bowling_impact ?? 0),
+            fielding_impact: parseFloat(r.fielding_impact ?? 0),
+        }));
+
+        res.json({ seasons });
+    } catch (error) {
+        console.error('Get Player Stats By Season Error:', error);
+        next(error);
+    }
+};
+
 /**
  * @desc    Update player details
  * @route   PUT /api/players/:id

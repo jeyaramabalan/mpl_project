@@ -1,14 +1,18 @@
 // mpl-project/mpl-frontend/src/components/Navbar.jsx
-// Top navigation bar: MPL logo, main nav links (Home, Players, Schedule, Standings, Leaderboard), Admin/Login, and Sign Up CTA.
+// Top navigation bar: MPL logo, main nav links, theme toggle, Admin/Login, Sign Up CTA.
 
 import React, { useState, useEffect } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
+import { useTheme } from '../context/ThemeContext';
 import './Navbar.css';
+
+const MPL_LOGO_SRC = '/images/logo/mpl.jpg';
 
 function Navbar() {
     const navigate = useNavigate();
-    // Tracks whether admin is logged in so we show "Admin" + Logout vs "Admin Login"
+    const { theme, toggleTheme } = useTheme();
     const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+    const [logoImageError, setLogoImageError] = useState(false);
 
     // Reads adminInfo from localStorage and sets isAdminLoggedIn based on presence of token
     const checkLoginStatus = () => {
@@ -46,11 +50,15 @@ function Navbar() {
     return (
         <header className="mpl-navbar">
             <nav>
-                {/* Logo: circular MPL badge, links to home */}
+                {/* Logo: mpl.jpg with fallback to letter circle */}
                 <Link to="/" className="mpl-nav-logo" aria-label="MPL Home">
-                    <span className="mpl-logo-circle">
-                        <span className="mpl-logo-inner">MPL</span>
-                    </span>
+                    {!logoImageError ? (
+                        <img src={MPL_LOGO_SRC} alt="MPL" className="mpl-logo-img" onError={() => setLogoImageError(true)} />
+                    ) : (
+                        <span className="mpl-logo-circle">
+                            <span className="mpl-logo-inner">MPL</span>
+                        </span>
+                    )}
                 </Link>
                 {/* Main navigation: public pages; active link gets yellow highlight */}
                 <div className="mpl-nav-links">
@@ -59,9 +67,19 @@ function Navbar() {
                     <NavLink to="/schedule" className={({ isActive }) => isActive ? 'active' : ''}>Schedule</NavLink>
                     <NavLink to="/standings" className={({ isActive }) => isActive ? 'active' : ''}>Standings</NavLink>
                     <NavLink to="/leaderboard" className={({ isActive }) => isActive ? 'active' : ''}>Leaderboard</NavLink>
+                    <NavLink to="/champions" className={({ isActive }) => isActive ? 'active' : ''}>Champions</NavLink>
                 </div>
-                {/* Right side: Admin link or Admin + Logout when logged in; Sign Up CTA */}
+                {/* Right side: theme toggle, Admin/Logout, Sign Up */}
                 <div className="nav-right">
+                    <button
+                        type="button"
+                        className="mpl-theme-toggle"
+                        onClick={toggleTheme}
+                        title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                        aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+                    >
+                        {theme === 'dark' ? '☀️' : '🌙'}
+                    </button>
                     {isAdminLoggedIn ? (
                         <>
                             <NavLink to="/admin/dashboard" className={({ isActive }) => isActive ? 'active' : ''}>Admin</NavLink>
