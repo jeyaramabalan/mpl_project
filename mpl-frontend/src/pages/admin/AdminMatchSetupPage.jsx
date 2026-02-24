@@ -12,7 +12,6 @@ function AdminMatchSetupPage() {
     // Form state
     const [tossWinnerTeamId, setTossWinnerTeamId] = useState('');
     const [decision, setDecision] = useState(''); // 'Bat' or 'Bowl'
-    const [superOverNumber, setSuperOverNumber] = useState(''); // 1-5
 
     // UI State
     const [loading, setLoading] = useState(true); // Loading matches list
@@ -47,11 +46,9 @@ function AdminMatchSetupPage() {
         if (selectedMatchId) {
             const match = matches.find(m => m.match_id === parseInt(selectedMatchId));
             setSelectedMatchDetails(match || null);
-            // Reset form fields when match changes
             setTossWinnerTeamId('');
             setDecision('');
-            setSuperOverNumber('');
-            setError(''); // Clear previous errors specific to a match setup
+            setError('');
         } else {
             setSelectedMatchDetails(null);
         }
@@ -75,20 +72,13 @@ function AdminMatchSetupPage() {
             setError('Please select the decision (Bat/Bowl).');
             return;
         }
-        const superOverNum = parseInt(superOverNumber);
-        if (isNaN(superOverNum) || superOverNum < 1 || superOverNum > 5) {
-            setError('Please enter a valid Super Over number (1-5).');
-            return;
-        }
         // --- End Validation ---
-
 
         setSubmitting(true);
         try {
             const payload = {
                 toss_winner_team_id: parseInt(tossWinnerTeamId),
                 decision: decision,
-                super_over_number: superOverNum,
             };
             console.log(`Submitting setup for Match ${selectedMatchId}:`, payload);
 
@@ -182,21 +172,12 @@ function AdminMatchSetupPage() {
                         </select>
                     </div>
 
-                    {/* Super Over Input */}
+                    {/* Super Over (from schedule, read-only) */}
                     <div>
-                        <label htmlFor="super-over">Super Over Number (1-5):</label>
-                        <input
-                            type="number"
-                            id="super-over"
-                            min="1"
-                            max="5"
-                            step="1"
-                            value={superOverNumber}
-                            onChange={(e) => setSuperOverNumber(e.target.value)}
-                            required
-                            disabled={submitting}
-                            style={{ width: '100px' }}
-                        />
+                        <strong>Super Over:</strong>{' '}
+                        {selectedMatchDetails.super_over_number != null && selectedMatchDetails.super_over_number >= 1 && selectedMatchDetails.super_over_number <= 5
+                            ? `Over #${selectedMatchDetails.super_over_number}`
+                            : '–'}
                     </div>
 
                     {/* Submit Button */}

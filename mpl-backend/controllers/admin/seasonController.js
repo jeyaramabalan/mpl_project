@@ -109,10 +109,13 @@ exports.updateSeason = async (req, res, next) => {
     }
 
     try {
-        // Check if the season exists before attempting to update
-        const [existing] = await pool.query('SELECT season_id FROM seasons WHERE season_id = ?', [id]);
+        // Check if the season exists and is not completed (completed seasons are locked)
+        const [existing] = await pool.query('SELECT season_id, status FROM seasons WHERE season_id = ?', [id]);
         if (existing.length === 0) {
             return res.status(404).json({ message: 'Season not found.' });
+        }
+        if (existing[0].status === 'Completed') {
+            return res.status(403).json({ message: 'Cannot edit a completed season.' });
         }
 
         // Build the SET part of the query dynamically based on provided fields
@@ -157,9 +160,12 @@ exports.deleteSeason = async (req, res, next) => {
         return res.status(400).json({ message: 'Invalid Season ID.' });
     }
     try {
-        const [existing] = await pool.query('SELECT season_id FROM seasons WHERE season_id = ?', [id]);
+        const [existing] = await pool.query('SELECT season_id, status FROM seasons WHERE season_id = ?', [id]);
         if (existing.length === 0) {
             return res.status(404).json({ message: 'Season not found.' });
+        }
+        if (existing[0].status === 'Completed') {
+            return res.status(403).json({ message: 'Cannot delete a completed season.' });
         }
         const [teamsCount] = await pool.query('SELECT 1 FROM teams WHERE season_id = ? LIMIT 1', [id]);
         if (teamsCount.length > 0) {

@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import LoadingFallback from '../../components/LoadingFallback';
+import ConfirmDialog from '../../components/ConfirmDialog';
 
 // Reusable Form Component for Add/Edit
 const PlayerForm = ({ onSubmit, initialData = {}, loading, onCancel }) => {
@@ -71,6 +72,7 @@ function AdminPlayersPage() {
     const [error, setError] = useState('');
     const [editingPlayer, setEditingPlayer] = useState(null);
     const [showAddForm, setShowAddForm] = useState(false);
+    const [deleteTarget, setDeleteTarget] = useState(null);
 
     const fetchPlayers = useCallback(async () => {
         setLoading(true); setError('');
@@ -107,18 +109,39 @@ function AdminPlayersPage() {
         setEditingPlayer(null);
     };
 
-    const handleDeleteClick = async (playerId) => {
-        if (!window.confirm(`Are you sure you want to delete player ID ${playerId}? This may affect related records.`)) return;
-        setLoading(true); setError(''); // Use main loading indicator
+    const handleDeleteClick = (player) => {
+        setDeleteTarget(player);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!deleteTarget) return;
+        const playerId = deleteTarget.player_id;
+        setLoading(true);
+        setError('');
         try {
-            await api.delete(`/players/${playerId}`); // Use protected DELETE
-            fetchPlayers(); // Refresh
-        } catch (err) { setError(typeof err === 'string' ? err : 'Failed to delete player.'); setLoading(false); }
+            await api.delete(`/players/${playerId}`);
+            setDeleteTarget(null);
+            fetchPlayers();
+        } catch (err) {
+            setError(typeof err === 'string' ? err : (err?.message || 'Failed to delete player.'));
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
         <div>
             <h2>Manage Players</h2>
+            <ConfirmDialog
+                open={!!deleteTarget}
+                title="Delete player"
+                message={deleteTarget ? `Delete "${deleteTarget.name}"? This may affect team assignments and match stats.` : ''}
+                confirmLabel="Delete"
+                cancelLabel="Cancel"
+                variant="danger"
+                onConfirm={handleConfirmDelete}
+                onCancel={() => setDeleteTarget(null)}
+            />
             {error && <p className="error-message">{error}</p>}
 
             <div style={{ marginBottom: '1rem', textAlign: 'right' }}>
@@ -157,7 +180,7 @@ function AdminPlayersPage() {
                                 <td>{player.current_team_name || 'N/A'}</td> {/* Display team name */}
                                 <td>
                                     <button onClick={() => handleEditClick(player)} disabled={loading || formLoading || !!editingPlayer} style={{ padding: '0.3em 0.6em', fontSize: '0.9rem', marginRight: '0.5rem' }}>Edit</button>
-                                    <button onClick={() => handleDeleteClick(player.player_id)} disabled={loading || formLoading} style={{ padding: '0.3em 0.6em', fontSize: '0.9rem', backgroundColor: '#dc3545' }}>Delete</button>
+                                    <button onClick={() => handleDeleteClick(player)} disabled={loading || formLoading || (player.matches_played != null && player.matches_played > 0)} title={player.matches_played > 0 ? 'Cannot delete a player who has played in at least one match' : ''} style={{ padding: '0.3em 0.6em', fontSize: '0.9rem', backgroundColor: '#dc3545' }}>Delete</button>
                                 </td>
                             </tr>
                         ))}

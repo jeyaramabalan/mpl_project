@@ -2,20 +2,22 @@
 const express = require('express');
 const {
     createMatch,
-    getAllMatches, // Can reuse logic from public controller if desired
+    getAllMatches,
     getMatchById,
     updateMatch,
     deleteMatch,
-    resolveMatch
-} = require('../../controllers/admin/matchAdminController'); // Point to the new controller
+    resolveMatch,
+    generateSchedule,
+} = require('../../controllers/admin/matchAdminController');
 
 const router = express.Router();
 
-// These routes will be protected by the 'protect' middleware in server.js
-
 router.route('/')
     .post(createMatch)
-    .get(getAllMatches); // List matches with filters for admin view
+    .get(getAllMatches);
+
+router.route('/generate-schedule')
+    .post(generateSchedule);
 
 router.route('/:id')
     .get(getMatchById) // Get specific match details for editing

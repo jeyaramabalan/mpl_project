@@ -1,5 +1,6 @@
 // mpl-project/mpl-backend/controllers/leaderboardController.js
 const pool = require('../config/db');
+const { ballsToOversDecimal } = require('../utils/statsCalculations');
 
 const calculateSR = (runs, balls) => (balls > 0 ? (runs / balls * 100) : 0);
 const calculateAvg = (runs, outs) => (outs > 0 ? (runs / outs) : (runs > 0 ? Infinity : 0)); // Handle infinity for not out
@@ -64,7 +65,7 @@ exports.getLeaderboard = async (req, res, next) => { // Renamed for consistency 
                 SUM(COALESCE(pms.twos, 0)) as total_twos,
                 SUM(COALESCE(pms.wickets_taken, 0)) as total_wickets,
                 SUM(COALESCE(pms.runs_conceded, 0)) as total_runs_conceded,
-                SUM(COALESCE(pms.overs_bowled, 0)) as total_overs_bowled, -- Sum of decimals
+                COALESCE(SUM(FLOOR(COALESCE(pms.overs_bowled, 0)) * 6 + LEAST(5, ROUND((COALESCE(pms.overs_bowled, 0) - FLOOR(COALESCE(pms.overs_bowled, 0))) * 10))), 0) as total_balls_bowled,
                 SUM(COALESCE(pms.maidens, 0)) as total_maidens,
                 SUM(COALESCE(pms.batting_impact_points, 0)) as total_batting_impact,
                 SUM(COALESCE(pms.bowling_impact_points, 0)) as total_bowling_impact,
@@ -100,16 +101,19 @@ exports.getLeaderboard = async (req, res, next) => { // Renamed for consistency 
             .slice(0, 20);
 
         const bowlingLeaders = allStats
-            .filter(s => s.total_overs_bowled > 0)
-            .map(s => ({
-                player_id: s.player_id,
-                player_name: s.player_name,
-                matches: s.matches_played,
-                wickets: s.total_wickets,
-                runs: s.total_runs_conceded,
-                overs: formatOversDisplay(s.total_overs_bowled),
-                econ: calculateEcon(s.total_runs_conceded, s.total_overs_bowled),
-            }))
+            .filter(s => (s.total_balls_bowled ?? 0) > 0)
+            .map(s => {
+                const totalOversBowled = ballsToOversDecimal(s.total_balls_bowled ?? 0);
+                return {
+                    player_id: s.player_id,
+                    player_name: s.player_name,
+                    matches: s.matches_played,
+                    wickets: s.total_wickets,
+                    runs: s.total_runs_conceded,
+                    overs: formatOversDisplay(totalOversBowled),
+                    econ: calculateEcon(s.total_runs_conceded, totalOversBowled),
+                };
+            })
             .sort((a, b) => b.wickets - a.wickets || (a.econ ?? 999) - (b.econ ?? 999))
             .slice(0, 20);
 

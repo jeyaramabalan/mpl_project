@@ -22,7 +22,7 @@ function Footer() {
                 <div className="mpl-footer-links">
                     <Link to="/contact">Contact Us</Link>
                     <span className="mpl-footer-sep">|</span>
-                    <Link to="/faq">FAQ</Link>
+                    <Link to="/rules">Rules</Link>
                 </div>
                 {/* Copyright text; year is dynamic */}
                 <div className="mpl-footer-copy">

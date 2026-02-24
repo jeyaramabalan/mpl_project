@@ -1,6 +1,6 @@
 // mpl-project/mpl-backend/controllers/playerController.js
 const pool = require('../config/db');
-const { formatOversDisplay, calculateAvg, calculateSR, calculateEcon } = require('../utils/statsCalculations'); // Assuming utils file exists
+const { formatOversDisplay, calculateAvg, calculateSR, calculateEcon, ballsToOversDecimal } = require('../utils/statsCalculations');
 
 /**
  * @desc    Register a new player
@@ -30,7 +30,13 @@ exports.registerPlayer = async (req, res, next) => {
  */
 exports.getAllPlayers = async (req, res, next) => {
     try {
-        const [players] = await pool.query('SELECT p.player_id, p.name, p.role, t.name as current_team_name FROM players p LEFT JOIN teams t ON p.current_team_id = t.team_id ORDER BY p.name ASC');
+        const [players] = await pool.query(
+            `SELECT p.player_id, p.name, p.role, t.name as current_team_name,
+             COALESCE((SELECT COUNT(DISTINCT match_id) FROM playermatchstats WHERE player_id = p.player_id), 0) as matches_played
+             FROM players p
+             LEFT JOIN teams t ON p.current_team_id = t.team_id
+             ORDER BY p.name ASC`
+        );
         res.json(players);
     } catch (error) { console.error("Get All Players Error:", error); next(error); }
 };
@@ -82,7 +88,7 @@ exports.getPlayerStats = async (req, res, next) => {
                 COALESCE(SUM(CASE WHEN pms.is_out = TRUE THEN 1 ELSE 0 END), 0) as times_out,
                 COALESCE(SUM(pms.wickets_taken), 0) as total_wickets,
                 COALESCE(SUM(pms.runs_conceded), 0) as total_runs_conceded,
-                COALESCE(SUM(pms.overs_bowled), 0.0) as total_overs_bowled,
+                COALESCE(SUM(FLOOR(pms.overs_bowled) * 6 + LEAST(5, ROUND((pms.overs_bowled - FLOOR(pms.overs_bowled)) * 10))), 0) as total_balls_bowled,
                 COALESCE(SUM(pms.maidens), 0) as total_maidens,
                 COALESCE(SUM(pms.wides), 0) as total_wides,
                 COALESCE(SUM(pms.no_balls), 0) as total_no_balls,
@@ -111,10 +117,17 @@ exports.getPlayerStats = async (req, res, next) => {
         if (statsArr.length === 0) {
              const [playerCheck] = await pool.query('SELECT player_id, name, role FROM players WHERE player_id = ?', [playerId]);
              if (playerCheck.length === 0) { return res.status(404).json({ message: 'Player not found.' }); }
-             else { return res.json({ ...playerCheck[0], matches_played: 0, total_runs: 0, total_balls_faced: 0, highest_score: 0, total_fours: 0, total_twos: 0, times_out: 0, total_wickets: 0, total_runs_conceded: 0, total_overs_bowled: 0.0, total_maidens: 0, total_wides: 0, total_no_balls: 0, total_catches: 0, total_stumps: 0, total_run_outs: 0, total_batting_impact: 0, total_bowling_impact: 0, total_fielding_impact: 0, average_impact: 0, super_overs_bowled: 0, batting_average: null, batting_strike_rate: null, bowling_average: null, bowling_economy_rate: null, bowling_strike_rate: null }); } // Added super_overs_bowled: 0
+             else {
+                const emptyBucket = { overs_count: 0, overs_display: '0.0', maidens: 0, wickets: 0, runs: 0, economy: null };
+                return res.json({ ...playerCheck[0], matches_played: 0, total_runs: 0, total_balls_faced: 0, highest_score: 0, total_fours: 0, total_twos: 0, times_out: 0, total_wickets: 0, total_runs_conceded: 0, total_overs_bowled: 0.0, total_maidens: 0, total_wides: 0, total_no_balls: 0, total_catches: 0, total_stumps: 0, total_run_outs: 0, total_batting_impact: 0, total_bowling_impact: 0, total_fielding_impact: 0, average_impact: 0, super_overs_bowled: 0, bowling_breakdown: { normal: { ...emptyBucket }, super: { ...emptyBucket }, total: { ...emptyBucket } }, batting_average: null, batting_strike_rate: null, bowling_average: null, bowling_economy_rate: null, bowling_strike_rate: null });
+            }
         }
 
         let stats = statsArr[0];
+        // Convert summed balls to cricket overs (fixes invalid e.g. 99.8 from decimal sum)
+        const totalBallsBowled = stats.total_balls_bowled ?? 0;
+        stats.total_overs_bowled = parseFloat(ballsToOversDecimal(totalBallsBowled).toFixed(1));
+        delete stats.total_balls_bowled;
 
         // --- Query 2: Calculate Super Overs Bowled --- // ADDED THIS QUERY
         let superOverQuery = `
@@ -132,6 +145,86 @@ exports.getPlayerStats = async (req, res, next) => {
         const [superOverRes] = await pool.query(superOverQuery, superOverParams);
         stats.super_overs_bowled = superOverRes[0]?.super_overs_bowled || 0; // Add to stats object
         // --- End Super Over Query ---
+
+        // --- Query 3: Bowling breakdown (Normal Overs / Super Overs / Total) from ballbyball ---
+        let breakdownParams = [playerId];
+        let breakdownFilter = 'WHERE b.bowler_player_id = ?';
+        if (season_id) {
+            breakdownFilter += ' AND m.season_id = ?';
+            breakdownParams.push(season_id);
+        }
+        const breakdownQuery = `
+            SELECT
+                (b.over_number = m.super_over_number) AS is_super,
+                SUM(CASE WHEN b.is_extra = 0 THEN 1 ELSE 0 END) AS legal_balls,
+                SUM(
+                    (CASE WHEN b.is_bye = 0 THEN (CASE WHEN b.is_extra = 0 THEN b.runs_scored WHEN b.extra_type = 'NoBall' THEN b.runs_scored ELSE 0 END) ELSE 0 END)
+                    + (CASE WHEN b.is_extra = 1 THEN COALESCE(b.extra_runs, 0) ELSE 0 END)
+                ) AS runs_conceded,
+                SUM(CASE WHEN b.is_wicket = 1 AND (b.wicket_type IS NULL OR b.wicket_type != 'Run Out') THEN 1 ELSE 0 END) AS wickets
+            FROM ballbyball b
+            JOIN matches m ON b.match_id = m.match_id
+            ${breakdownFilter}
+            GROUP BY is_super
+        `;
+        const [breakdownRows] = await pool.query(breakdownQuery, breakdownParams);
+        const maidenQuery = `
+            SELECT (m.super_over_number = o.over_number) AS is_super, COUNT(*) AS maidens
+            FROM (
+                SELECT b.match_id, b.inning_number, b.over_number, b.bowler_player_id,
+                    SUM(CASE WHEN b.is_extra = 0 THEN 1 ELSE 0 END) AS legal_balls,
+                    SUM(
+                        (CASE WHEN b.is_bye = 0 THEN (CASE WHEN b.is_extra = 0 THEN b.runs_scored WHEN b.extra_type = 'NoBall' THEN b.runs_scored ELSE 0 END) ELSE 0 END)
+                        + (CASE WHEN b.is_extra = 1 THEN COALESCE(b.extra_runs, 0) ELSE 0 END)
+                    ) AS runs
+                FROM ballbyball b
+                WHERE b.bowler_player_id = ?
+                GROUP BY b.match_id, b.inning_number, b.over_number, b.bowler_player_id
+            ) o
+            JOIN matches m ON o.match_id = m.match_id
+            WHERE o.legal_balls = 6 AND o.runs = 0
+            ${season_id ? 'AND m.season_id = ?' : ''}
+            GROUP BY is_super
+        `;
+        const maidenParams = [playerId];
+        if (season_id) maidenParams.push(season_id);
+        const [maidenRows] = await pool.query(maidenQuery, maidenParams);
+        // Build bowling_breakdown: normal, super, total
+        const bySuper = { 0: { legal_balls: 0, runs_conceded: 0, wickets: 0, maidens: 0 }, 1: { legal_balls: 0, runs_conceded: 0, wickets: 0, maidens: 0 } };
+        breakdownRows.forEach((r) => {
+            const key = r.is_super ? 1 : 0;
+            bySuper[key].legal_balls = Number(r.legal_balls ?? 0);
+            bySuper[key].runs_conceded = Number(r.runs_conceded ?? 0);
+            bySuper[key].wickets = Number(r.wickets ?? 0);
+        });
+        maidenRows.forEach((r) => {
+            const key = r.is_super ? 1 : 0;
+            bySuper[key].maidens = Number(r.maidens ?? 0);
+        });
+        const normal = bySuper[0];
+        const superBucket = bySuper[1];
+        const totalBalls = normal.legal_balls + superBucket.legal_balls;
+        const totalRuns = normal.runs_conceded + superBucket.runs_conceded;
+        const totalWickets = normal.wickets + superBucket.wickets;
+        const totalMaidens = normal.maidens + superBucket.maidens;
+        const buildBucket = (legalBalls, runs, wickets, maidens) => {
+            const oversDecimal = legalBalls > 0 ? ballsToOversDecimal(legalBalls) : 0;
+            const economy = legalBalls > 0 ? parseFloat((runs / (legalBalls / 6)).toFixed(2)) : null;
+            return {
+                overs_count: parseFloat(oversDecimal.toFixed(1)),
+                overs_display: formatOversDisplay(oversDecimal),
+                maidens: maidens,
+                wickets: wickets,
+                runs: runs,
+                economy: economy,
+            };
+        };
+        stats.bowling_breakdown = {
+            normal: buildBucket(normal.legal_balls, normal.runs_conceded, normal.wickets, normal.maidens),
+            super: buildBucket(superBucket.legal_balls, superBucket.runs_conceded, superBucket.wickets, superBucket.maidens),
+            total: buildBucket(totalBalls, totalRuns, totalWickets, totalMaidens),
+        };
+        // --- End Bowling Breakdown ---
 
         // --- Calculate Derived Statistics ---
         stats.batting_average = calculateAvg(stats.total_runs, stats.times_out);
@@ -178,9 +271,12 @@ exports.getPlayerStatsByMatch = async (req, res, next) => {
                 COALESCE(pms.overs_bowled, 0) as overs_bowled,
                 COALESCE(pms.batting_impact_points, 0) as batting_impact_points,
                 COALESCE(pms.bowling_impact_points, 0) as bowling_impact_points,
-                COALESCE(pms.fielding_impact_points, 0) as fielding_impact_points
+                COALESCE(pms.fielding_impact_points, 0) as fielding_impact_points,
+                CASE WHEN pms.team_id = m.team1_id THEN t2.name ELSE t1.name END AS opponent_team_name
             FROM playermatchstats pms
             INNER JOIN matches m ON pms.match_id = m.match_id
+            LEFT JOIN teams t1 ON m.team1_id = t1.team_id
+            LEFT JOIN teams t2 ON m.team2_id = t2.team_id
             WHERE pms.player_id = ?
             ORDER BY m.match_datetime DESC
             LIMIT ?`,
@@ -190,6 +286,7 @@ exports.getPlayerStatsByMatch = async (req, res, next) => {
         const matches = rows.map((r) => ({
             match_id: r.match_id,
             match_datetime: r.match_datetime,
+            opponent_team_name: r.opponent_team_name || null,
             runs_scored: r.runs_scored ?? 0,
             balls_faced: r.balls_faced ?? 0,
             fours: r.fours ?? 0,
@@ -233,7 +330,7 @@ exports.getPlayerStatsBySeason = async (req, res, next) => {
                 COALESCE(SUM(pms.balls_faced), 0) as total_balls_faced,
                 COALESCE(SUM(pms.wickets_taken), 0) as total_wickets,
                 COALESCE(SUM(pms.runs_conceded), 0) as total_runs_conceded,
-                COALESCE(SUM(pms.overs_bowled), 0) as total_overs_bowled,
+                COALESCE(SUM(FLOOR(pms.overs_bowled) * 6 + LEAST(5, ROUND((pms.overs_bowled - FLOOR(pms.overs_bowled)) * 10))), 0) as total_balls_bowled,
                 COALESCE(SUM(pms.batting_impact_points), 0) as batting_impact,
                 COALESCE(SUM(pms.bowling_impact_points), 0) as bowling_impact,
                 COALESCE(SUM(pms.fielding_impact_points), 0) as fielding_impact,
@@ -248,21 +345,25 @@ exports.getPlayerStatsBySeason = async (req, res, next) => {
             [playerId, limit]
         );
 
-        const seasons = rows.map((r) => ({
-            season_id: r.season_id,
-            year: r.year,
-            name: r.season_name,
-            matches_played: r.matches_played,
-            total_runs: r.total_runs,
-            total_balls_faced: r.total_balls_faced ?? 0,
-            total_wickets: r.total_wickets ?? 0,
-            total_runs_conceded: r.total_runs_conceded ?? 0,
-            total_overs_bowled: parseFloat(r.total_overs_bowled ?? 0),
-            total_impact: parseFloat(r.total_impact ?? 0),
-            batting_impact: parseFloat(r.batting_impact ?? 0),
-            bowling_impact: parseFloat(r.bowling_impact ?? 0),
-            fielding_impact: parseFloat(r.fielding_impact ?? 0),
-        }));
+        const seasons = rows.map((r) => {
+            const totalBalls = r.total_balls_bowled ?? 0;
+            const totalOversBowled = parseFloat(ballsToOversDecimal(totalBalls).toFixed(1));
+            return {
+                season_id: r.season_id,
+                year: r.year,
+                name: r.season_name,
+                matches_played: r.matches_played,
+                total_runs: r.total_runs,
+                total_balls_faced: r.total_balls_faced ?? 0,
+                total_wickets: r.total_wickets ?? 0,
+                total_runs_conceded: r.total_runs_conceded ?? 0,
+                total_overs_bowled: totalOversBowled,
+                total_impact: parseFloat(r.total_impact ?? 0),
+                batting_impact: parseFloat(r.batting_impact ?? 0),
+                bowling_impact: parseFloat(r.bowling_impact ?? 0),
+                fielding_impact: parseFloat(r.fielding_impact ?? 0),
+            };
+        });
 
         res.json({ seasons });
     } catch (error) {
@@ -341,6 +442,13 @@ exports.deletePlayer = async (req, res, next) => {
          const [existing] = await connection.query('SELECT player_id FROM players WHERE player_id = ?', [id]);
         if (existing.length === 0) {
             await connection.rollback(); return res.status(404).json({ message: 'Player not found.' });
+        }
+
+        // Block delete if player has played in at least one match (preserves scorecards and stats)
+        const [played] = await connection.query('SELECT 1 FROM playermatchstats WHERE player_id = ? LIMIT 1', [id]);
+        if (played.length > 0) {
+            await connection.rollback();
+            return res.status(403).json({ message: 'Cannot delete a player who has played in at least one match.' });
         }
 
         // --- Handle Foreign Key References ---

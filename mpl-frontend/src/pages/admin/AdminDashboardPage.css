@@ -1,0 +1,105 @@
+/* Admin Dashboard: welcome, shortcut cards, and action grid */
+.admin-dashboard {
+  max-width: 900px;
+}
+
+.admin-dashboard h2 {
+  margin: 0 0 0.5rem;
+  color: var(--mpl-heading);
+  font-size: 1.75rem;
+}
+
+.admin-dashboard-welcome {
+  color: var(--mpl-text-muted);
+  margin-bottom: 1.5rem;
+}
+
+.admin-dashboard-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.admin-dashboard-card {
+  display: block;
+  padding: 1.25rem;
+  background: var(--mpl-white);
+  border: 1px solid var(--mpl-border);
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.admin-dashboard-card:hover {
+  border-color: var(--mpl-green);
+  box-shadow: 0 4px 12px rgba(45, 138, 110, 0.15);
+}
+
+.admin-dashboard-card-title {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--mpl-heading);
+}
+
+.admin-dashboard-card-count {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--mpl-green);
+  margin-bottom: 0.25rem;
+}
+
+.admin-dashboard-card-desc {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--mpl-text-muted);
+}
+
+.admin-dashboard-actions {
+  margin-top: 1.5rem;
+}
+
+.admin-dashboard-actions h3 {
+  margin: 0 0 1rem;
+  font-size: 1.1rem;
+  color: var(--mpl-heading);
+}
+
+.admin-dashboard-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.admin-dashboard-list a {
+  display: inline-block;
+  padding: 0.6rem 1rem;
+  width: 100%;
+  max-width: 320px;
+  text-align: left;
+  background: var(--mpl-white);
+  border: 1px solid var(--mpl-border);
+  border-radius: 6px;
+  color: var(--mpl-text);
+  text-decoration: none;
+  font-size: 0.95rem;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.admin-dashboard-list a:hover {
+  background: var(--mpl-grey-100);
+  border-color: var(--mpl-green);
+  color: var(--mpl-heading);
+}
+
+.admin-dashboard-list .admin-dashboard-list-desc {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--mpl-text-muted);
+  margin-top: 0.15rem;
+}

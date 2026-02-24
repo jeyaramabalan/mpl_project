@@ -180,13 +180,18 @@ exports.updateTeam = async (req, res, next) => {
      try {
          await connection.beginTransaction();
 
-         // Get current team info, especially season_id
+         // Get current team info, especially season_id; block edits if season is completed
          const [existingTeamArr] = await connection.query('SELECT team_id, season_id FROM teams WHERE team_id = ?', [id]);
          if (existingTeamArr.length === 0) {
              await connection.rollback();
              return res.status(404).json({ message: 'Team not found.' });
          }
          const teamSeasonId = existingTeamArr[0].season_id;
+         const [seasonRow] = await connection.query('SELECT status FROM seasons WHERE season_id = ?', [teamSeasonId]);
+         if (seasonRow.length > 0 && seasonRow[0].status === 'Completed') {
+             await connection.rollback();
+             return res.status(403).json({ message: 'Cannot edit a team in a completed season.' });
+         }
 
          // Prepare fields for the main Teams table update
          const teamFieldsToUpdate = {};
@@ -278,6 +283,12 @@ exports.addPlayerToTeam = async (req, res, next) => {
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
+        // Block adding players to a team in a completed season
+        const [seasonRow] = await connection.query('SELECT status FROM seasons WHERE season_id = ?', [season_id]);
+        if (seasonRow.length > 0 && seasonRow[0].status === 'Completed') {
+            await connection.rollback();
+            return res.status(403).json({ message: 'Cannot add players to a team in a completed season.' });
+        }
         // Pre-checks (team exists, player exists, player not already assigned) - Keep as before
         const [teamCheck] = await connection.query('SELECT 1 FROM teams WHERE team_id = ? AND season_id = ?', [team_id, season_id]); if (teamCheck.length === 0) { await connection.rollback(); return res.status(400).json({ message: `Team ID ${team_id} not found for season ${season_id}.` }); }
         const [playerCheck] = await connection.query('SELECT 1 FROM players WHERE player_id = ?', [player_id]); if (playerCheck.length === 0) { await connection.rollback(); return res.status(400).json({ message: `Player ID ${player_id} does not exist.` }); }
@@ -316,10 +327,15 @@ exports.removePlayerFromTeam = async (req, res, next) => {
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
-        // Get assignment details (Keep as before)
-        const [assignmentInfo] = await connection.query(`SELECT tp.player_id, tp.team_id, t.captain_player_id FROM teamplayers tp JOIN teams t ON tp.team_id = t.team_id WHERE tp.team_player_id = ?`, [teamPlayerId]);
+        // Get assignment details including season_id; block if season is completed
+        const [assignmentInfo] = await connection.query(`SELECT tp.player_id, tp.team_id, tp.season_id, t.captain_player_id FROM teamplayers tp JOIN teams t ON tp.team_id = t.team_id WHERE tp.team_player_id = ?`, [teamPlayerId]);
         if (assignmentInfo.length === 0) { await connection.rollback(); return res.status(404).json({ message: 'Team player assignment not found.' }); }
-        const { player_id, team_id, captain_player_id } = assignmentInfo[0];
+        const { player_id, team_id, season_id: assignSeasonId, captain_player_id } = assignmentInfo[0];
+        const [seasonRow] = await connection.query('SELECT status FROM seasons WHERE season_id = ?', [assignSeasonId]);
+        if (seasonRow.length > 0 && seasonRow[0].status === 'Completed') {
+            await connection.rollback();
+            return res.status(403).json({ message: 'Cannot remove players from a team in a completed season.' });
+        }
 
         // Delete assignment (Keep as before)
         const [deleteResult] = await connection.query('DELETE FROM teamplayers WHERE team_player_id = ?', [teamPlayerId]);
@@ -350,11 +366,16 @@ exports.deleteTeam = async (req, res, next) => {
         return res.status(400).json({ message: 'Invalid Team ID.' });
     }
     try {
-        const [existing] = await pool.query('SELECT team_id FROM teams WHERE team_id = ?', [id]);
+        const [existing] = await pool.query('SELECT team_id, season_id FROM teams WHERE team_id = ?', [id]);
         if (existing.length === 0) {
             return res.status(404).json({ message: 'Team not found.' });
         }
-        const [matchRefs] = await pool.query('SELECT 1 FROM matches WHERE team_a_id = ? OR team_b_id = ? LIMIT 1', [id, id]);
+        const seasonId = existing[0].season_id;
+        const [seasonRow] = await pool.query('SELECT status FROM seasons WHERE season_id = ?', [seasonId]);
+        if (seasonRow.length > 0 && seasonRow[0].status === 'Completed') {
+            return res.status(403).json({ message: 'Cannot delete a team in a completed season.' });
+        }
+        const [matchRefs] = await pool.query('SELECT 1 FROM matches WHERE team1_id = ? OR team2_id = ? LIMIT 1', [id, id]);
         if (matchRefs.length > 0) {
             return res.status(400).json({ message: 'Cannot delete team. It is used in one or more matches.' });
         }

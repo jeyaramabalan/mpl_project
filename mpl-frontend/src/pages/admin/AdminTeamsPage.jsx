@@ -76,7 +76,7 @@ const TeamForm = ({ onSubmit, initialData = {}, seasons = [], players = [], load
     );
 };
 
-const PlayerAssignment = ({ teamId, seasonId, teamPlayers = [], availablePlayers = [], onAssign, onBulkAssign, onRemove, loading }) => {
+const PlayerAssignment = ({ teamId, seasonId, teamPlayers = [], availablePlayers = [], onAssign, onBulkAssign, onRemove, loading, lockAssignments = false }) => {
      const [selectedPlayerId, setSelectedPlayerId] = useState('');
      const [purchasePrice, setPurchasePrice] = useState('');
      const [removeTarget, setRemoveTarget] = useState(null);
@@ -122,10 +122,10 @@ const PlayerAssignment = ({ teamId, seasonId, teamPlayers = [], availablePlayers
                         <li key={p.team_player_id} style={{ marginBottom: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <span>
                                 <Link to={`/players/${p.player_id}`}>{p.name}</Link>
-                                {p.is_captain && ' (C)'}
+                                {p.is_captain ? ' (C)' : null}
                                 {p.purchase_price && ` - $${p.purchase_price}`}
                             </span>
-                             <button type="button" onClick={() => setRemoveTarget({ team_player_id: p.team_player_id, name: p.name })} disabled={loading} style={{ backgroundColor: '#dc3545', padding: '0.2em 0.5em', fontSize: '0.8rem' }}>Remove</button>
+                             <button type="button" onClick={() => setRemoveTarget({ team_player_id: p.team_player_id, name: p.name })} disabled={loading || lockAssignments} title={lockAssignments ? 'Squad locked for completed season' : ''} style={{ backgroundColor: '#dc3545', padding: '0.2em 0.5em', fontSize: '0.8rem' }}>Remove</button>
                         </li>
                     ))}
                  </ul>
@@ -133,13 +133,15 @@ const PlayerAssignment = ({ teamId, seasonId, teamPlayers = [], availablePlayers
 
             <ConfirmDialog open={!!removeTarget} title="Remove player" message={removeTarget ? `Remove ${removeTarget.name} from this team?` : ''} confirmLabel="Remove" cancelLabel="Cancel" onConfirm={() => { if (removeTarget) { onRemove(removeTarget.team_player_id); setRemoveTarget(null); } }} onCancel={() => setRemoveTarget(null)} />
 
+             {!lockAssignments && (
              <form onSubmit={handleAssign} style={{ marginTop: '1rem', display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '0.5rem' }}>
                 <SearchablePlayerSelect players={availablePlayers} value={selectedPlayerId} onChange={setSelectedPlayerId} placeholder="Select player to add..." disabled={loading || availablePlayers.length === 0} />
                  <input type="number" placeholder="Purchase Price (Optional)" value={purchasePrice} onChange={(e) => setPurchasePrice(e.target.value)} step="0.01" style={{ width: '140px', padding: '0.5rem' }} disabled={loading} />
                  <button type="submit" disabled={loading || !selectedPlayerId}>Assign Player</button>
             </form>
+             )}
 
-            {availablePlayers.length > 0 && (
+            {!lockAssignments && availablePlayers.length > 0 && (
                 <div style={{ marginTop: '1.5rem', padding: '0.75rem', background: '#f8f9fa', borderRadius: '6px' }}>
                     <h5 style={{ marginTop: 0 }}>Bulk assign players</h5>
                     <p style={{ fontSize: '0.9rem', color: '#555' }}>Select players below and assign them all to this team.</p>
@@ -177,12 +179,12 @@ function AdminTeamsPage() {
     const [editingTeam, setEditingTeam] = useState(null);
     const [deleteTeamTarget, setDeleteTeamTarget] = useState(null);
 
-    // Fetch seasons on mount
+    // Fetch seasons on mount (all seasons; completed ones are read-only)
     useEffect(() => {
         const fetchSeasons = async () => {
             setLoadingSeasons(true);
             try {
-                const { data } = await api.get('/admin/seasons?status=Ongoing');
+                const { data } = await api.get('/admin/seasons');
                 // Optional: sort descending by start_date or season_id (depending on your schema)
                 const sortedSeasons = [...data].sort((a, b) => b.season_id - a.season_id);
                 setSeasons(sortedSeasons);
@@ -340,7 +342,7 @@ function AdminTeamsPage() {
             setEditingTeam(null);
             fetchTeamsAndAssignments();
         } catch (err) {
-            setError(typeof err === 'string' ? err : (err.response?.data?.message || 'Failed to delete team.'));
+            setError(typeof err === 'string' ? err : (err?.response?.data?.message || err?.message || 'Failed to delete team.'));
         } finally {
             setLoadingTeams(false);
         }
@@ -352,6 +354,8 @@ function AdminTeamsPage() {
         p => !assignedPlayerIds.has(p.player_id)
     );
 
+    const selectedSeason = seasons.find(s => s.season_id === parseInt(selectedSeasonId));
+    const isSeasonCompleted = selectedSeason?.status === 'Completed';
 
     // --- Render ---
     if (loadingSeasons) return <LoadingFallback message="Loading seasons..." />;
@@ -376,8 +380,14 @@ function AdminTeamsPage() {
 
              {error && <p className="error-message">{error}</p>}
 
+             {selectedSeasonId && isSeasonCompleted && (
+                 <p style={{ padding: '0.75rem', background: 'var(--mpl-grey-200)', borderRadius: '6px', marginBottom: '1rem' }}>
+                     This season is completed. Teams and squad assignments cannot be changed.
+                 </p>
+             )}
+
              {/* Add/Edit Team Form */}
-             {selectedSeasonId && (
+             {selectedSeasonId && !isSeasonCompleted && (
                  <div style={{ marginBottom: '2rem', padding: '1rem', border: '1px solid #eee', borderRadius: '5px' }}>
                      <h3>{editingTeam ? `Editing Team: ${editingTeam.name}` : 'Add New Team'}</h3>
                      <TeamForm
@@ -410,8 +420,8 @@ function AdminTeamsPage() {
                                     <p>Budget: ${team.budget ? parseFloat(team.budget).toFixed(2) : 'N/A'}</p>
                                 </div>
                                 <div>
-                                     <button onClick={() => setEditingTeam(team)} disabled={loadingTeams || !!editingTeam}>Edit Team</button>
-                                     <button type="button" onClick={() => setDeleteTeamTarget(team)} disabled={loadingTeams || !!editingTeam} style={{ marginLeft: '0.5rem', backgroundColor: '#dc3545' }}>Delete Team</button>
+                                     <button onClick={() => setEditingTeam(team)} disabled={loadingTeams || !!editingTeam || isSeasonCompleted} title={isSeasonCompleted ? 'Completed season: editing locked' : ''}>Edit Team</button>
+                                     <button type="button" onClick={() => setDeleteTeamTarget(team)} disabled={loadingTeams || !!editingTeam || isSeasonCompleted} title={isSeasonCompleted ? 'Completed season: deletion locked' : ''} style={{ marginLeft: '0.5rem', backgroundColor: '#dc3545' }}>Delete Team</button>
                                 </div>
                             </div>
 
@@ -425,6 +435,7 @@ function AdminTeamsPage() {
                                 onBulkAssign={handleBulkAssign}
                                 onRemove={handleRemovePlayer}
                                 loading={loadingTeams || loadingPlayers}
+                                lockAssignments={isSeasonCompleted}
                              />
                          </div>
                     ))}

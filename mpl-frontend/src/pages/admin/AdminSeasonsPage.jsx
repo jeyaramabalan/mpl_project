@@ -104,7 +104,7 @@ function AdminSeasonsPage() {
             if (isEditing === seasonId) resetForm();
             fetchSeasons();
         } catch (err) {
-            setError(typeof err === 'string' ? err : (err.response?.data?.message || 'Failed to delete season.'));
+            setError(typeof err === 'string' ? err : (err?.response?.data?.message || err?.message || 'Failed to delete season.'));
         } finally {
             setLoading(false);
         }
@@ -176,12 +176,14 @@ function AdminSeasonsPage() {
                     </select>
                 </div>
                  <button type="submit" disabled={loading}>{loading ? 'Saving...' : (isEditing ? 'Update Season' : 'Add Season')}</button>
+                 {isEditing && formData.status === 'Completed' && <span style={{ marginLeft: '0.5rem', fontSize: '0.85rem', color: 'var(--mpl-text-muted)' }}>Completed seasons are locked; save will be rejected.</span>}
                  {isEditing && <button type="button" onClick={resetForm} style={{ marginLeft: '1rem', backgroundColor: '#6c757d' }}>Cancel Edit</button>}
             </form>
 
 
             {/* Seasons List */}
             <h3>Existing Seasons</h3>
+            <p style={{ fontSize: '0.9rem', color: 'var(--mpl-text-muted)', marginBottom: '0.5rem' }}>Completed seasons cannot be edited or deleted.</p>
              {loading && seasons.length === 0 && <LoadingFallback message="Loading seasons..." />} {/* Show loading only if list is empty */}
 
             {seasons.length > 0 ? (
@@ -197,7 +199,9 @@ function AdminSeasonsPage() {
                         </tr>
                     </thead>
                     <tbody>
-                        {seasons.map(season => (
+                        {seasons.map(season => {
+                            const isCompleted = season.status === 'Completed';
+                            return (
                             <tr key={season.season_id}>
                                 <td>{season.year}</td>
                                 <td>{season.name}</td>
@@ -205,11 +209,12 @@ function AdminSeasonsPage() {
                                 <td>{season.end_date ? new Date(season.end_date).toLocaleDateString() : 'N/A'}</td>
                                 <td>{season.status}</td>
                                 <td>
-                                    <button onClick={() => handleEditClick(season)} disabled={loading || isEditing === season.season_id} style={{padding: '0.3em 0.6em', fontSize: '0.9rem'}}>Edit</button>
-                                    <button type="button" onClick={() => setDeleteSeasonTarget(season)} disabled={loading} style={{ backgroundColor: '#dc3545', marginLeft: '0.5rem', padding: '0.3em 0.6em', fontSize: '0.9rem' }}>Delete</button>
+                                    <button onClick={() => handleEditClick(season)} disabled={loading || isEditing === season.season_id || isCompleted} title={isCompleted ? 'Completed seasons cannot be edited' : ''} style={{padding: '0.3em 0.6em', fontSize: '0.9rem'}}>Edit</button>
+                                    <button type="button" onClick={() => setDeleteSeasonTarget(season)} disabled={loading || isCompleted} title={isCompleted ? 'Completed seasons cannot be deleted' : ''} style={{ backgroundColor: '#dc3545', marginLeft: '0.5rem', padding: '0.3em 0.6em', fontSize: '0.9rem' }}>Delete</button>
                                 </td>
                             </tr>
-                        ))}
+                            );
+                        })}
                     </tbody>
                 </table>
             ) : (

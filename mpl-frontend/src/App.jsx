@@ -6,6 +6,7 @@ import { Route, Routes, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import PrivateRoute from './components/PrivateRoute'; // Component to protect admin routes
+import AdminLayout from './components/AdminLayout';
 import LoadingFallback from './components/LoadingFallback'; // Loading indicator for lazy loading
 
 // --- Lazy Load Pages (improves initial load time) ---
@@ -20,7 +21,7 @@ const AdminSchedulePage = lazy(() => import('./pages/admin/AdminSchedulePage'));
 const LeaderboardPage = lazy(() => import('./pages/LeaderboardPage'));
 const ChampionsPage = lazy(() => import('./pages/ChampionsPage'));
 const ContactPage = lazy(() => import('./pages/ContactPage'));
-const FAQPage = lazy(() => import('./pages/FAQPage'));
+const RulesPage = lazy(() => import('./pages/RulesPage'));
 // Admin Pages
 const AdminLoginPage = lazy(() => import('./pages/admin/AdminLoginPage'));
 const AdminDashboardPage = lazy(() => import('./pages/admin/AdminDashboardPage'));
@@ -54,7 +55,8 @@ function App() {
                         <Route path="/leaderboard" element={<LeaderboardPage />} />
                         <Route path="/champions" element={<ChampionsPage />} />
                         <Route path="/contact" element={<ContactPage />} />
-                        <Route path="/faq" element={<FAQPage />} />
+                        <Route path="/rules" element={<RulesPage />} />
+                        <Route path="/faq" element={<Navigate to="/rules" replace />} />
 
                         {/* --- Admin Routes --- */}
                         {/* Admin Login Page (Publicly accessible) */}
@@ -62,21 +64,17 @@ function App() {
 
                         {/* Protected Admin Area - uses PrivateRoute component */}
                         <Route path="/admin" element={<PrivateRoute />}>
-                            {/* Nested routes accessible only if authenticated */}
-                            {/* Redirect /admin to /admin/dashboard */}
-                            <Route index element={<Navigate to="dashboard" replace />} />
-                            <Route path="dashboard" element={<AdminDashboardPage />} />
-                            <Route path="seasons" element={<AdminSeasonsPage />} />
-                            {/* TODO: Define routes for managing teams within a season?
-                                Maybe '/admin/seasons/:seasonId/teams' or handle season selection within AdminTeamsPage */}
-                            <Route path="teams" element={<AdminTeamsPage />} />
-                            <Route path="schedule" element={<AdminSchedulePage />} />
-                            <Route path="players" element={<AdminPlayersPage />} />
-                            <Route path="scoring/setup" element={<AdminMatchSetupPage />} />
-                            <Route path="scoring/live/:matchId" element={<AdminLiveScoringPage />} />
-                            <Route path="resolve" element={<AdminResolveMatchPage />} />
-                            {/* Add other protected admin routes here */}
-                            {/* Example: <Route path="payments" element={<AdminPaymentsPage />} /> */}
+                            <Route element={<AdminLayout />}>
+                                <Route index element={<Navigate to="dashboard" replace />} />
+                                <Route path="dashboard" element={<AdminDashboardPage />} />
+                                <Route path="seasons" element={<AdminSeasonsPage />} />
+                                <Route path="teams" element={<AdminTeamsPage />} />
+                                <Route path="schedule" element={<AdminSchedulePage />} />
+                                <Route path="players" element={<AdminPlayersPage />} />
+                                <Route path="scoring/setup" element={<AdminMatchSetupPage />} />
+                                <Route path="scoring/live/:matchId" element={<AdminLiveScoringPage />} />
+                                <Route path="resolve" element={<AdminResolveMatchPage />} />
+                            </Route>
                         </Route>
 
                         {/* --- Catch-all 404 Not Found Route --- */}

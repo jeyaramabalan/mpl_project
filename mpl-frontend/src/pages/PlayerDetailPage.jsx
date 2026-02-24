@@ -21,18 +21,24 @@ import LoadingFallback from '../components/LoadingFallback';
 import './PlayerDetailPage.css';
 
 const CHART_COLORS = {
-    batting: 'var(--mpl-green, #2d8a6e)',
-    bowling: 'var(--mpl-teal, #2a9d8f)',
-    fielding: 'var(--mpl-green-light, #3db39e)',
+    batting: '#42A5F5',   /* Sky Blue – Bat */
+    bowling: '#EF5350',   /* Soft Red – Bowl */
+    fielding: '#66BB6A',  /* Fresh Green – Field */
     runs: 'var(--mpl-green, #2d8a6e)',
     totalImpact: 'var(--mpl-navy, #0f2847)',
     wickets: 'var(--mpl-teal, #2a9d8f)',
     economy: 'var(--mpl-green-light, #3db39e)',
 };
 
+// Cricket decimal overs: e.g. 2.3 = 2 overs 3 balls. Convert to actual overs for economy.
 function economyRate(runsConceded, oversBowled) {
-    if (oversBowled == null || oversBowled <= 0) return null;
-    return parseFloat((runsConceded || 0) / oversBowled).toFixed(2);
+    if (oversBowled == null || oversBowled <= 0 || isNaN(oversBowled)) return null;
+    const completedOvers = Math.floor(oversBowled);
+    const ballsInPartialOver = Math.round((oversBowled - completedOvers) * 10);
+    const totalBalls = completedOvers * 6 + ballsInPartialOver;
+    if (totalBalls === 0) return null;
+    const properOvers = totalBalls / 6;
+    return parseFloat(((runsConceded || 0) / properOvers).toFixed(2));
 }
 
 function PlayerDetailPage() {
@@ -190,8 +196,8 @@ function PlayerDetailPage() {
                                     </div>
                                 </div>
 
-                                {/* Bowling Statistics Card */}
-                                {stats.total_overs_bowled != null && stats.total_overs_bowled > 0 && (
+                                {/* Bowling Statistics Card: Normal / Super / Total */}
+                                {stats.bowling_breakdown && (
                                     <div className="stats-card mpl-card">
                                         <div className="stats-card-header bowling-header">
                                             <span className="stats-card-icon">⚾</span>
@@ -201,23 +207,30 @@ function PlayerDetailPage() {
                                             <table className="stats-sub-table">
                                                 <thead>
                                                     <tr>
-                                                        <th>Matches</th>
-                                                        <th>Overs</th>
-                                                        <th>Super Overs</th>
-                                                        <th>Wkts</th>
+                                                        <th>Overs Type</th>
+                                                        <th>Overs Count</th>
+                                                        <th>Maidens</th>
+                                                        <th>Wickets</th>
                                                         <th>Runs</th>
-                                                        <th>Econ</th>
+                                                        <th>Economy</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    <tr>
-                                                        <td>{stats.matches_played ?? '-'}</td>
-                                                        <td>{stats.total_overs_bowled != null && !isNaN(parseFloat(stats.total_overs_bowled)) ? parseFloat(stats.total_overs_bowled).toFixed(1) : '-'}</td>
-                                                        <td>{stats.super_overs_bowled ?? '-'}</td>
-                                                        <td>{stats.total_wickets ?? '-'}</td>
-                                                        <td>{stats.total_runs_conceded ?? '-'}</td>
-                                                        <td>{stats.bowling_economy_rate ?? '-'}</td>
-                                                    </tr>
+                                                    {['normal', 'super', 'total'].map((key) => {
+                                                        const row = stats.bowling_breakdown[key];
+                                                        const label = key === 'normal' ? 'Normal Overs' : key === 'super' ? 'Super Overs' : 'Total Overs';
+                                                        if (!row) return null;
+                                                        return (
+                                                            <tr key={key}>
+                                                                <td>{label}</td>
+                                                                <td>{row.overs_display ?? (row.overs_count != null ? parseFloat(row.overs_count).toFixed(1) : '-')}</td>
+                                                                <td>{row.maidens ?? '-'}</td>
+                                                                <td>{row.wickets ?? '-'}</td>
+                                                                <td>{row.runs ?? '-'}</td>
+                                                                <td>{row.economy != null ? parseFloat(row.economy).toFixed(2) : '-'}</td>
+                                                            </tr>
+                                                        );
+                                                    })}
                                                 </tbody>
                                             </table>
                                         </div>
@@ -263,7 +276,7 @@ function PlayerDetailPage() {
                                         <h3 className="chart-title">Last {byMatch.length} Matches – Batting (Runs)</h3>
                                         <div className="chart-wrapper">
                                             <ResponsiveContainer width="100%" height={220}>
-                                                <BarChart data={[...byMatch].reverse().map((m, i) => ({ name: `Match ${i + 1}`, runs: m.runs_scored ?? 0, balls: m.balls_faced ?? 0, fours: m.fours ?? 0 }))} margin={{ top: 8, right: 16, left: 8, bottom: 24 }}>
+                                                <BarChart data={[...byMatch].reverse().map((m, i) => ({ name: m.opponent_team_name || `Match ${i + 1}`, runs: m.runs_scored ?? 0, balls: m.balls_faced ?? 0, fours: m.fours ?? 0 }))} margin={{ top: 8, right: 16, left: 8, bottom: 24 }}>
                                                     <CartesianGrid strokeDasharray="3 3" stroke="var(--mpl-grey-300, #d0d0d0)" />
                                                     <XAxis dataKey="name" tick={{ fill: 'var(--mpl-text, #1a1a1a)', fontSize: 12 }} />
                                                     <YAxis tick={{ fill: 'var(--mpl-text, #1a1a1a)', fontSize: 12 }} />
@@ -277,7 +290,7 @@ function PlayerDetailPage() {
                                         <h3 className="chart-title">Last {byMatch.length} Matches – Impact (per match)</h3>
                                         <div className="chart-wrapper">
                                             <ResponsiveContainer width="100%" height={220}>
-                                                <BarChart data={[...byMatch].reverse().map((m, i) => ({ name: `Match ${i + 1}`, Bat: m.batting_impact_points ?? 0, Bowl: m.bowling_impact_points ?? 0, Field: m.fielding_impact_points ?? 0, Total: (m.batting_impact_points ?? 0) + (m.bowling_impact_points ?? 0) + (m.fielding_impact_points ?? 0) }))} margin={{ top: 8, right: 16, left: 8, bottom: 24 }}>
+                                                <BarChart data={[...byMatch].reverse().map((m, i) => ({ name: m.opponent_team_name || `Match ${i + 1}`, Bat: m.batting_impact_points ?? 0, Bowl: m.bowling_impact_points ?? 0, Field: m.fielding_impact_points ?? 0, Total: (m.batting_impact_points ?? 0) + (m.bowling_impact_points ?? 0) + (m.fielding_impact_points ?? 0) }))} margin={{ top: 8, right: 16, left: 8, bottom: 24 }}>
                                                     <CartesianGrid strokeDasharray="3 3" stroke="var(--mpl-grey-300)" />
                                                     <XAxis dataKey="name" tick={{ fill: 'var(--mpl-text)', fontSize: 12 }} />
                                                     <YAxis tick={{ fill: 'var(--mpl-text)', fontSize: 12 }} />
@@ -294,7 +307,7 @@ function PlayerDetailPage() {
                                         <h3 className="chart-title">Last {byMatch.length} Matches – Bowling (Wickets)</h3>
                                         <div className="chart-wrapper">
                                             <ResponsiveContainer width="100%" height={220}>
-                                                <BarChart data={[...byMatch].reverse().map((m, i) => ({ name: `Match ${i + 1}`, wickets: m.wickets_taken ?? 0 }))} margin={{ top: 8, right: 16, left: 8, bottom: 24 }}>
+                                                <BarChart data={[...byMatch].reverse().map((m, i) => ({ name: m.opponent_team_name || `Match ${i + 1}`, wickets: m.wickets_taken ?? 0 }))} margin={{ top: 8, right: 16, left: 8, bottom: 24 }}>
                                                     <CartesianGrid strokeDasharray="3 3" stroke="var(--mpl-grey-300)" />
                                                     <XAxis dataKey="name" tick={{ fill: 'var(--mpl-text)', fontSize: 12 }} />
                                                     <YAxis tick={{ fill: 'var(--mpl-text)', fontSize: 12 }} allowDecimals={false} />
@@ -308,7 +321,7 @@ function PlayerDetailPage() {
                                         <h3 className="chart-title">Last {byMatch.length} Matches – Bowling (Economy)</h3>
                                         <div className="chart-wrapper">
                                             <ResponsiveContainer width="100%" height={220}>
-                                                <BarChart data={[...byMatch].reverse().map((m, i) => ({ name: `Match ${i + 1}`, economy: economyRate(m.runs_conceded, m.overs_bowled) != null ? parseFloat(economyRate(m.runs_conceded, m.overs_bowled)) : 0, runs: m.runs_conceded ?? 0, overs: m.overs_bowled ?? 0 }))} margin={{ top: 8, right: 16, left: 8, bottom: 24 }}>
+                                                <BarChart data={[...byMatch].reverse().map((m, i) => ({ name: m.opponent_team_name || `Match ${i + 1}`, economy: economyRate(m.runs_conceded, m.overs_bowled) != null ? parseFloat(economyRate(m.runs_conceded, m.overs_bowled)) : 0, runs: m.runs_conceded ?? 0, overs: m.overs_bowled ?? 0 }))} margin={{ top: 8, right: 16, left: 8, bottom: 24 }}>
                                                     <CartesianGrid strokeDasharray="3 3" stroke="var(--mpl-grey-300)" />
                                                     <XAxis dataKey="name" tick={{ fill: 'var(--mpl-text)', fontSize: 12 }} />
                                                     <YAxis tick={{ fill: 'var(--mpl-text)', fontSize: 12 }} />
@@ -435,7 +448,7 @@ function PlayerDetailPage() {
                                                         paddingAngle={2}
                                                         dataKey="value"
                                                         nameKey="name"
-                                                        label={({ name, percent }) => percent > 0.05 ? `${name} ${(percent * 100).toFixed(0)}%` : ''}
+                                                        label={({ percent }) => percent > 0 ? `${(percent * 100).toFixed(0)}%` : ''}
                                                     >
                                                         {careerPieData.map((entry) => (
                                                             <Cell key={entry.name} fill={entry.color} />

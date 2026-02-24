@@ -1,0 +1,73 @@
+/* Rules page: sectioned layout and list styling */
+.rules-page {
+    max-width: 800px;
+    margin: 0 auto 3rem;
+}
+
+.rules-page-title {
+    font-size: clamp(1.35rem, 3vw, 1.75rem);
+    margin-bottom: 2rem;
+    color: var(--mpl-text, #1a1a1a);
+    text-align: center;
+}
+
+.rules-block {
+    background: var(--mpl-card-bg, #fff);
+    border: 1px solid var(--mpl-grey-300, #e0e0e0);
+    border-radius: 10px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.25rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.rules-block__title {
+    font-size: 1.15rem;
+    margin: 0 0 0.85rem 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--mpl-grey-300, #e0e0e0);
+    color: var(--mpl-navy, #0f2847);
+}
+
+.rules-list {
+    margin: 0;
+    padding-left: 1.35rem;
+    list-style-type: disc;
+}
+
+.rules-list li {
+    margin-bottom: 0.4rem;
+    line-height: 1.5;
+    color: var(--mpl-text, #333);
+}
+
+.rules-list li:last-child {
+    margin-bottom: 0;
+}
+
+.rules-list ul {
+    margin: 0.35rem 0 0.5rem 0;
+    padding-left: 1.25rem;
+    list-style-type: circle;
+}
+
+.rules-list li > strong {
+    color: var(--mpl-navy, #0f2847);
+}
+
+/* Optional: subtle accent per section */
+.rules-block--run .rules-block__title { border-bottom-color: #66bb6a; }
+.rules-block--wide .rules-block__title { border-bottom-color: #f4c430; }
+.rules-block--noball .rules-block__title { border-bottom-color: #ef5350; }
+.rules-block--boundary .rules-block__title { border-bottom-color: #42a5f5; }
+.rules-block--super .rules-block__title { border-bottom-color: #ff9800; }
+.rules-block--bowling .rules-block__title { border-bottom-color: #9c27b0; }
+.rules-block--stumping .rules-block__title { border-bottom-color: #607d8b; }
+
+@media (max-width: 600px) {
+    .rules-block {
+        padding: 1rem 1.15rem;
+    }
+    .rules-list {
+        padding-left: 1.15rem;
+    }
+}

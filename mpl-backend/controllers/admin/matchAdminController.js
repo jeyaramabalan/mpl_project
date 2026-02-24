@@ -67,11 +67,14 @@ exports.createMatch = async (req, res, next) => {
             throw new Error('One or both Team IDs are invalid or do not belong to the selected season.');
         }
 
+        // Random super over (dice): 1-5
+        const superOverNumber = Math.floor(Math.random() * 5) + 1;
+
         // Insert the match
         const [result] = await connection.query(
-            `INSERT INTO matches (season_id, team1_id, team2_id, match_datetime, venue, status)
-             VALUES (?, ?, ?, ?, ?, 'Scheduled')`,
-            [parseInt(season_id), parseInt(team1_id), parseInt(team2_id), match_datetime, venue || 'Bowyer Park']
+            `INSERT INTO matches (season_id, team1_id, team2_id, match_datetime, venue, status, super_over_number)
+             VALUES (?, ?, ?, ?, ?, 'Scheduled', ?)`,
+            [parseInt(season_id), parseInt(team1_id), parseInt(team2_id), match_datetime, venue || 'Bowyer Park', superOverNumber]
         );
         const newMatchId = result.insertId;
 
@@ -114,6 +117,7 @@ exports.getAllMatches = async (req, res, next) => {
         let query = `
             SELECT
                 m.match_id, m.match_datetime, m.status, m.venue, m.result_summary,
+                m.super_over_number,
                 m.season_id, s.name as season_name,
                 t1.name as team1_name, t1.team_id as team1_id,
                 t2.name as team2_name, t2.team_id as team2_id,
@@ -220,7 +224,7 @@ exports.updateMatch = async (req, res, next) => {
 
         // Fetch existing match for validation
         const [existingMatches] = await connection.query(
-            'SELECT season_id, status, team1_id as current_team1, team2_id as current_team2 FROM matches WHERE match_id = ? FOR UPDATE',
+            'SELECT season_id, status as current_status, team1_id as current_team1, team2_id as current_team2 FROM matches WHERE match_id = ? FOR UPDATE',
             [matchId]
         );
         if (existingMatches.length === 0) {
@@ -230,6 +234,10 @@ exports.updateMatch = async (req, res, next) => {
         const { season_id, current_status, current_team1, current_team2 } = existingMatches[0];
 
         // --- Business Logic Validation ---
+        if (current_status === 'Completed') {
+            await connection.rollback();
+            return res.status(403).json({ message: 'Cannot edit a completed match. Use Resolve Match for exceptional resolution.' });
+        }
         if (current_status !== 'Scheduled' && (team1_id !== undefined || team2_id !== undefined || match_datetime !== undefined)) {
             await connection.rollback();
             return res.status(400).json({ message: `Cannot change teams or datetime for a match that is already '${current_status}'. You can only update venue or status (to Abandoned/Scheduled).` });
@@ -348,7 +356,131 @@ exports.deleteMatch = async (req, res, next) => {
     }
 };
 
-// Add this new function to mpl-backend/controllers/admin/matchAdminController.js
+/**
+ * @desc    Generate schedule for a season: create matches with London 8AM start, 30 min slots, random super over, no back-to-back where possible.
+ * @route   POST /api/admin/matches/generate-schedule
+ * @access  Admin
+ * Body: { season_id, matches_per_team, start_date?, venue? }
+ */
+exports.generateSchedule = async (req, res, next) => {
+    const { season_id, matches_per_team, start_date, venue } = req.body;
+    if (!season_id || matches_per_team == null || matches_per_team === '') {
+        return res.status(400).json({ message: 'Season ID and matches per team are required.' });
+    }
+    const seasonId = parseInt(season_id);
+    const M = parseInt(matches_per_team);
+    if (isNaN(seasonId) || isNaN(M) || M < 1) {
+        return res.status(400).json({ message: 'Invalid season ID or matches per team.' });
+    }
+
+    const connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        const [seasonRows] = await connection.query('SELECT season_id, status FROM seasons WHERE season_id = ?', [seasonId]);
+        if (seasonRows.length === 0) {
+            await connection.rollback();
+            return res.status(404).json({ message: 'Season not found.' });
+        }
+        if (seasonRows[0].status === 'Completed') {
+            await connection.rollback();
+            return res.status(403).json({ message: 'Cannot create schedule for a completed season.' });
+        }
+
+        const [teamRows] = await connection.query('SELECT team_id FROM teams WHERE season_id = ? ORDER BY team_id', [seasonId]);
+        const teamIds = teamRows.map(r => r.team_id);
+        const N = teamIds.length;
+        if (N < 2) {
+            await connection.rollback();
+            return res.status(400).json({ message: 'Season must have at least 2 teams.' });
+        }
+
+        const totalMatches = (N * M) / 2;
+        if (!Number.isInteger(totalMatches)) {
+            await connection.rollback();
+            return res.status(400).json({ message: `Matches per team (${M}) must allow whole number of fixtures. For ${N} teams, use a multiple of ${N - 1} (e.g. ${N - 1} or ${2 * (N - 1)}).` });
+        }
+
+        const pairs = [];
+        for (let i = 0; i < N; i++) {
+            for (let j = i + 1; j < N; j++) {
+                pairs.push([teamIds[i], teamIds[j]]);
+            }
+        }
+        const k = M / (N - 1);
+        const fixtures = [];
+        for (let r = 0; r < k; r++) {
+            pairs.forEach(([a, b]) => fixtures.push({ team1_id: a, team2_id: b }));
+        }
+
+        const lastSlot = new Set();
+        const secondLastSlot = new Set();
+        const ordered = [];
+        const remaining = [...fixtures];
+
+        while (remaining.length > 0) {
+            let best = 0;
+            let bestScore = -1;
+            for (let i = 0; i < remaining.length; i++) {
+                const f = remaining[i];
+                const t1 = f.team1_id, t2 = f.team2_id;
+                const inLast = lastSlot.has(t1) || lastSlot.has(t2);
+                const inSecond = secondLastSlot.has(t1) || secondLastSlot.has(t2);
+                let score = 0;
+                if (!inLast) score = 2;
+                else if (!inSecond) score = 1;
+                if (score > bestScore) {
+                    bestScore = score;
+                    best = i;
+                }
+            }
+            const chosen = remaining.splice(best, 1)[0];
+            ordered.push(chosen);
+            secondLastSlot.clear();
+            for (const t of lastSlot) secondLastSlot.add(t);
+            lastSlot.clear();
+            lastSlot.add(chosen.team1_id);
+            lastSlot.add(chosen.team2_id);
+        }
+
+        const startDateStr = start_date && /^\d{4}-\d{2}-\d{2}$/.test(start_date)
+            ? start_date
+            : new Date().toISOString().slice(0, 10);
+        const defaultVenue = venue || 'Bowyer Park';
+
+        for (let slot = 0; slot < ordered.length; slot++) {
+            const hours = 8 + Math.floor((slot * 30) / 60);
+            const mins = (slot * 30) % 60;
+            const matchDatetime = `${startDateStr} ${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:00`;
+            const superOverNumber = Math.floor(Math.random() * 5) + 1;
+            const f = ordered[slot];
+            await connection.query(
+                `INSERT INTO matches (season_id, team1_id, team2_id, match_datetime, venue, status, super_over_number)
+                 VALUES (?, ?, ?, ?, ?, 'Scheduled', ?)`,
+                [seasonId, f.team1_id, f.team2_id, matchDatetime, defaultVenue, superOverNumber]
+            );
+        }
+
+        await connection.commit();
+
+        const [created] = await pool.query(
+            'SELECT match_id, match_datetime, team1_id, team2_id, super_over_number FROM matches WHERE season_id = ? ORDER BY match_datetime ASC',
+            [seasonId]
+        );
+
+        res.status(201).json({
+            message: `Schedule created: ${ordered.length} matches starting ${startDateStr} 08:00 London time, 30 min apart.`,
+            created_count: ordered.length,
+            matches: created,
+        });
+    } catch (error) {
+        await connection.rollback();
+        console.error('Generate Schedule Error:', error);
+        next(error);
+    } finally {
+        connection.release();
+    }
+};
 
 /**
  * @desc    Manually resolve a match (e.g., Tiebreaker, Abandoned, Admin Decision)

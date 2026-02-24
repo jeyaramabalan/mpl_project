@@ -1,6 +1,6 @@
 // mpl-project/mpl-frontend/src/pages/admin/AdminLiveScoringPage.jsx
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom'; // Removed useLocation
+import { useParams, useNavigate, Link } from 'react-router-dom'; // Removed useLocation
 import { useSocket } from '../../context/SocketContext';
 import api from '../../services/api';
 import LoadingFallback from '../../components/LoadingFallback';
@@ -21,7 +21,7 @@ const ScoreDisplay = ({ state }) => {
               <p><strong>Batting:</strong> {battingTeamName} | <strong>Bowling:</strong> {bowlingTeamName}</p>
             }
             <p style={{ fontSize: '1.8rem', fontWeight: 'bold', margin: '0.5rem 0' }}>Score: {state.score ?? 0} / {state.wickets ?? 0}</p>
-             <p style={{ fontSize: '1.2rem' }}>Overs: {state.overs ?? 0}.{state.balls ?? 0} / 5.0</p>
+             <p style={{ fontSize: '1.2rem' }}>Overs: {(() => { const o = state.overs ?? 0; const b = state.balls ?? 0; if (o >= 5) return '5.0'; return `${o}.${b}`; })()} / 5.0</p>
              <p>Super Over: #{state.superOver ?? 'N/A'}</p>
              {state.target != null && state.inningNumber === 2 && <p><strong>Target: {state.target}</strong></p>}
              {state.lastBallCommentary && <p style={{ marginTop: '0.5rem', fontStyle: 'italic', borderTop: '1px dashed #ccc', paddingTop: '0.5rem' }}>{state.lastBallCommentary}</p>}
@@ -123,6 +123,18 @@ function AdminLiveScoringPage() {
 
         return () => { isMounted = false; };
     }, [matchId]); // Fetch whenever matchId changes
+
+    // --- Auto-refresh when match is live: poll state so score and ball-by-ball update even if socket misses
+    useEffect(() => {
+        if (!matchId || !matchState || !['Live', 'InningsBreak'].includes(matchState.status)) return;
+        const interval = setInterval(async () => {
+            try {
+                const { data } = await api.get(`/admin/scoring/matches/${matchId}/state`);
+                if (data && data.matchId === parseInt(matchId)) setMatchState(data);
+            } catch (_) { /* ignore */ }
+        }, 5000); // every 5 seconds
+        return () => clearInterval(interval);
+    }, [matchId, matchState?.status]);
 
 
     // --- Effect to handle Socket Connection and State Updates ---
@@ -463,7 +475,10 @@ function AdminLiveScoringPage() {
 console.log("matchState====>",matchState)
     return (
         <div>
-            <h2>Live Scoring - Match {matchId}</h2>
+            <h2>Live Scoring — Match {matchId}</h2>
+            <p style={{ marginTop: '0.25rem', marginBottom: '1rem' }}>
+                <Link to="/admin/scoring/setup">← Back to Setup</Link>
+            </p>
             {error && <p className="error-message">{error}</p>}
             <ScoreDisplay state={matchState} />
 

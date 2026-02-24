@@ -1,0 +1,68 @@
+/* Admin Login: themed card using MPL design tokens */
+.admin-login-wrap {
+  max-width: 400px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background: var(--mpl-white);
+  border: 1px solid var(--mpl-border);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.admin-login-wrap h2 {
+  text-align: center;
+  margin: 0 0 1.5rem;
+  color: var(--mpl-heading);
+  font-size: 1.5rem;
+}
+
+.admin-login-wrap label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-weight: 500;
+  color: var(--mpl-text);
+}
+
+.admin-login-wrap input {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 1rem;
+  font-size: 1rem;
+  background: var(--mpl-grey-100);
+  border: 1px solid var(--mpl-border);
+  border-radius: 6px;
+  color: var(--mpl-text);
+}
+
+.admin-login-wrap input:focus {
+  outline: none;
+  border-color: var(--mpl-green);
+  box-shadow: 0 0 0 2px rgba(45, 138, 110, 0.2);
+}
+
+.admin-login-wrap .error-message {
+  margin-top: 1rem;
+}
+
+.admin-login-wrap button[type="submit"] {
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.75rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #fff;
+  background: var(--mpl-green);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.admin-login-wrap button[type="submit"]:hover:not(:disabled) {
+  background: var(--mpl-teal);
+}
+
+.admin-login-wrap button[type="submit"]:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}

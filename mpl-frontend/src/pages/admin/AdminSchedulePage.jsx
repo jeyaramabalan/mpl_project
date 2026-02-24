@@ -158,6 +158,9 @@ function AdminSchedulePage() {
     const [error, setError] = useState('');
     const [showAddForm, setShowAddForm] = useState(false);
     const [deleteMatchTarget, setDeleteMatchTarget] = useState(null);
+    const [showCreateScheduleModal, setShowCreateScheduleModal] = useState(false);
+    const [createScheduleForm, setCreateScheduleForm] = useState({ matches_per_team: 6, start_date: '', venue: 'Bowyer Park' });
+    const [createScheduleLoading, setCreateScheduleLoading] = useState(false);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -275,6 +278,29 @@ function AdminSchedulePage() {
         }
     };
 
+    const handleCreateScheduleSubmit = async (e) => {
+        e.preventDefault();
+        if (!selectedSeasonFilter || !createScheduleForm.matches_per_team) return;
+        setCreateScheduleLoading(true);
+        setError('');
+        try {
+            const payload = {
+                season_id: parseInt(selectedSeasonFilter),
+                matches_per_team: parseInt(createScheduleForm.matches_per_team),
+            };
+            if (createScheduleForm.start_date) payload.start_date = createScheduleForm.start_date;
+            if (createScheduleForm.venue) payload.venue = createScheduleForm.venue;
+            await api.post('/admin/matches/generate-schedule', payload);
+            setShowCreateScheduleModal(false);
+            setCreateScheduleForm({ matches_per_team: 6, start_date: '', venue: 'Bowyer Park' });
+            fetchMatches(selectedSeasonFilter);
+        } catch (err) {
+            setError(err.response?.data?.message || 'Failed to create schedule.');
+        } finally {
+            setCreateScheduleLoading(false);
+        }
+    };
+
 
     return (
         <div>
@@ -284,24 +310,88 @@ function AdminSchedulePage() {
 
             <ConfirmDialog open={!!deleteMatchTarget} title="Delete match" message={deleteMatchTarget ? `Delete match ID ${deleteMatchTarget.match_id} (${deleteMatchTarget.team1_name} vs ${deleteMatchTarget.team2_name})? This cannot be undone.` : ''} confirmLabel="Delete" cancelLabel="Cancel" variant="danger" onConfirm={handleDeleteMatch} onCancel={() => setDeleteMatchTarget(null)} />
 
+            {showCreateScheduleModal && (
+                <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={() => !createScheduleLoading && setShowCreateScheduleModal(false)}>
+                    <div className="modal-content mpl-card" style={{ padding: '1.5rem', minWidth: '320px', maxWidth: '90vw' }} onClick={e => e.stopPropagation()}>
+                        <h3 style={{ marginTop: 0 }}>Create schedule</h3>
+                        <p style={{ fontSize: '0.9rem', color: 'var(--mpl-grey-600)', marginBottom: '1rem' }}>Matches start at 8:00 AM London time, 30 minutes apart. A random super over (1–5) is assigned per match. Cannot create for a completed season.</p>
+                        <form onSubmit={handleCreateScheduleSubmit}>
+                            <div style={{ marginBottom: '1rem' }}>
+                                <label htmlFor="matches_per_team">Number of league matches per team *</label>
+                                <input
+                                    id="matches_per_team"
+                                    type="number"
+                                    min="1"
+                                    value={createScheduleForm.matches_per_team}
+                                    onChange={e => setCreateScheduleForm(prev => ({ ...prev, matches_per_team: e.target.value }))}
+                                    required
+                                    disabled={createScheduleLoading}
+                                    style={{ display: 'block', marginTop: '0.25rem', padding: '0.4rem', width: '100%' }}
+                                />
+                                <small style={{ color: 'var(--mpl-grey-600)' }}>For N teams, use a multiple of (N-1), e.g. 3 or 6 for 4 teams.</small>
+                            </div>
+                            <div style={{ marginBottom: '1rem' }}>
+                                <label htmlFor="start_date">Start date (optional)</label>
+                                <input
+                                    id="start_date"
+                                    type="date"
+                                    value={createScheduleForm.start_date}
+                                    onChange={e => setCreateScheduleForm(prev => ({ ...prev, start_date: e.target.value }))}
+                                    disabled={createScheduleLoading}
+                                    style={{ display: 'block', marginTop: '0.25rem', padding: '0.4rem', width: '100%' }}
+                                />
+                            </div>
+                            <div style={{ marginBottom: '1rem' }}>
+                                <label htmlFor="venue">Venue (optional)</label>
+                                <input
+                                    id="venue"
+                                    type="text"
+                                    value={createScheduleForm.venue}
+                                    onChange={e => setCreateScheduleForm(prev => ({ ...prev, venue: e.target.value }))}
+                                    disabled={createScheduleLoading}
+                                    placeholder="Bowyer Park"
+                                    style={{ display: 'block', marginTop: '0.25rem', padding: '0.4rem', width: '100%' }}
+                                />
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                                <button type="button" onClick={() => setShowCreateScheduleModal(false)} disabled={createScheduleLoading}>Cancel</button>
+                                <button type="submit" disabled={createScheduleLoading}>{createScheduleLoading ? 'Creating...' : 'Create schedule'}</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
             {/* Filter and Add Button */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                  <div>
                      <label htmlFor="season-filter">Filter by Season:</label>
                      <select
                          id="season-filter"
                          value={selectedSeasonFilter}
-                         onChange={(e) => { setSelectedSeasonFilter(e.target.value); setEditingMatch(null); setShowAddForm(false); }} // Reset forms on filter change
+                         onChange={(e) => { setSelectedSeasonFilter(e.target.value); setEditingMatch(null); setShowAddForm(false); setShowCreateScheduleModal(false); }}
                          disabled={loading}
                      >
                          <option value="">-- Select a Season --</option>
                          {seasons.map(s => <option key={s.season_id} value={s.season_id}>{s.name} ({s.year})</option>)}
                      </select>
                  </div>
-                <button onClick={() => { setShowAddForm(true); setEditingMatch(null); }} disabled={loading || formLoading}>
-                    + Add New Match
-                </button>
+                 <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button
+                        onClick={() => setShowCreateScheduleModal(true)}
+                        disabled={loading || !selectedSeasonFilter || (seasons.find(s => s.season_id == selectedSeasonFilter)?.status === 'Completed')}
+                        style={{ backgroundColor: 'var(--mpl-green, #2d8a6e)', color: '#fff' }}
+                    >
+                        Create schedule
+                    </button>
+                    <button onClick={() => { setShowAddForm(true); setEditingMatch(null); }} disabled={loading || formLoading}>
+                        + Add New Match
+                    </button>
+                 </div>
             </div>
+            {selectedSeasonFilter && seasons.find(s => s.season_id == selectedSeasonFilter)?.status === 'Completed' && (
+                <p style={{ marginBottom: '1rem', color: 'var(--mpl-grey-600, #666)', fontSize: '0.9rem' }}>Schedule cannot be created for a completed season.</p>
+            )}
 
             {/* Add/Edit Form Area */}
             {(showAddForm || editingMatch) && (
@@ -331,6 +421,7 @@ function AdminSchedulePage() {
                             <th>Team 2</th>
                             <th>Venue</th>
                             <th>Status</th>
+                            <th>Super Over</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -338,21 +429,23 @@ function AdminSchedulePage() {
                         {matches.map(match => (
                             <tr key={match.match_id}>
                                 <td>{match.match_id}</td>
-                                <td>{new Date(match.match_datetime).toLocaleString()}</td>
+                                <td>{new Date(match.match_datetime).toLocaleString('en-GB', { timeZone: 'Europe/London', dateStyle: 'short', timeStyle: 'short' })}</td>
                                 <td>{match.team1_name}</td>
                                 <td>{match.team2_name}</td>
                                 <td>{match.venue}</td>
                                 <td>{match.status}</td>
+                                <td>{match.super_over_number != null ? match.super_over_number : '–'}</td>
                                 <td>
-                                    <button
-                                        onClick={() => handleEditClick(match)}
-                                        disabled={formLoading || !!editingMatch} // Disable if already editing another
-                                        style={{ padding: '0.3em 0.6em', fontSize: '0.9rem', marginRight: '0.5rem' }}
-                                    >
-                                        Edit
-                                    </button>
-                                     {/* Allow deleting only scheduled matches */}
-                                     {match.status === 'Scheduled' && (
+                                    {match.status !== 'Completed' && (
+                                        <button
+                                            onClick={() => handleEditClick(match)}
+                                            disabled={formLoading || !!editingMatch}
+                                            style={{ padding: '0.3em 0.6em', fontSize: '0.9rem', marginRight: '0.5rem' }}
+                                        >
+                                            Edit
+                                        </button>
+                                    )}
+                                    {match.status === 'Scheduled' && (
                                         <button
                                             onClick={() => setDeleteMatchTarget(match)}
                                             disabled={loading || formLoading}
@@ -360,7 +453,7 @@ function AdminSchedulePage() {
                                         >
                                             Delete
                                         </button>
-                                     )}
+                                    )}
                                 </td>
                             </tr>
                         ))}
