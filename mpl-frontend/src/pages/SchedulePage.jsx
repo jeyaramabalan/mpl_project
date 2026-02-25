@@ -104,6 +104,7 @@ function SchedulePage() {
 
             {/* Fixtures table: date/time, match, venue, status, and link to details or View Live/View Setup */}
             {!loading && !error && fixtures.length > 0 ? (
+                <div className="table-responsive">
                 <table>
                     <thead>
                         <tr>
@@ -148,6 +149,7 @@ function SchedulePage() {
                         ))}
                     </tbody>
                 </table>
+                </div>
             ) : (
                 !loading && <p>No fixtures found matching the current filters.</p>
             )}

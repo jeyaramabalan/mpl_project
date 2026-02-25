@@ -450,11 +450,11 @@ const MatchDetailPage = () => {
                   <YAxis tick={{ fill: 'var(--mpl-text, #e8e8e8)', fontSize: 12 }} label={{ value: 'Runs', angle: -90, position: 'insideLeft', fill: 'var(--mpl-text-muted, #a0a0a0)' }} />
                   <Tooltip contentStyle={{ backgroundColor: 'var(--mpl-white)', color: 'var(--mpl-text)', border: '1px solid var(--mpl-grey-300)' }} labelFormatter={(v) => `Over ${v}`} />
                   <Legend wrapperStyle={{ fontSize: 12 }} verticalAlign="top" align="right" layout="horizontal" />
-                  <Line type="monotone" dataKey={wormData.name1} name={wormData.name1} stroke="var(--mpl-green, #2d8a6e)" strokeWidth={2} dot={{ r: 4, fill: "var(--mpl-green, #2d8a6e)" }} connectNulls={false} />
-                  <Line type="monotone" dataKey={wormData.name2} name={wormData.name2} stroke="var(--mpl-yellow, #f4c430)" strokeWidth={2} dot={{ r: 4, fill: "var(--mpl-yellow, #f4c430)" }} connectNulls={false} />
+                  <Line type="monotone" dataKey={wormData.name1} name={wormData.name1} stroke="var(--mpl-turquoise)" strokeWidth={2} dot={{ r: 4, fill: "var(--mpl-turquoise)" }} connectNulls={false} />
+                  <Line type="monotone" dataKey={wormData.name2} name={wormData.name2} stroke="var(--mpl-vanilla)" strokeWidth={2} dot={{ r: 4, fill: "var(--mpl-vanilla)" }} connectNulls={false} />
                   {[
-                    ...(processedScorecards.innings1.fallOfWickets || []).map((w) => ({ x: oversToDecimal(w.overs), y: wormYAt(wormData, oversToDecimal(w.overs), wormData.name1), fill: "var(--mpl-green, #2d8a6e)" })),
-                    ...(processedScorecards.innings2.fallOfWickets || []).map((w) => ({ x: oversToDecimal(w.overs), y: wormYAt(wormData, oversToDecimal(w.overs), wormData.name2), fill: "var(--mpl-yellow, #f4c430)" })),
+                    ...(processedScorecards.innings1.fallOfWickets || []).map((w) => ({ x: oversToDecimal(w.overs), y: wormYAt(wormData, oversToDecimal(w.overs), wormData.name1), fill: "var(--mpl-turquoise)" })),
+                    ...(processedScorecards.innings2.fallOfWickets || []).map((w) => ({ x: oversToDecimal(w.overs), y: wormYAt(wormData, oversToDecimal(w.overs), wormData.name2), fill: "var(--mpl-vanilla)" })),
                   ].map((dot, i) => (
                     <ReferenceDot key={`wicket-${i}`} x={dot.x} y={dot.y} r={8} fill={dot.fill} stroke="var(--mpl-danger, #c53030)" strokeWidth={2} />
                   ))}

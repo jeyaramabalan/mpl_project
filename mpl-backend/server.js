@@ -12,6 +12,7 @@ const pool = require('./config/db'); // Database connection pool (ensures DB con
 const initializeSocket = require('./socket/socketHandler'); // Socket.IO event handling logic
 const { protect } = require('./middleware/authMiddleware'); // Admin authentication middleware
 const leaderboardRoutes = require('./routes/leaderboard');
+const recordsRoutes = require('./routes/records');
 // --- Route Imports ---
 // Public Routes (Accessible without login)
 const playerRoutes = require('./routes/players');
@@ -75,6 +76,7 @@ app.use('/api/seasons', publicSeasonRoutes);
 // Mount Admin Authentication Routes (Login is public)
 app.use('/api/admin/auth', adminAuthRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
+app.use('/api/records', recordsRoutes);
 
 // Mount Protected Admin Routes (Apply 'protect' middleware here globally)
 app.use('/api/admin/seasons', protect, adminSeasonRoutes);

@@ -36,7 +36,7 @@
 
 .admin-login-wrap input:focus {
   outline: none;
-  border-color: var(--mpl-green);
+  border-color: var(--mpl-turquoise);
   box-shadow: 0 0 0 2px rgba(45, 138, 110, 0.2);
 }
 
@@ -51,7 +51,8 @@
   font-size: 1.1rem;
   font-weight: 600;
   color: #fff;
-  background: var(--mpl-green);
+  background: var(--mpl-turquoise);
+  color: #ffffff;
   border: none;
   border-radius: 6px;
   cursor: pointer;
@@ -59,7 +60,8 @@
 }
 
 .admin-login-wrap button[type="submit"]:hover:not(:disabled) {
-  background: var(--mpl-teal);
+  background: var(--mpl-turquoise-hover);
+  color: #ffffff;
 }
 
 .admin-login-wrap button[type="submit"]:disabled {

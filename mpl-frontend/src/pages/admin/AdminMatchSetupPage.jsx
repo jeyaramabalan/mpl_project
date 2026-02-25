@@ -124,11 +124,16 @@ function AdminMatchSetupPage() {
                 >
                     <option value="">-- Select a Match --</option>
                     {matches.length > 0 ? (
-                        matches.map(match => (
-                            <option key={match.match_id} value={match.match_id}>
-                                {new Date(match.match_datetime).toLocaleDateString()} - {match.team1_name} vs {match.team2_name}
-                            </option>
-                        ))
+                        matches.map(match => {
+                            const dt = new Date(match.match_datetime);
+                            const timeStr = dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                            const matchNum = match.match_number ?? match.matchNumber ?? match.match_id;
+                            return (
+                                <option key={match.match_id} value={match.match_id}>
+                                    Match {matchNum} · {timeStr} - {match.team1_name} vs {match.team2_name}
+                                </option>
+                            );
+                        })
                     ) : (
                         <option value="" disabled>No scheduled matches found</option>
                     )}
@@ -138,7 +143,7 @@ function AdminMatchSetupPage() {
             {/* Setup Form (shown only when a match is selected) */}
             {selectedMatchDetails && (
                 <form onSubmit={handleSubmit}>
-                    <h3>Setup for: {selectedMatchDetails.team1_name} vs {selectedMatchDetails.team2_name}</h3>
+                    <h3>Setup for Match {selectedMatchDetails.match_number ?? selectedMatchDetails.matchNumber ?? '—'}: {selectedMatchDetails.team1_name} vs {selectedMatchDetails.team2_name}</h3>
 
                     {/* Toss Winner Selection */}
                     <div>

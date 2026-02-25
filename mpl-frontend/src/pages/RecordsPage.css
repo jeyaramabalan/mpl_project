@@ -1,0 +1,118 @@
+/* Records page */
+.records-page {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.records-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.records-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.records-filter-group label {
+  font-weight: 600;
+  color: var(--mpl-heading);
+}
+
+.records-filter-group select {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--mpl-grey-300);
+  border-radius: 6px;
+  background: var(--mpl-white);
+  color: var(--mpl-text);
+  font-size: 1rem;
+  min-width: 160px;
+}
+
+.records-section {
+  margin-bottom: 2.5rem;
+}
+
+.records-section-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--mpl-heading);
+  margin: 0 0 1rem 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--mpl-turquoise);
+}
+
+.records-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
+
+/* Team Records: two equal columns so the few blocks use full width (left / right) */
+.records-grid--team {
+  grid-template-columns: 1fr 1fr;
+}
+
+.records-block {
+  background: var(--mpl-white);
+  border: 1px solid var(--mpl-grey-200);
+  border-radius: 8px;
+  padding: 1rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.records-block-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--mpl-heading);
+  margin: 0 0 0.75rem 0;
+}
+
+.records-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.records-table th,
+.records-table td {
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+  border-bottom: 1px solid var(--mpl-grey-200);
+}
+
+.records-table th {
+  background: var(--mpl-gunmetal);
+  color: #fff;
+  font-weight: 600;
+}
+
+[data-theme="dark"] .records-table th {
+  color: #fff;
+}
+
+.records-table td:first-child {
+  font-weight: 600;
+  color: var(--mpl-text-muted);
+  width: 2rem;
+}
+
+.records-table a {
+  color: var(--mpl-turquoise);
+  text-decoration: none;
+}
+
+.records-table a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+  .records-grid,
+  .records-grid--team {
+    grid-template-columns: 1fr;
+  }
+}

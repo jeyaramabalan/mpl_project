@@ -1,7 +1,7 @@
 /* ============================================================
    Player Detail Page styles (MPL theme)
    Two-column layout: player profile (left), statistics cards (right).
-   Themed table headers: green for main headers, navy/teal for sub-headers.
+   Themed table headers: green for main headers, green-light for sub-headers.
    ============================================================ */
 
 .player-detail-page {
@@ -51,7 +51,7 @@
     height: 100%;
     border-radius: 50%;
     object-fit: cover;
-    border: 3px solid var(--mpl-green, #2d8a6e);
+    border: 3px solid var(--mpl-turquoise);
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
@@ -59,14 +59,14 @@
     width: 100%;
     height: 100%;
     border-radius: 50%;
-    background: var(--mpl-green, #2d8a6e);
+    background: var(--mpl-turquoise);
     color: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 3rem;
     font-weight: 700;
-    border: 3px solid var(--mpl-green-light, #3db39e);
+    border: 3px solid var(--mpl-turquoise-hover);
 }
 
 /* --- Player Details List: Role, Team, Impact, Price --- */
@@ -119,7 +119,7 @@
 }
 
 .stats-card-header {
-    background-color: var(--mpl-green, #2d8a6e);
+    background-color: var(--mpl-turquoise);
     color: #fff;
     padding: 0.75rem 1rem;
     font-weight: 600;
@@ -140,7 +140,7 @@
     gap: 1rem;
 }
 
-/* --- Sub-tables within cards: themed headers (navy/teal instead of grey) --- */
+/* --- Sub-tables within cards: themed headers (green-light) --- */
 .stats-sub-table {
     width: 100%;
     border-collapse: collapse;
@@ -148,7 +148,7 @@
 }
 
 .stats-sub-table thead {
-    background-color: var(--mpl-teal, #2a9d8f);
+    background-color: var(--mpl-turquoise-hover);
 }
 
 .stats-sub-table th {
@@ -156,7 +156,7 @@
     text-align: center;
     font-weight: 600;
     color: #fff;
-    border: 1px solid var(--mpl-green-light, #3db39e);
+    border: 1px solid var(--mpl-turquoise-hover);
     font-size: 0.9rem;
 }
 
@@ -220,7 +220,7 @@
     padding: 0.75rem 1rem;
     background-color: var(--mpl-grey-100, #f5f5f5);
     border-radius: 6px;
-    border-left: 4px solid var(--mpl-green, #2d8a6e);
+    border-left: 4px solid var(--mpl-turquoise);
 }
 
 .impact-icon {
@@ -229,7 +229,7 @@
 
 .impact-text {
     font-weight: 600;
-    color: var(--mpl-green, #2d8a6e);
+    color: var(--mpl-turquoise);
     font-size: 1rem;
 }
 

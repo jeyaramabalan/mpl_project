@@ -115,16 +115,32 @@ function calculateImpactPoints(ballData) {
 exports.getMatchesForSetup = async (req, res, next) => {
     console.log('--- ENTERING getMatchesForSetup ---'); // Log Entry
     try {
+        // Match number = position in full season (all statuses) by match_datetime, so completed Match 1 won't shift numbers
         const query = `
-            SELECT m.match_id, m.match_datetime, m.super_over_number, t1.name as team1_name, t2.name as team2_name, t1.team_id as team1_id, t2.team_id as team2_id
+            SELECT m.match_id, m.season_id, m.match_datetime, m.super_over_number, t1.name as team1_name, t2.name as team2_name, t1.team_id as team1_id, t2.team_id as team2_id,
+                (SELECT COUNT(*) FROM matches m2
+                 WHERE m2.season_id = m.season_id
+                   AND (m2.match_datetime < m.match_datetime OR (m2.match_datetime = m.match_datetime AND m2.match_id <= m.match_id))
+                ) AS match_number
             FROM matches m
             JOIN teams t1 ON m.team1_id = t1.team_id
             JOIN teams t2 ON m.team2_id = t2.team_id
             WHERE m.status = 'Scheduled'
-            ORDER BY m.match_datetime ASC
+            ORDER BY m.season_id ASC, m.match_datetime ASC
         `;
         console.log('--- Executing setup list query ---'); // Log Query Execution
-        const [matches] = await pool.query(query);
+        const [rows] = await pool.query(query);
+        const matches = rows.map((row) => ({
+            match_id: row.match_id,
+            season_id: row.season_id,
+            match_datetime: row.match_datetime,
+            super_over_number: row.super_over_number,
+            team1_name: row.team1_name,
+            team2_name: row.team2_name,
+            team1_id: row.team1_id,
+            team2_id: row.team2_id,
+            match_number: row.match_number != null ? Number(row.match_number) : null,
+        }));
         console.log(`--- Query finished, found ${matches.length} matches ---`); // Log Query Result
         res.json(matches);
         console.log('--- Response sent from getMatchesForSetup ---'); // Log Response Sent

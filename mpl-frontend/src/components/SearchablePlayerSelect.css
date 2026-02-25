@@ -24,7 +24,7 @@
 
 .searchable-player-select-trigger:focus {
   outline: none;
-  border-color: var(--mpl-green);
+  border-color: var(--mpl-turquoise);
 }
 
 .searchable-player-select-value {
@@ -87,7 +87,8 @@
 }
 
 .searchable-player-select-option.selected {
-  background: var(--mpl-green);
+  background: var(--mpl-turquoise);
+  color: #ffffff;
   color: #fff;
 }
 

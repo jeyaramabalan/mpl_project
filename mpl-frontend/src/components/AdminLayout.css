@@ -8,7 +8,7 @@
 .admin-sidebar {
   width: 220px;
   flex-shrink: 0;
-  background: var(--mpl-navy, #0f2847);
+  background: var(--mpl-gunmetal);
   color: #fff;
   padding: 1.25rem 0;
 }
@@ -41,7 +41,7 @@
 }
 
 .admin-nav-link.active {
-  background: var(--mpl-green, #2d8a6e);
+  background: var(--mpl-turquoise);
   color: #fff;
 }
 
@@ -65,7 +65,7 @@
 }
 
 .admin-breadcrumb-link {
-  color: var(--mpl-green, #2d8a6e);
+  color: var(--mpl-turquoise);
   text-decoration: none;
 }
 

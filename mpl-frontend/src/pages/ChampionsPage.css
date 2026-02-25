@@ -106,7 +106,7 @@
 }
 
 .champions-table th {
-  background-color: var(--mpl-navy);
+  background-color: var(--mpl-gunmetal);
   color: var(--mpl-white);
   font-weight: 600;
 }
@@ -117,7 +117,7 @@
 }
 
 .champions-table .th-winner {
-  background-color: var(--mpl-navy-header, #0d2340);
+  background-color: var(--mpl-gunmetal);
 }
 
 .champions-table tbody tr.row-even td {
@@ -155,26 +155,38 @@
 }
 
 .champions-team-link {
-  color: var(--mpl-green, #2d8a6e);
+  color: var(--mpl-turquoise);
   font-weight: 500;
   text-decoration: none;
 }
 
 .champions-team-link:hover {
   text-decoration: underline;
-  color: var(--mpl-green-light, #3db39e);
+  color: var(--mpl-turquoise-hover);
+}
+
+/* Winner & Runner columns: same text color as Season (first column); View final stays link color */
+.champions-table .winner-cell .champions-team-link,
+.champions-table .runner-cell .champions-team-link {
+  color: var(--mpl-heading);
+}
+
+.champions-table .winner-cell .champions-team-link:hover,
+.champions-table .runner-cell .champions-team-link:hover {
+  color: var(--mpl-heading);
+  text-decoration: underline;
 }
 
 .champions-view-final {
   font-size: 0.9rem;
-  color: var(--mpl-teal, #2a9d8f);
+  color: var(--mpl-turquoise);
   text-decoration: none;
   font-weight: 500;
 }
 
 .champions-view-final:hover {
   text-decoration: underline;
-  color: var(--mpl-green-light, #3db39e);
+  color: var(--mpl-turquoise-hover);
 }
 
 [data-theme="dark"] .champions-table th {
@@ -233,17 +245,25 @@
     margin-right: 0.5rem;
   }
 
+  .champions-card-row .champions-team-link {
+    color: var(--mpl-heading);
+  }
+  .champions-card-row .champions-team-link:hover {
+    color: var(--mpl-heading);
+    text-decoration: underline;
+  }
+
   .champions-card-btn {
     display: inline-block;
     margin-top: 0.25rem;
     font-size: 0.9rem;
-    color: var(--mpl-teal);
+    color: var(--mpl-turquoise-hover);
     font-weight: 500;
     text-decoration: none;
   }
 
   .champions-card-btn:hover {
     text-decoration: underline;
-    color: var(--mpl-green-light);
+    color: var(--mpl-turquoise-hover);
   }
 }

@@ -242,7 +242,7 @@ function HomePage() {
                 </div>
             </section>
 
-            {/* Next Match: two panels side-by-side — "Next Match:" label (grey) and match details (teal) */}
+            {/* Next Match: two panels side-by-side — "Next Match:" label (grey) and match details (green) */}
             <section className="home-section home-next-match-wrap">
                 <div className="home-next-match-label-box">
                     <span className="home-next-match-label">Next Match:</span>

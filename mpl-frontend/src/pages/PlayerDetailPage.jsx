@@ -24,10 +24,10 @@ const CHART_COLORS = {
     batting: '#42A5F5',   /* Sky Blue – Bat */
     bowling: '#EF5350',   /* Soft Red – Bowl */
     fielding: '#66BB6A',  /* Fresh Green – Field */
-    runs: 'var(--mpl-green, #2d8a6e)',
-    totalImpact: 'var(--mpl-navy, #0f2847)',
-    wickets: 'var(--mpl-teal, #2a9d8f)',
-    economy: 'var(--mpl-green-light, #3db39e)',
+    runs: 'var(--mpl-turquoise)',
+    totalImpact: 'var(--mpl-gunmetal)',
+    wickets: 'var(--mpl-turquoise-hover)',
+    economy: 'var(--mpl-turquoise-hover)',
 };
 
 // Cricket decimal overs: e.g. 2.3 = 2 overs 3 balls. Convert to actual overs for economy.

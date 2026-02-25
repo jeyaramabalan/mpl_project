@@ -25,7 +25,7 @@
     margin: 0 0 0.85rem 0;
     padding-bottom: 0.5rem;
     border-bottom: 2px solid var(--mpl-grey-300, #e0e0e0);
-    color: var(--mpl-navy, #0f2847);
+    color: var(--mpl-gunmetal);
 }
 
 .rules-list {
@@ -51,17 +51,17 @@
 }
 
 .rules-list li > strong {
-    color: var(--mpl-navy, #0f2847);
+    color: var(--mpl-gunmetal);
 }
 
-/* Optional: subtle accent per section */
-.rules-block--run .rules-block__title { border-bottom-color: #66bb6a; }
-.rules-block--wide .rules-block__title { border-bottom-color: #f4c430; }
-.rules-block--noball .rules-block__title { border-bottom-color: #ef5350; }
-.rules-block--boundary .rules-block__title { border-bottom-color: #42a5f5; }
-.rules-block--super .rules-block__title { border-bottom-color: #ff9800; }
-.rules-block--bowling .rules-block__title { border-bottom-color: #9c27b0; }
-.rules-block--stumping .rules-block__title { border-bottom-color: #607d8b; }
+/* Section accents: navy and green only */
+.rules-block--run .rules-block__title { border-bottom-color: var(--mpl-turquoise); }
+.rules-block--wide .rules-block__title { border-bottom-color: var(--mpl-turquoise-hover); }
+.rules-block--noball .rules-block__title { border-bottom-color: var(--mpl-gunmetal); }
+.rules-block--boundary .rules-block__title { border-bottom-color: var(--mpl-turquoise); }
+.rules-block--super .rules-block__title { border-bottom-color: var(--mpl-turquoise-hover); }
+.rules-block--bowling .rules-block__title { border-bottom-color: var(--mpl-gunmetal); }
+.rules-block--stumping .rules-block__title { border-bottom-color: var(--mpl-grey-400, #555); }
 
 @media (max-width: 600px) {
     .rules-block {

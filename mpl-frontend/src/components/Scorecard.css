@@ -61,14 +61,14 @@
     min-width: 120px;
 }
 .scorecard-table .player-name a {
-    color: #a0a0ff;
+    color: var(--mpl-turquoise, #136446);
     text-decoration: none;
     font-size: inherit;
     font-weight: inherit;
 }
 .scorecard-table .player-name a:hover {
     text-decoration: underline;
-    color: #c0c0ff;
+    color: var(--mpl-turquoise-hover, #1FA774);
 }
 
 .scorecard-table .dismissal {
@@ -155,10 +155,10 @@
   background-color: #e9e9e9;
 }
 [data-theme="light"] .scorecard-table .player-name a {
-  color: #0000d0;
+  color: var(--mpl-turquoise, #136446);
 }
 [data-theme="light"] .scorecard-table .player-name a:hover {
-  color: #0000ff;
+  color: var(--mpl-turquoise-hover, #0f5235);
 }
 [data-theme="light"] .scorecard-table .dismissal {
   color: #555;

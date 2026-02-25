@@ -33,7 +33,7 @@
 }
 
 .admin-dashboard-card:hover {
-  border-color: var(--mpl-green);
+  border-color: var(--mpl-turquoise);
   box-shadow: 0 4px 12px rgba(45, 138, 110, 0.15);
 }
 
@@ -47,7 +47,7 @@
 .admin-dashboard-card-count {
   font-size: 1.5rem;
   font-weight: 700;
-  color: var(--mpl-green);
+  color: var(--mpl-turquoise);
   margin-bottom: 0.25rem;
 }
 
@@ -93,7 +93,7 @@
 
 .admin-dashboard-list a:hover {
   background: var(--mpl-grey-100);
-  border-color: var(--mpl-green);
+  border-color: var(--mpl-turquoise);
   color: var(--mpl-heading);
 }
 

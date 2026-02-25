@@ -1,11 +1,11 @@
 /* ============================================================
    MPL Footer styles
-   Dark blue bar; social icons (left), Contact/FAQ (center), copyright (right).
+   Gunmetal bar; social icons (left), Contact/Rules (center), copyright (right).
    ============================================================ */
 
-/* Footer bar: full width, navy, pushed to bottom via margin-top: auto on parent flex */
+/* Footer bar: full width, gunmetal, pushed to bottom via margin-top: auto on parent flex */
 .mpl-footer {
-  background-color: var(--mpl-navy-header, #0d2340);
+  background-color: var(--mpl-gunmetal);
   color: #fff;
   width: 100%;
   margin-top: auto;
@@ -45,8 +45,12 @@
   transition: background 0.2s, color 0.2s;
 }
 .mpl-footer-icon:hover {
-  background: var(--mpl-yellow, #f4c430);
-  color: var(--mpl-navy, #0f2847);
+  background: var(--mpl-turquoise);
+  color: #fff;
+}
+.mpl-footer-icon:focus-visible {
+  outline: 2px solid var(--mpl-vanilla);
+  outline-offset: 2px;
 }
 
 /* Contact Us | FAQ links */
@@ -62,7 +66,7 @@
   text-decoration: none;
 }
 .mpl-footer-links a:hover {
-  color: var(--mpl-yellow);
+  color: var(--mpl-vanilla);
   text-decoration: underline;
 }
 

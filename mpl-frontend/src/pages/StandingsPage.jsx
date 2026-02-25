@@ -94,14 +94,7 @@ function StandingsPage() {
                     <table className="standings-table">
                         <thead>
                             <tr>
-                                <th>Pos</th>
-                                <th>Team</th>
-                                <th>Played</th>
-                                <th>Won</th>
-                                <th>Lost</th>
-                                <th>NR</th> {/* Added Header */}
-                                <th>NRR</th>
-                                <th>Pts</th>
+                                <th>Pos</th><th>Team</th><th>Played</th><th>Won</th><th>Lost</th><th>NR</th><th>NRR</th><th>Pts</th>
                             </tr>
                         </thead>
                         <tbody>

@@ -18,7 +18,7 @@
   color: var(--mpl-heading);
 }
 
-/* Tab buttons: grey default, yellow when active */
+/* Tab buttons: grey default, green when active */
 .leaderboard-page .tabs {
   display: flex;
   flex-wrap: wrap;
@@ -49,9 +49,9 @@
 }
 
 .leaderboard-page .tabs button.active {
-  background: var(--mpl-yellow);
-  color: var(--mpl-navy);
-  border-color: var(--mpl-yellow);
+  background: var(--mpl-turquoise);
+  color: #ffffff;
+  border-color: var(--mpl-turquoise);
   font-weight: 600;
 }
 
@@ -87,7 +87,7 @@
 }
 
 .leaderboard-table th {
-  background-color: var(--mpl-navy);
+  background-color: var(--mpl-gunmetal);
   color: var(--mpl-white);
   font-weight: 600;
   white-space: nowrap;
@@ -123,13 +123,13 @@
 }
 
 .leaderboard-table td a {
-  color: var(--mpl-green);
+  color: var(--mpl-turquoise);
   text-decoration: none;
   font-weight: 500;
 }
 .leaderboard-table td a:hover {
   text-decoration: underline;
-  color: var(--mpl-green-light);
+  color: var(--mpl-turquoise-hover);
 }
 
 /* Right-align numeric columns; Rank and Player stay left/center */
@@ -159,7 +159,21 @@
     font-size: 0.85em;
   }
   .leaderboard-page .tabs button {
-    padding: 0.45rem 0.75rem;
+    padding: 0.6rem 0.75rem;
     font-size: 0.9em;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
+}
+
+/* Horizontal scroll for leaderboard table on narrow viewports */
+.leaderboard-page .table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.leaderboard-page .leaderboard-table {
+  min-width: 520px;
 }

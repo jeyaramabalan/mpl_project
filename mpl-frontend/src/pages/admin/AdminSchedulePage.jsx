@@ -380,7 +380,7 @@ function AdminSchedulePage() {
                     <button
                         onClick={() => setShowCreateScheduleModal(true)}
                         disabled={loading || !selectedSeasonFilter || (seasons.find(s => s.season_id == selectedSeasonFilter)?.status === 'Completed')}
-                        style={{ backgroundColor: 'var(--mpl-green, #2d8a6e)', color: '#fff' }}
+                        style={{ backgroundColor: 'var(--mpl-turquoise)', color: '#fff' }}
                     >
                         Create schedule
                     </button>

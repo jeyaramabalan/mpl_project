@@ -19,7 +19,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #1a4d3a 0%, #2d8a6e 40%, #1e6b52 100%);
+  background: linear-gradient(135deg, #1a1e1c 0%, #2E3532 40%, #3a403d 100%);
   background-size: cover;
   background-position: center;
   margin-bottom: 2rem;
@@ -31,7 +31,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: rgba(15, 40, 71, 0.45);
+  background: rgba(46, 53, 50, 0.45);
   pointer-events: none;
 }
 
@@ -163,7 +163,7 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: var(--mpl-green, #2d8a6e);
+  background: var(--mpl-turquoise);
   color: #fff;
   font-size: 0.75rem;
   font-weight: 700;
@@ -203,7 +203,7 @@
   font-size: 0.9rem;
 }
 
-/* Decorative timeline: grey dots and yellow line between match cards */
+/* Decorative timeline: grey dots and green line between match cards */
 .home-matches-connector {
   display: flex;
   align-items: center;
@@ -222,7 +222,7 @@
 .home-connector-line {
   width: 60px;
   height: 3px;
-  background: var(--mpl-yellow, #f4c430);
+  background: var(--mpl-turquoise);
 }
 
 .home-view-schedule-wrap {
@@ -241,7 +241,7 @@
   padding: 1rem;
 }
 
-/* --- Next Match: label box (grey) + value box (teal) side by side --- */
+/* --- Next Match: label box (grey) + value box (green) side by side --- */
 .home-next-match-wrap {
   display: flex;
   flex-wrap: wrap;
@@ -274,9 +274,9 @@
 .home-next-match-value-box {
   flex: 1 1 280px;
   padding: 1rem 1.5rem;
-  background: var(--mpl-teal, #2a9d8f);
+  background: var(--mpl-turquoise);
   color: #fff;
-  border: 1px solid var(--mpl-green-light);
+  border: 1px solid var(--mpl-turquoise-hover);
   border-radius: 0 8px 8px 0;
 }
 
@@ -402,7 +402,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--mpl-green, #2d8a6e);
+  background: var(--mpl-turquoise);
   color: #fff;
   font-size: clamp(2rem, 8vw, 4rem);
   font-weight: 700;
@@ -413,7 +413,7 @@
   color: inherit;
 }
 .home-news-card-linked:hover .home-news-title {
-  color: var(--mpl-green, #2d8a6e);
+  color: var(--mpl-turquoise);
 }
 
 .home-news-title {
@@ -472,10 +472,32 @@
 
   .home-next-match-value-box {
     border-radius: 0 0 8px 8px;
-    border-left: 1px solid var(--mpl-green-light);
+    border-left: 1px solid var(--mpl-turquoise-hover);
   }
 
   .home-quick-grid {
     grid-template-columns: 1fr;
+  }
+
+  .home-view-schedule-wrap {
+    width: 100%;
+  }
+  .home-view-schedule {
+    display: block;
+    width: 100%;
+    min-height: 44px;
+    box-sizing: border-box;
+  }
+}
+
+@media (max-width: 480px) {
+  .home-match-card .home-match-btn {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .home-quick-card {
+    min-height: 80px;
   }
 }

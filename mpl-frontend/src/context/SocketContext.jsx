@@ -2,9 +2,10 @@
 import React, { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react';
 import { io } from 'socket.io-client';
 
-// Determine the base URL for the Socket.IO server from environment variables or use a default
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'https://mpl.supersalessoft.com';
-//const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5173';
+// Socket server: VITE_SOCKET_URL, or API origin without /api (so local dev with VITE_API_URL=http://localhost:5000/api works)
+const apiUrl = import.meta.env.VITE_API_URL || '';
+const apiOrigin = apiUrl.replace(/\/api\/?$/, '') || undefined;
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || apiOrigin || 'https://mpl.supersalessoft.com';
 console.log(`Socket Context configured for URL: ${SOCKET_URL}`);
 
 // Create the React Context object

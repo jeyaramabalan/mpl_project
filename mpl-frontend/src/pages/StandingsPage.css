@@ -47,7 +47,7 @@
 }
 
 .standings-table th {
-  background-color: var(--mpl-navy);
+  background-color: var(--mpl-gunmetal);
   color: var(--mpl-white);
   font-weight: 600;
   white-space: nowrap;
