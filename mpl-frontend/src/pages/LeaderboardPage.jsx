@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
+import { toList } from '../utils/apiResponse';
 import LoadingFallback from '../components/LoadingFallback';
 import './LeaderboardPage.css';
 
@@ -141,10 +142,13 @@ function LeaderboardPage() {
             setLoadingSeasons(true);
             try {
                 const { data } = await api.get('/seasons/public');
-                const sortedSeasons = [...data].sort((a, b) => b.season_id - a.season_id);
+                const sortedSeasons = [...toList(data)].sort((a, b) => (b.season_id || 0) - (a.season_id || 0));
                 setSeasons(sortedSeasons);
                 if (sortedSeasons.length > 0) {
-                    setSelectedSeason(sortedSeasons[0].season_id);
+                    const firstId = sortedSeasons[0].season_id;
+                    const num = Number(firstId);
+                    if (Number.isInteger(num)) setSelectedSeason(num);
+                    else setSelectedSeason('all');
                 } else {
                     setSelectedSeason('all');
                 }
@@ -165,11 +169,13 @@ function LeaderboardPage() {
             // setError(''); 
             setLeaderboardData({ batting: null, bowling: null, impact: null });
             try {
-                const { data } = await api.get(`/leaderboard?season_id=${selectedSeason}`);
+                const params = selectedSeason === 'all' ? { season_id: 'all' } : { season_id: selectedSeason };
+                const { data } = await api.get('/leaderboard', { params });
+                const d = data && typeof data === 'object' ? (data.data && typeof data.data === 'object' ? data.data : data) : {};
                 setLeaderboardData({
-                    batting: data.batting || [],
-                    bowling: data.bowling || [],
-                    impact: data.impact || []
+                    batting: toList(d.batting),
+                    bowling: toList(d.bowling),
+                    impact: toList(d.impact)
                 });
             } catch (err) {
                 setError(`Failed to load leaderboards.`);
@@ -198,11 +204,15 @@ function LeaderboardPage() {
                         onChange={(e) => setSelectedSeason(e.target.value)}
                         disabled={loadingData}
                     >
-                        {seasons.map(s => (
-                            <option key={s.season_id} value={s.season_id}>
-                                {s.name} ({s.year})
-                            </option>
-                        ))}
+                        {seasons.map(s => {
+                            const id = s.season_id != null ? Number(s.season_id) : null;
+                            if (id == null || !Number.isInteger(id)) return null;
+                            return (
+                                <option key={id} value={id}>
+                                    {s.name} ({s.year})
+                                </option>
+                            );
+                        })}
                         <option value="all">
                             All-Time Stats
                         </option>

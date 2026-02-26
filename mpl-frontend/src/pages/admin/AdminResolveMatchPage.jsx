@@ -1,6 +1,7 @@
 // src/pages/admin/AdminResolveMatchPage.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
+import { toList } from '../../utils/apiResponse';
 import LoadingFallback from '../../components/LoadingFallback';
 import SearchablePlayerSelect from '../../components/SearchablePlayerSelect';
 
@@ -27,11 +28,13 @@ function AdminResolveMatchPage() {
             setLoadingSeasons(true);
             try {
                 const { data } = await api.get('/admin/seasons');
-                const sortedSeasons = [...data].sort((a, b) => b.season_id - a.season_id); // or sort by start_date
+                const sortedSeasons = [...toList(data)].sort((a, b) => (b.season_id || 0) - (a.season_id || 0));
                 setSeasons(sortedSeasons);
 
                 if (sortedSeasons.length > 0) {
-                    setSelectedSeason(sortedSeasons[0].season_id); // Reliably selects latest
+                    const firstId = sortedSeasons[0].season_id;
+                    const num = Number(firstId);
+                    if (Number.isInteger(num)) setSelectedSeason(num);
                 }
             } catch (err) {
                 setError('Failed to load seasons.');
@@ -57,11 +60,17 @@ function AdminResolveMatchPage() {
                 // Query multiple statuses if your API supports it, otherwise fetch all and filter locally
                 // status: statusesToFetch.join(',') // Example if API supports comma-separated statuses
             };
-             // Fetch ALL matches for the season and filter locally for now
-             const { data } = await api.get('/matches', { params });
+             const seasonNum = parseInt(selectedSeason, 10);
+             if (!Number.isInteger(seasonNum)) {
+                 setMatches([]);
+                 setLoadingMatches(false);
+                 return;
+             }
+             const { data } = await api.get('/matches', { params: { season_id: seasonNum } });
+             const list = toList(data);
 
              // Filter for matches that might need resolution
-             const filteredMatches = data.filter(m =>
+             const filteredMatches = list.filter(m =>
                 (m.status === 'Completed' && m.winner_team_id === null) || // Tied matches
                  m.status === 'Abandoned' || // Already abandoned
                  m.status === 'Live' || // Stuck Live?

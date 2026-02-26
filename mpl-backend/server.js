@@ -35,12 +35,15 @@ const adminMatchRoutes = require('./routes/admin/matchesAdmin');
 const app = express(); // Create Express application instance
 const server = http.createServer(app); // Create HTTP server instance using the Express app
 
+// CORS origin: FRONTEND_URL wins; else production URL when NODE_ENV=production, else localhost for dev
+const corsOrigin = process.env.FRONTEND_URL
+    || (process.env.NODE_ENV === 'production' ? 'https://mpl.supersalessoft.com' : 'http://localhost:5173');
+
 // Initialize Socket.IO server, attaching it to the HTTP server
 const io = new Server(server, {
     // Configure CORS for Socket.IO connections to allow requests from the frontend URL
     cors: {
-        origin: process.env.FRONTEND_URL || "http://localhost:5173", // Allow frontend origin
-        //origin: process.env.FRONTEND_URL || "https://mpl.supersalessoft.com", // Allow frontend origin
+        origin: corsOrigin,
         methods: ["GET", "POST"] // Allowed HTTP methods for CORS negotiation
     },
     // Optional: Adjust ping settings if needed for network stability
@@ -50,9 +53,8 @@ const io = new Server(server, {
 
 
 // --- Global Middleware ---
-// Enable CORS for all API routes (restrict origin in production)
-app.use(cors({ origin: process.env.FRONTEND_URL || "http://localhost:5173" }));
-//app.use(cors({ origin: process.env.FRONTEND_URL || "https://mpl.supersalessoft.com" }));
+// Enable CORS for all API routes (same origin as Socket.IO above)
+app.use(cors({ origin: corsOrigin }));
 
 // Parse incoming JSON request bodies
 app.use(express.json());
@@ -124,11 +126,11 @@ const PORT = process.env.PORT || 5000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
 server.listen(PORT, () => {
+    const apiBase = process.env.BACKEND_URL || (NODE_ENV === 'production' ? 'https://mpl.supersalessoft.com' : `http://localhost:${PORT}`);
     console.log(`-------------------------------------------------------`);
     console.log(` MPL Server running on port ${PORT} in ${NODE_ENV} mode`);
-    //console.log(` API available at http://localhost:5000/api`);
-    console.log(` API available at ${process.env.BACKEND_URL || `http://localhost:${PORT}`}/api`);
-    console.log(` Frontend expected at ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
+    console.log(` API available at ${apiBase}/api`);
+    console.log(` Frontend expected at ${corsOrigin}`);
     console.log(`-------------------------------------------------------`);
 });
 

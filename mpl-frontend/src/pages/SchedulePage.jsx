@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
+import { toList } from '../utils/apiResponse';
 import LoadingFallback from '../components/LoadingFallback';
 import './SchedulePage.css';
 
@@ -20,11 +21,16 @@ function SchedulePage() {
         const fetchSeasons = async () => {
             try {
                 const { data } = await api.get('/seasons/public');
-                // Sort descending by season_id to ensure newest first
-                const sortedSeasons = [...data].sort((a, b) => b.season_id - a.season_id);
+                const list = toList(data);
+                const sortedSeasons = [...list].sort((a, b) => (b.season_id || 0) - (a.season_id || 0));
                 setSeasons(sortedSeasons);
+                if (list.length === 0 && data != null) {
+                    console.warn("Seasons API returned 0 items. Response type:", Array.isArray(data) ? 'array' : typeof data, typeof data === 'object' ? ', keys: ' + Object.keys(data || {}).join(', ') : '');
+                }
                 if (sortedSeasons.length > 0) {
-                    setSelectedSeason(sortedSeasons[0].season_id); // Default to newest season
+                    const firstId = sortedSeasons[0].season_id;
+                    const num = Number(firstId);
+                    if (Number.isInteger(num)) setSelectedSeason(num);
                 }
             } catch (err) {
                 console.error("Failed to fetch seasons:", err);
@@ -37,18 +43,20 @@ function SchedulePage() {
     // Fetch fixtures based on selected filters
     useEffect(() => {
         const fetchFixtures = async () => {
-            // Don't fetch until a season is selected (if seasons are used)
-            if (!selectedSeason && seasons.length > 0) return;
-
             setLoading(true);
             setError('');
             try {
                 const params = {};
-                if (selectedSeason) params.season_id = selectedSeason;
+                const seasonNum = parseInt(selectedSeason, 10);
+                if (selectedSeason && Number.isInteger(seasonNum)) params.season_id = seasonNum;
                 if (selectedStatus) params.status = selectedStatus;
                 console.log("FETCHING FIXTURES FROM:", '/matches', "with params:", params);
                 const { data } = await api.get('/matches', { params });
-                setFixtures(data);
+                const fixturesList = toList(data);
+                setFixtures(fixturesList);
+                if (fixturesList.length === 0 && data != null) {
+                    console.warn("Matches API returned 0 items. Response type:", Array.isArray(data) ? 'array' : typeof data, typeof data === 'object' ? ', keys: ' + Object.keys(data || {}).join(', ') : '');
+                }
             } catch (err) {
                 console.error("Failed to fetch fixtures:", err);
                 setError(typeof err === 'string' ? err : 'Failed to load schedule. Please try again.');
@@ -77,11 +85,15 @@ function SchedulePage() {
                             onChange={(e) => setSelectedSeason(e.target.value)}
                         >
                             <option value="">All Seasons</option>
-                            {seasons.map(season => (
-                                <option key={season.season_id} value={season.season_id}>
-                                    {season.name} ({season.year})
-                                </option>
-                            ))}
+                            {seasons.map(season => {
+                                const id = season.season_id != null ? Number(season.season_id) : null;
+                                if (id == null || !Number.isInteger(id)) return null;
+                                return (
+                                    <option key={id} value={id}>
+                                        {season.name} ({season.year})
+                                    </option>
+                                );
+                            })}
                         </select>
                     </div>
                 )}
@@ -106,7 +118,7 @@ function SchedulePage() {
             {error && <p className="error-message">Error: {error}</p>}
 
             {/* Fixtures table: date/time, match, venue, status, and link to details or View Live/View Setup */}
-            {!loading && !error && fixtures.length > 0 ? (
+            {!loading && !error && Array.isArray(fixtures) && fixtures.length > 0 ? (
                 <div className="table-responsive">
                 <table>
                     <thead>

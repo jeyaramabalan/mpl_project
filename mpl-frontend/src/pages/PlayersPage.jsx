@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
+import { toList } from '../utils/apiResponse';
 import LoadingFallback from '../components/LoadingFallback';
 
 function PlayersPage() {
@@ -17,9 +18,14 @@ function PlayersPage() {
             setError('');
             try {
                 console.log("Fetching players list...");
-                const { data } = await api.get('/players'); // API call to get player list
-                setPlayers(data);
-                console.log("Players fetched:", data.length);
+                const response = await api.get('/players');
+                const data = response.data;
+                const list = toList(data);
+                setPlayers(list);
+                if (list.length === 0 && data != null) {
+                    console.warn("Players API returned 0 items. Response type:", Array.isArray(data) ? 'array' : typeof data, typeof data === 'object' ? ', keys: ' + Object.keys(data || {}).join(', ') : '');
+                }
+                console.log("Players fetched:", list.length);
             } catch (err) {
                 console.error("Failed to fetch players:", err);
                 const errorMessage = typeof err === 'string' ? err : (err.message || 'Failed to load players list.');

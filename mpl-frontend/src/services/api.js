@@ -2,8 +2,8 @@
 import axios from 'axios';
 
 // Determine the base URL for the API from environment variables or use a default
-//const API_URL = import.meta.env.VITE_API_URL || 'https://mpl.supersalessoft.com/api';
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL
+  || (import.meta.env.MODE === 'production' ? 'https://mpl.supersalessoft.com/api' : 'http://localhost:5000/api');
 console.log(`API Service configured for URL: ${API_URL}`);
 
 // Create an Axios instance with default configuration
@@ -49,16 +49,15 @@ api.interceptors.request.use(
 // --- Response Interceptor ---
 // This function runs when a response is received
 api.interceptors.response.use(
-  (response) => {
-      // Any status code within the range of 2xx causes this function to trigger
-      // Simply return the successful response
-      return response;
-  },
+  (response) => response,
   (error) => {
-    // Any status codes outside the range of 2xx cause this function to trigger
+    // Log 404s with path: if only /api/players and /api/admin work, proxy may not be forwarding other paths
+    if (error.response && error.response.status === 404 && error.config) {
+      const path = (error.config.baseURL || '') + (error.config.url || '');
+      console.warn(`API 404 (proxy may not forward this path to Node): ${path}`);
+    }
     console.error('API Response Error Interceptor Caught:', error);
 
-    // Check if the error has a response object (meaning the server responded with an error status)
     if (error.response) {
       console.error('Error Data:', error.response.data);
       console.error('Error Status:', error.response.status);

@@ -1,6 +1,7 @@
 // mpl-project/mpl-frontend/src/pages/admin/AdminSeasonsPage.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
+import { toList } from '../../utils/apiResponse';
 import LoadingFallback from '../../components/LoadingFallback';
 import ConfirmDialog from '../../components/ConfirmDialog';
 
@@ -17,7 +18,7 @@ function AdminSeasonsPage() {
         setError('');
         try {
             const { data } = await api.get('/admin/seasons');
-            setSeasons(data);
+            setSeasons(toList(data));
         } catch (err) {
             console.error("Failed to fetch seasons:", err);
             setError(typeof err === 'string' ? err : 'Failed to load seasons.');

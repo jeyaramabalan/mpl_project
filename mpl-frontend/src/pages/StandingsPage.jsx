@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import { toList } from '../utils/apiResponse';
 import LoadingFallback from '../components/LoadingFallback';
 import './StandingsPage.css';
 
@@ -20,11 +21,16 @@ function StandingsPage() {
             setLoadingSeasons(true);
             try {
                 const { data } = await api.get('/seasons/public');
-                // Sort descending by season_id to ensure newest first
-                const sortedSeasons = [...data].sort((a, b) => b.season_id - a.season_id);
+                const list = toList(data);
+                const sortedSeasons = [...list].sort((a, b) => (b.season_id || 0) - (a.season_id || 0));
                 setSeasons(sortedSeasons);
+                if (list.length === 0 && data != null) {
+                    console.warn("Seasons API returned 0 items. Response type:", Array.isArray(data) ? 'array' : typeof data, typeof data === 'object' ? ', keys: ' + Object.keys(data || {}).join(', ') : '');
+                }
                 if (sortedSeasons.length > 0) {
-                    setSelectedSeason(sortedSeasons[0].season_id); // Default to newest season
+                    const firstId = sortedSeasons[0].season_id;
+                    const num = Number(firstId);
+                    if (Number.isInteger(num)) setSelectedSeason(num);
                 }
             } catch (err) { setError('Failed to load seasons.'); }
             finally { setLoadingSeasons(false); }
@@ -34,17 +40,22 @@ function StandingsPage() {
 
     // Fetch Standings when season changes
     useEffect(() => {
-        if (!selectedSeason) {
-            setStandings([]); // Clear standings if no season selected
+        const seasonNum = parseInt(selectedSeason, 10);
+        if (!selectedSeason || !Number.isInteger(seasonNum)) {
+            setStandings([]);
             return;
-        };
+        }
 
         const fetchStandings = async () => {
             setLoadingData(true); setError(''); setStandings([]);
             try {
-                console.log(`Fetching standings for season: ${selectedSeason}`);
-                const { data } = await api.get(`/standings?season_id=${selectedSeason}`);
-                setStandings(data);
+                console.log(`Fetching standings for season: ${seasonNum}`);
+                const { data } = await api.get(`/standings?season_id=${seasonNum}`);
+                const standingsList = toList(data);
+                setStandings(standingsList);
+                if (standingsList.length === 0 && data != null) {
+                    console.warn("Standings API returned 0 items. Response type:", Array.isArray(data) ? 'array' : typeof data, typeof data === 'object' ? ', keys: ' + Object.keys(data || {}).join(', ') : '');
+                }
             } catch (err) {
                 console.error("Failed to fetch standings:", err);
                 setError(typeof err === 'string' ? err : `Failed to load standings.`);
@@ -73,11 +84,15 @@ function StandingsPage() {
                         disabled={loadingData}
                     >
                         <option value="">-- Select Season --</option>
-                        {seasons.map(s => (
-                            <option key={s.season_id} value={s.season_id}>
-                                {s.name} ({s.year})
-                            </option>
-                        ))}
+                        {seasons.map(s => {
+                            const id = s.season_id != null ? Number(s.season_id) : null;
+                            if (id == null || !Number.isInteger(id)) return null;
+                            return (
+                                <option key={id} value={id}>
+                                    {s.name} ({s.year})
+                                </option>
+                            );
+                        })}
                     </select>
                 </div>
             )}

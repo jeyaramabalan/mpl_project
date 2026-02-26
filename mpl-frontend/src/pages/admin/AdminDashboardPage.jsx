@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
+import { toList } from '../../utils/apiResponse';
 import LoadingFallback from '../../components/LoadingFallback';
 import './AdminDashboardPage.css';
 
@@ -35,9 +36,9 @@ function AdminDashboardPage() {
           api.get('/matches'),
         ]);
         if (!isMounted) return;
-        const scheduled = Array.isArray(scheduledRes.data) ? scheduledRes.data.length : 0;
-        const live = Array.isArray(liveRes.data) ? liveRes.data.length : 0;
-        const all = Array.isArray(allRes.data) ? allRes.data : [];
+        const scheduled = toList(scheduledRes.data).length;
+        const live = toList(liveRes.data).length;
+        const all = toList(allRes.data);
         const needingResolve = all.filter(
           (m) =>
             (m.status === 'Completed' && m.winner_team_id == null) ||

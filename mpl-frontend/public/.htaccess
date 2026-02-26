@@ -1,14 +1,23 @@
 # MPL frontend - SPA fallback for React Router (shared hosting / Apache)
-# Ensures all routes serve index.html so client-side routing works.
+# Serve real files; only send index.html for app routes (not for assets).
 
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
 
-  # If the request is for an existing file or directory, serve it
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteCond %{REQUEST_FILENAME} !-d
+  # Never rewrite API or Socket.IO (must reach backend, not SPA)
+  RewriteRule ^api/ - [L]
+  RewriteRule ^socket\.io/ - [L]
 
-  # Otherwise send everything to index.html
+  # Never rewrite static assets (avoids serving index.html as JS/CSS → MIME errors)
+  RewriteRule ^assets/ - [L]
+  RewriteRule \.(js|mjs|cjs|css|woff2?|ttf|ico|svg|png|jpg|jpeg|gif|webp)$ - [L]
+
+  # If the request is for an existing file or directory, serve it
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Otherwise send to index.html (SPA client-side routes only)
   RewriteRule ^ index.html [QSA,L]
 </IfModule>

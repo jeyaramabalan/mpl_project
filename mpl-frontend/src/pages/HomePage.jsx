@@ -5,6 +5,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
+import { toList } from '../utils/apiResponse';
 import LoadingFallback from '../components/LoadingFallback';
 import './HomePage.css';
 
@@ -30,11 +31,10 @@ function HomePage() {
             setError('');
             try {
                 const { data } = await api.get('/matches', { params: { status: 'Scheduled' } });
-                if (isMounted && data && Array.isArray(data)) {
-                    const sorted = [...data].sort((a, b) => new Date(a.match_datetime) - new Date(b.match_datetime));
+                if (isMounted) {
+                    const list = toList(data);
+                    const sorted = [...list].sort((a, b) => new Date(a.match_datetime) - new Date(b.match_datetime));
                     setMatches(sorted);
-                } else if (isMounted) {
-                    setMatches([]);
                 }
             } catch (err) {
                 console.error('Failed to fetch matches:', err);
@@ -53,8 +53,7 @@ function HomePage() {
         const fetchLive = async () => {
             try {
                 const { data } = await api.get('/matches', { params: { status: 'Live' } });
-                if (isMounted && data && Array.isArray(data)) setLiveMatches(data);
-                else if (isMounted) setLiveMatches([]);
+                if (isMounted) setLiveMatches(toList(data));
             } catch {
                 if (isMounted) setLiveMatches([]);
             }
@@ -69,8 +68,9 @@ function HomePage() {
         let isMounted = true;
         const fetchFeaturedMom = async () => {
             try {
-                const { data: champions } = await api.get('/matches/champions');
-                const latest = Array.isArray(champions) && champions.length > 0 ? champions[0] : null;
+                const { data: championsRaw } = await api.get('/matches/champions');
+                const champions = toList(championsRaw);
+                const latest = champions.length > 0 ? champions[0] : null;
                 if (!isMounted || !latest?.match_id) {
                     if (isMounted) setFeaturedMom(null);
                     return;
@@ -104,8 +104,9 @@ function HomePage() {
         let isMounted = true;
         const fetchTopBatterAndBowler = async () => {
             try {
-                const { data: champions } = await api.get('/matches/champions');
-                const latest = Array.isArray(champions) && champions.length > 0 ? champions[0] : null;
+                const { data: championsRaw } = await api.get('/matches/champions');
+                const champions = toList(championsRaw);
+                const latest = champions.length > 0 ? champions[0] : null;
                 const seasonId = latest?.season_id;
                 const seasonName = latest?.season_name || 'Season';
                 if (!isMounted || seasonId == null) {
@@ -115,7 +116,8 @@ function HomePage() {
                     }
                     return;
                 }
-                const { data: leaderboard } = await api.get('/leaderboard', { params: { season_id: seasonId } });
+                const { data: leaderboardRaw } = await api.get('/leaderboard', { params: { season_id: seasonId } });
+                const leaderboard = leaderboardRaw && typeof leaderboardRaw === 'object' ? (leaderboardRaw.data && typeof leaderboardRaw.data === 'object' ? leaderboardRaw.data : leaderboardRaw) : {};
                 if (!isMounted || !leaderboard) {
                     if (isMounted) {
                         setFeaturedTopBatter(null);
@@ -123,8 +125,8 @@ function HomePage() {
                     }
                     return;
                 }
-                const batting = leaderboard.batting || [];
-                const bowling = leaderboard.bowling || [];
+                const batting = toList(leaderboard.batting);
+                const bowling = toList(leaderboard.bowling);
                 if (isMounted) {
                     setFeaturedTopBatter(batting.length > 0 ? {
                         playerId: batting[0].player_id,

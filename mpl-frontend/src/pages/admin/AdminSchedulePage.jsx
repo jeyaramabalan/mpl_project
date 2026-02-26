@@ -1,6 +1,7 @@
 // mpl-project/mpl-frontend/src/pages/admin/AdminSchedulePage.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
+import { toList } from '../../utils/apiResponse';
 import LoadingFallback from '../../components/LoadingFallback';
 import ConfirmDialog from '../../components/ConfirmDialog';
 
@@ -173,18 +174,20 @@ function AdminSchedulePage() {
                 api.get('/admin/teams')
             ]);
 
-            const seasons = seasonsRes.data || [];
-            const teams = teamsRes.data || [];
+            const seasons = toList(seasonsRes.data);
+            const teams = toList(teamsRes.data);
 
             // Sort seasons descending by season_id or start_date
-            const sortedSeasons = [...seasons].sort((a, b) => b.season_id - a.season_id);
+            const sortedSeasons = [...seasons].sort((a, b) => (b.season_id || 0) - (a.season_id || 0));
             setSeasons(sortedSeasons);
             setAllTeams(teams);
 
             if (sortedSeasons.length > 0) {
+                const firstId = sortedSeasons[0].season_id;
+                const firstNum = firstId != null && Number.isInteger(Number(firstId)) ? Number(firstId) : null;
                 if (!selectedSeasonFilter) {
-                    setSelectedSeasonFilter(sortedSeasons[0].season_id); // Safely set default
-                } else {
+                    if (firstNum != null) setSelectedSeasonFilter(firstNum);
+                } else if (firstNum != null) {
                     fetchMatches(selectedSeasonFilter); // Season already selected
                 }
             } else {
@@ -210,7 +213,7 @@ function AdminSchedulePage() {
          setError('');
         try {
             const { data } = await api.get(`/admin/matches?season_id=${seasonId}`);
-            setMatches(data);
+            setMatches(toList(data));
         } catch (err) {
             console.error(`Failed to fetch matches for season ${seasonId}:`, err);
             setError(typeof err === 'string' ? err : 'Failed to load match schedule.');

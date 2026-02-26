@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../../services/api';
+import { toList } from '../../utils/apiResponse';
 import LoadingFallback from '../../components/LoadingFallback';
 import SearchablePlayerSelect from '../../components/SearchablePlayerSelect';
 import ConfirmDialog from '../../components/ConfirmDialog';
@@ -153,11 +154,12 @@ function AdminTeamsPage() {
             setLoadingSeasons(true);
             try {
                 const { data } = await api.get('/admin/seasons');
-                // Optional: sort descending by start_date or season_id (depending on your schema)
-                const sortedSeasons = [...data].sort((a, b) => b.season_id - a.season_id);
+                const sortedSeasons = [...toList(data)].sort((a, b) => (b.season_id || 0) - (a.season_id || 0));
                 setSeasons(sortedSeasons);
                 if (sortedSeasons.length > 0) {
-                    setSelectedSeasonId(sortedSeasons[0].season_id);
+                    const firstId = sortedSeasons[0].season_id;
+                    const num = Number(firstId);
+                    if (Number.isInteger(num)) setSelectedSeasonId(num);
                 }
             } catch (err) {
                 setError(typeof err === 'string' ? err : 'Failed to load seasons.');
@@ -174,7 +176,7 @@ function AdminTeamsPage() {
             setLoadingPlayers(true);
             try {
                 const { data } = await api.get('/players'); // Fetch all players
-                setAllPlayers(data);
+                setAllPlayers(toList(data));
             } catch (err) {
                 setError(typeof err === 'string' ? err : 'Failed to load player list.');
             } finally {
@@ -197,23 +199,25 @@ function AdminTeamsPage() {
         setEditingTeam(null); // Clear editing state when season changes
         try {
             // Fetch teams for the selected season
-            const { data: teamsData } = await api.get(`/admin/teams?season_id=${selectedSeasonId}`);
-            setTeams(teamsData);
+            const seasonNum = parseInt(selectedSeasonId, 10);
+            if (!Number.isInteger(seasonNum)) {
+                setTeams([]);
+                setLoadingTeams(false);
+                return;
+            }
+            const { data: teamsData } = await api.get(`/admin/teams?season_id=${seasonNum}`);
+            const teamsList = toList(teamsData);
+            setTeams(teamsList);
 
-            // Fetch ALL player assignments for this season to know who is available
-            let allAssignmentsForSeason = [];
-            // Need an endpoint for this, or iterate through teamsData if it includes players?
-            // Assuming an endpoint /api/admin/seasons/:seasonId/assignments exists (adjust as needed)
-            // const { data: assignmentData } = await api.get(`/admin/seasons/${selectedSeasonId}/assignments`);
-            // For now, let's derive from the teamsData if possible, or make multiple calls (less efficient)
             const playerIdsInTeams = new Set();
-            for (const team of teamsData) {
+            for (const team of teamsList) {
                 try {
                      // Use the existing getTeamDetails endpoint (or modify getTeamsForSeason to include players)
                      const { data: teamDetails } = await api.get(`/admin/teams/${team.team_id}?season_id=${selectedSeasonId}`);
-                     teamDetails.players.forEach(p => playerIdsInTeams.add(p.player_id));
+                     const players = toList(teamDetails?.players);
+                     players.forEach(p => playerIdsInTeams.add(p.player_id));
                      // Find the team in state and update its players list (important for PlayerAssignment component)
-                     setTeams(currentTeams => currentTeams.map(t => t.team_id === team.team_id ? { ...t, players: teamDetails.players } : t));
+                     setTeams(currentTeams => currentTeams.map(t => t.team_id === team.team_id ? { ...t, players } : t));
 
                 } catch (detailErr) {
                     console.error(`Failed to get player details for team ${team.team_id}`, detailErr);

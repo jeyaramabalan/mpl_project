@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
+import { toList } from '../utils/apiResponse';
 import './ChampionsPage.css';
 
 function ChampionsPage() {
@@ -18,7 +19,7 @@ function ChampionsPage() {
       setError('');
       try {
         const { data } = await api.get('/matches/champions');
-        if (isMounted) setChampions(Array.isArray(data) ? data : []);
+        if (isMounted) setChampions(toList(data));
       } catch (err) {
         if (isMounted) {
           setError(err?.response?.data?.message || 'Failed to load champions.');

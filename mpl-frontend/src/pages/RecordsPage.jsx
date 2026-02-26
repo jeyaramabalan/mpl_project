@@ -8,6 +8,7 @@ const RECORDS_NAME_MAX_CHARS = 15;
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
+import { toList } from '../utils/apiResponse';
 import LoadingFallback from '../components/LoadingFallback';
 import './RecordsPage.css';
 
@@ -25,7 +26,7 @@ function RecordsPage() {
         const fetchSeasons = async () => {
             try {
                 const { data: list } = await api.get('/seasons/public');
-                const sorted = [...(list || [])].sort((a, b) => (b.season_id || b.id) - (a.season_id || a.id));
+                const sorted = [...toList(list)].sort((a, b) => (b.season_id || b.id) - (a.season_id || a.id));
                 if (isMounted) setSeasons(sorted);
             } catch (e) {
                 if (isMounted) setSeasons([]);
@@ -41,9 +42,15 @@ function RecordsPage() {
         setError('');
         const fetchRecords = async () => {
             try {
-                const params = { season_id: seasonId, scope };
+                const params = { scope };
+                if (seasonId !== 'all') {
+                    const num = parseInt(seasonId, 10);
+                    if (Number.isInteger(num)) params.season_id = num;
+                } else {
+                    params.season_id = 'all';
+                }
                 const { data: res } = await api.get('/records', { params });
-                if (isMounted) setData(res);
+                if (isMounted) setData(res && typeof res === 'object' ? res : null);
             } catch (err) {
                 if (isMounted) {
                     setError(err?.message || 'Failed to load records.');
@@ -62,9 +69,14 @@ function RecordsPage() {
             setStandings(null);
             return;
         }
+        const seasonNum = parseInt(seasonId, 10);
+        if (!Number.isInteger(seasonNum)) {
+            setStandings(null);
+            return;
+        }
         let isMounted = true;
-        api.get('/standings', { params: { season_id: seasonId } })
-            .then(({ data: list }) => { if (isMounted) setStandings(list || []); })
+        api.get('/standings', { params: { season_id: seasonNum } })
+            .then(({ data: list }) => { if (isMounted) setStandings(toList(list)); })
             .catch(() => { if (isMounted) setStandings([]); });
         return () => { isMounted = false; };
     }, [scope, seasonId]);
@@ -172,11 +184,16 @@ function RecordsPage() {
                         <label htmlFor="records-season">Season</label>
                         <select id="records-season" value={seasonId} onChange={(e) => setSeasonId(e.target.value)}>
                             <option value="all">All-Time</option>
-                            {seasons.map((s) => (
-                                <option key={s.season_id || s.id} value={s.season_id ?? s.id}>
-                                    {s.name || s.season_name || `Season ${s.season_id || s.id}`} {s.year ? `(${s.year})` : ''}
-                                </option>
-                            ))}
+                            {seasons.map((s) => {
+                                const id = s.season_id ?? s.id;
+                                const num = id != null ? Number(id) : null;
+                                if (num == null || !Number.isInteger(num)) return null;
+                                return (
+                                    <option key={num} value={num}>
+                                        {s.name || s.season_name || `Season ${num}`} {s.year ? `(${s.year})` : ''}
+                                    </option>
+                                );
+                            })}
                         </select>
                     </div>
                     <div className="records-filter-group">

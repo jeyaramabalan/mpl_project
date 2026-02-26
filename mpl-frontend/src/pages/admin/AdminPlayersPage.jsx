@@ -1,6 +1,7 @@
 // src/pages/admin/AdminPlayersPage.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
+import { toList } from '../../utils/apiResponse';
 import LoadingFallback from '../../components/LoadingFallback';
 import ConfirmDialog from '../../components/ConfirmDialog';
 
@@ -78,7 +79,7 @@ function AdminPlayersPage() {
         setLoading(true); setError('');
         try {
             const { data } = await api.get('/players'); // Use public route to get list
-            setPlayers(data);
+            setPlayers(toList(data));
         } catch (err) { setError(typeof err === 'string' ? err : 'Failed to load players.'); }
         finally { setLoading(false); }
     }, []);

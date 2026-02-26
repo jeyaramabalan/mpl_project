@@ -29,6 +29,7 @@ export const SocketProvider = ({ children }) => {
         autoConnect: false, // Prevents automatically connecting on initialization. We'll connect manually.
         reconnectionAttempts: 5, // Number of times to try reconnecting after a disconnect.
         reconnectionDelay: 3000, // Time (in ms) to wait before attempting reconnection.
+        reconnectionDelayMax: 10000, // Cap delay between attempts so we don't spam forever.
         // Optional: Add authentication details if your socket server requires it on connection.
         // auth: (cb) => {
         //   // Example: Get token from local storage for authentication
@@ -59,9 +60,11 @@ export const SocketProvider = ({ children }) => {
             // else: the socket will automatically try to reconnect based on settings
         };
         const onConnectError = (err) => {
-            console.error(`Socket connection error: ${err.message}`);
-            // Example: Handle authentication errors during connection
-            // if (err.message === 'Authentication error') { ... redirect to login ... }
+            // Log once per mount to avoid flooding console when proxy doesn't forward /socket.io
+            if (!socket._connectErrorLogged) {
+                socket._connectErrorLogged = true;
+                console.warn('Socket connection error:', err.message, '(Live updates may be unavailable. Ensure /socket.io is proxied to the backend.)');
+            }
         };
 
         // Register event listeners

@@ -35,14 +35,69 @@ This guide walks you through hosting the MPL app (React frontend + Node/Express 
    - Via **File Manager** (cPanel / Hosting Panel) or **FTP**, go to the folder that serves `mpl.supersalessoft.com` (often `public_html` or a subdomain folder).
    - Upload **all contents** of `mpl-frontend/dist/` into that folder:
      - `index.html` at the root
-     - `assets/` folder (JS and CSS)
+     - **Entire `assets/` folder** (all JS/CSS chunks — hashes change every build)
      - `.htaccess` (already included in the build from `mpl-frontend/public/.htaccess`)
+   - **Important:** If you see *"Expected a JavaScript module but server responded with MIME type text/html"* for a file under `/assets/`, it usually means the server is missing that chunk (e.g. old `index.html` referencing a new hash, or new build uploaded without the new `assets/`). Re-upload the full `dist/` and do a hard refresh (Ctrl+Shift+R) or clear cache.
 
 4. **.htaccess**  
-   The repo includes `mpl-frontend/public/.htaccess`. Vite copies it into `dist/` when you run `npm run build`, so after upload it will be in the same directory as `index.html`. It sends all non-file requests to `index.html` so React Router works. If you already have an `.htaccess` on the server, merge the rewrite rules or replace with this one (see `mpl-frontend/public/.htaccess`).
+   The repo includes `mpl-frontend/public/.htaccess`. Vite copies it into `dist/` when you run `npm run build`, so after upload it will be in the same directory as `index.html`. It sends only *frontend* routes to `index.html`; **`/api/` and `/socket.io/` are never rewritten** so they reach the backend (or proxy). If you previously saw the app’s “404 Page Not Found” when opening `/api/players` in the browser, or “No players found” on the Players page, the old rules were sending API requests to the SPA—replace with the current `.htaccess` and re-upload.
 
 5. **Backend**  
    If the backend is not on the same shared host, keep it running wherever it is now and set `VITE_API_URL` / `VITE_SOCKET_URL` in `.env.production` to that backend URL before building.
+
+---
+
+## Socket.IO "server error" – proxy must forward `/socket.io`
+
+If the REST API works (e.g. Schedule, Home load data) but the browser shows **"Socket connection error: server error"**, the reverse proxy is likely forwarding only `/api` to the Node app and not **`/socket.io`**. Socket.IO needs both HTTP long‑polling and (optionally) WebSocket for the same origin.
+
+**Fix:** Configure the proxy so that requests to **`/socket.io`** are sent to the same Node process as `/api` (e.g. `http://127.0.0.1:5000`).
+
+**Apache (vhost or .htaccess, if mod_proxy is allowed):**
+
+```apache
+# Proxy /api to Node backend
+ProxyPass /api http://127.0.0.1:5000/api
+ProxyPassReverse /api http://127.0.0.1:5000/api
+
+# Proxy Socket.IO path to Node backend (required for live updates)
+ProxyPass /socket.io http://127.0.0.1:5000/socket.io
+ProxyPassReverse /socket.io http://127.0.0.1:5000/socket.io
+
+# Optional: WebSocket upgrade for Socket.IO (if mod_proxy_wstunnel is available)
+RewriteEngine On
+RewriteCond %{HTTP:Upgrade} =websocket [NC]
+RewriteRule /socket.io/(.*) ws://127.0.0.1:5000/socket.io/$1 [P,L]
+```
+
+Use `127.0.0.1:5000` only if Node runs on the same server; otherwise use the correct backend URL. If your host does not allow proxy in `.htaccess`, ask support to add the `/socket.io` proxy (and `/api` if needed) in the server/vhost config for `mpl.supersalessoft.com`.
+
+Until the proxy is fixed, the site works but **live scoring updates** (Socket.IO) will not connect; the app will keep retrying and may log errors in the console.
+
+---
+
+## Only Players / Admin work – proxy must forward **all** of `/api`
+
+If **Players page** and **Player profile** and **Admin** load data, but **Schedule**, **Standings**, **Leaderboard**, **Records**, **Champions**, and **Home** (upcoming matches) do not, the reverse proxy is likely forwarding only some paths to the Node backend (e.g. only `/api/players` and `/api/admin`).
+
+**Required:** Every request under `/api` must go to the Node app, not just a few paths. Use a single proxy rule for the whole API prefix:
+
+```apache
+# Forward ALL /api/* to the Node backend (required for seasons, matches, standings, leaderboard, records)
+ProxyPass /api http://127.0.0.1:5000/api
+ProxyPassReverse /api http://127.0.0.1:5000/api
+```
+
+Do **not** proxy only `/api/players` and `/api/admin`; the app also needs:
+
+- `/api/seasons/public` – Schedule, Standings, Leaderboard, Records
+- `/api/matches` – Home, Schedule, Admin dashboard
+- `/api/matches/champions` – Home, Champions page
+- `/api/standings` – Standings, Records
+- `/api/leaderboard` – Leaderboard, Home
+- `/api/records` – Records
+
+After changing the proxy, restart Apache (or reload config) and hard-refresh the site. Check the browser console: you should no longer see 404s for these paths.
 
 ---
 
@@ -91,13 +146,22 @@ The backend is in `mpl-backend/`. It serves the API at `/api` and Socket.IO on t
 3. **Upload backend code**  
    Upload the contents of `mpl-backend/` (e.g. via FTP/SFTP or Git) to a folder on the server, e.g. `mpl-backend` or `api`. Do **not** upload `node_modules`; install on the server.
 
-4. **Install and run**
+4. **CloudLinux / Node.js Selector (virtual environment)**  
+   Node.js Selector stores dependencies in a **separate virtual-environment folder** and exposes them to the app via a **symlink** named `node_modules` in the application root. The application root must **not** contain a real folder or file named `node_modules`—only the symlink created by the host.
+
+   - **When deploying:** Upload only application code (no `node_modules`). If a real `node_modules` directory exists in the app root (e.g. from an old deploy), **remove it** so the selector’s `node_modules` symlink can be used.
+   - **After upload:** Activate the Node venv, `cd` to the application root (where `package.json` and `server.js` are), then run `npm install --omit=dev`. Packages will install into the virtual environment; the symlink makes them visible to the app.
+   - Do not commit or upload a real `node_modules` from your machine; the repo already ignores `mpl-backend/node_modules/`.
+
+5. **Install and run**
 
    ```bash
    cd /path/to/mpl-backend
-   npm install --production
-   node server.js
+   npm install --omit=dev
+   npm start
    ```
+
+   (On CloudLinux with Node.js Selector, ensure the app root has no real `node_modules` folder—only the symlink. See step 4 above.)
 
    For a permanent process, use one of:
 

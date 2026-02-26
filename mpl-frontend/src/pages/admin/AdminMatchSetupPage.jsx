@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
+import { toList } from '../../utils/apiResponse';
 import LoadingFallback from '../../components/LoadingFallback';
 
 function AdminMatchSetupPage() {
@@ -27,7 +28,7 @@ function AdminMatchSetupPage() {
             setError('');
             try {
                 const { data } = await api.get('/admin/scoring/setup-list');
-                setMatches(data);
+                setMatches(toList(data));
                 // Reset selection if list reloads? Optional.
                 // setSelectedMatchId('');
                 // setSelectedMatchDetails(null);
