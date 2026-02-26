@@ -1,0 +1,14 @@
+# MPL frontend - SPA fallback for React Router (shared hosting / Apache)
+# Ensures all routes serve index.html so client-side routing works.
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # If the request is for an existing file or directory, serve it
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+
+  # Otherwise send everything to index.html
+  RewriteRule ^ index.html [QSA,L]
+</IfModule>

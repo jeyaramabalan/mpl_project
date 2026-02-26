@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 import LoadingFallback from '../components/LoadingFallback';
+import './SchedulePage.css';
 
 function SchedulePage() {
     const [fixtures, setFixtures] = useState([]);
@@ -58,6 +59,8 @@ function SchedulePage() {
 
         fetchFixtures();
     }, [selectedSeason, selectedStatus, seasons]); // Refetch when filters change
+
+    const teamInitials = (name) => (name || '?').trim().split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
 
     return (
         <div className="mpl-section">
@@ -119,7 +122,47 @@ function SchedulePage() {
                         {fixtures.map((match) => (
                             <tr key={match.match_id}>
                                 <td>{new Date(match.match_datetime).toLocaleString()}</td>
-                                <td>{match.team1_name} vs {match.team2_name}</td>
+                                <td>
+                                    <div className="schedule-match-teams">
+                                        <div className="schedule-team">
+                                            <span className="schedule-team-logo-wrap">
+                                                {match.team1_id ? (
+                                                    <>
+                                                        <img
+                                                            src={`/images/teams/${match.team1_id}.jpg`}
+                                                            alt={match.team1_name}
+                                                            className="schedule-team-logo"
+                                                            onError={(e) => e.currentTarget.classList.add('is-hidden')}
+                                                        />
+                                                        <span className="schedule-team-logo-fallback" aria-hidden="true">{teamInitials(match.team1_name)}</span>
+                                                    </>
+                                                ) : (
+                                                    <span className="schedule-team-logo-fallback" aria-hidden="true">{teamInitials(match.team1_name)}</span>
+                                                )}
+                                            </span>
+                                            <span>{match.team1_name}</span>
+                                        </div>
+                                        <span className="schedule-vs">vs</span>
+                                        <div className="schedule-team">
+                                            <span className="schedule-team-logo-wrap">
+                                                {match.team2_id ? (
+                                                    <>
+                                                        <img
+                                                            src={`/images/teams/${match.team2_id}.jpg`}
+                                                            alt={match.team2_name}
+                                                            className="schedule-team-logo"
+                                                            onError={(e) => e.currentTarget.classList.add('is-hidden')}
+                                                        />
+                                                        <span className="schedule-team-logo-fallback" aria-hidden="true">{teamInitials(match.team2_name)}</span>
+                                                    </>
+                                                ) : (
+                                                    <span className="schedule-team-logo-fallback" aria-hidden="true">{teamInitials(match.team2_name)}</span>
+                                                )}
+                                            </span>
+                                            <span>{match.team2_name}</span>
+                                        </div>
+                                    </div>
+                                </td>
                                 <td>{match.venue}</td>
                                 <td>
                                     {match.status === 'Live' ? (

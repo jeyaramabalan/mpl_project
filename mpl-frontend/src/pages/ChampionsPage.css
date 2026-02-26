@@ -149,6 +149,47 @@
   color: var(--mpl-heading);
 }
 
+.champions-team-logo-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  margin-right: 0.4rem;
+  flex-shrink: 0;
+}
+.champions-team-logo {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--mpl-grey-300);
+  background-color: var(--mpl-grey-100);
+}
+.champions-team-logo.is-hidden {
+  display: none;
+}
+.champions-team-logo-fallback {
+  display: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  font-weight: 700;
+  background-color: var(--mpl-grey-300);
+  color: var(--mpl-heading);
+}
+.champions-team-logo-wrap:has(.champions-team-logo.is-hidden) .champions-team-logo-fallback,
+.champions-team-logo-wrap:not(:has(img)) .champions-team-logo-fallback {
+  display: inline-flex;
+}
+
+.champions-team-name {
+  vertical-align: middle;
+}
+
 .champions-table .action-cell {
   white-space: nowrap;
   width: 1%;

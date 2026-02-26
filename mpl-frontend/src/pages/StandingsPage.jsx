@@ -56,6 +56,8 @@ function StandingsPage() {
         fetchStandings();
     }, [selectedSeason]);
 
+    const teamInitials = (name) => (name || '?').trim().split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
+
     return (
         <div className="standings-page mpl-section">
             <h1 className="mpl-page-title">Team Standings</h1>
@@ -101,11 +103,30 @@ function StandingsPage() {
                             {standings.map((team) => (
                                 <tr key={team.team_id}>
                                     <td className="position">{team.position}</td>
-                                    <td className="team-name">{team.name}</td>
+                                    <td className="team-name">
+                                        <div className="standings-team">
+                                            <span className="standings-team-logo-wrap">
+                                                {team.team_id ? (
+                                                    <>
+                                                        <img
+                                                            src={`/images/teams/${team.team_id}.jpg`}
+                                                            alt={team.name}
+                                                            className="standings-team-logo"
+                                                            onError={(e) => e.currentTarget.classList.add('is-hidden')}
+                                                        />
+                                                        <span className="standings-team-logo-fallback" aria-hidden="true">{teamInitials(team.name)}</span>
+                                                    </>
+                                                ) : (
+                                                    <span className="standings-team-logo-fallback" aria-hidden="true">{teamInitials(team.name)}</span>
+                                                )}
+                                            </span>
+                                            <span>{team.name}</span>
+                                        </div>
+                                    </td>
                                     <td>{team.played}</td>
                                     <td>{team.wins}</td>
                                     <td>{team.losses}</td>
-                                    <td>{team.no_result}</td> {/* Added Data Cell */}
+                                    <td>{team.no_result}</td>
                                     <td className="nrr">{team.nrrDisplay}</td>
                                     <td className="points">{team.points}</td>
                                 </tr>

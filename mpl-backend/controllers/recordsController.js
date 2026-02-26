@@ -309,6 +309,27 @@ exports.getRecords = async (req, res, next) => {
             } else {
                 result.awards.bestDebut = [];
             }
+
+            // Part of Champion Side: count how many times a player was in the winning team (squad) for the season final
+            const partOfChampionWhere = seasonId === 'all' ? '' : 'AND finals.season_id = ?';
+            const partOfChampionParams = seasonId === 'all' ? [TOP_LIMIT] : [parseInt(seasonId), TOP_LIMIT];
+            const [partOfChampion] = await pool.query(
+                `SELECT p.player_id, p.name as player_name, COUNT(*) as value
+                 FROM teamplayers tp
+                 JOIN players p ON p.player_id = tp.player_id
+                 JOIN (
+                   SELECT m.season_id, m.winner_team_id
+                   FROM matches m
+                   WHERE m.status = 'Completed' AND m.winner_team_id IS NOT NULL
+                   AND m.match_id = (SELECT m2.match_id FROM matches m2 WHERE m2.season_id = m.season_id ORDER BY m2.match_datetime DESC, m2.match_id DESC LIMIT 1)
+                 ) finals ON tp.team_id = finals.winner_team_id AND tp.season_id = finals.season_id
+                 WHERE 1=1 ${partOfChampionWhere}
+                 GROUP BY p.player_id, p.name
+                 ORDER BY value DESC
+                 LIMIT ?`,
+                partOfChampionParams
+            );
+            result.awards.partOfChampionSide = partOfChampion.map(r => ({ ...r, value: Number(r.value) }));
         }
 
         // ---------- TEAM RECORDS ----------

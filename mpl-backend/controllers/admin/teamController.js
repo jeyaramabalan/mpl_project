@@ -9,14 +9,20 @@ const pool = require('../../config/db');
 exports.addTeamToSeason = async (req, res, next) => {
     const { season_id, name, captain_player_id, budget } = req.body;
 
-    // Validation
+    // Validation: captain is required when adding a team
     if (!season_id || !name) {
         return res.status(400).json({ message: 'Season ID and Team Name are required.' });
+    }
+    if (!captain_player_id) {
+        return res.status(400).json({ message: 'Captain is required when adding a team.' });
     }
     if (isNaN(parseInt(season_id))) {
         return res.status(400).json({ message: 'Invalid Season ID.' });
     }
-    // Optional: Validate budget format, captain_player_id if provided
+    const captainId = parseInt(captain_player_id);
+    if (isNaN(captainId)) {
+        return res.status(400).json({ message: 'Invalid Captain Player ID.' });
+    }
 
     const connection = await pool.getConnection();
     try {
@@ -29,22 +35,32 @@ exports.addTeamToSeason = async (req, res, next) => {
             return res.status(400).json({ message: `Season with ID ${season_id} does not exist.` });
         }
 
-        // Optional: Check if captain player exists if ID is provided
-        if (captain_player_id) {
-             const [playerCheck] = await connection.query('SELECT 1 FROM players WHERE player_id = ?', [captain_player_id]);
-             if (playerCheck.length === 0) {
-                await connection.rollback();
-                return res.status(400).json({ message: `Captain Player with ID ${captain_player_id} does not exist.` });
-             }
-             // More complex: Check if captain player is already in another team for this season? Handled later when adding player.
+        // Captain must exist
+        const [playerCheck] = await connection.query('SELECT 1 FROM players WHERE player_id = ?', [captainId]);
+        if (playerCheck.length === 0) {
+            await connection.rollback();
+            return res.status(400).json({ message: `Captain Player with ID ${captainId} does not exist.` });
+        }
+        // Captain must not already be in another team for this season
+        const [existingAssignment] = await connection.query('SELECT team_id FROM teamplayers WHERE player_id = ? AND season_id = ?', [captainId, season_id]);
+        if (existingAssignment.length > 0) {
+            await connection.rollback();
+            return res.status(400).json({ message: `Captain is already assigned to another team for this season. Remove them first.` });
         }
 
         // Insert the new team
         const [result] = await connection.query(
             'INSERT INTO teams (season_id, name, captain_player_id, budget) VALUES (?, ?, ?, ?)',
-            [season_id, name, captain_player_id || null, budget === undefined || budget === null ? 10000.00 : budget] // Default budget if not provided
+            [season_id, name, captainId, budget === undefined || budget === null ? 10000.00 : budget]
         );
         const teamId = result.insertId;
+
+        // Add captain as a team member with $0 purchase price and is_captain = true
+        await connection.query(
+            'INSERT INTO teamplayers (team_id, player_id, season_id, purchase_price, is_captain) VALUES (?, ?, ?, ?, ?)',
+            [teamId, captainId, season_id, 0, true]
+        );
+        await connection.query('UPDATE players SET current_team_id = ? WHERE player_id = ?', [teamId, captainId]);
 
         // Fetch the newly created team to return
         const [newTeam] = await connection.query('SELECT * FROM teams WHERE team_id = ?', [teamId]);

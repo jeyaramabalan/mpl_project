@@ -202,6 +202,7 @@ const MatchDetailPage = () => {
   useEffect(() => { if (commentaryContainerRef.current) { commentaryContainerRef.current.scrollTop = 0; } }, [displayCommentary]);
 
   const formatOversDisplay = (oversDecimal) => { if (oversDecimal == null || isNaN(oversDecimal)) return "?"; const completedOvers = Math.floor(oversDecimal); let ballsInPartialOver = Math.round((oversDecimal - completedOvers) * 10); if (ballsInPartialOver >= 6) { return `${completedOvers + 1}.0`; } return `${completedOvers}.${ballsInPartialOver}`; };
+  const teamInitials = (name) => (name || '?').trim().split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
 
   const processedScorecards = useMemo(() => {
     if (matchDetails?.status !== "Completed" || !matchDetails.ballByBall || !matchDetails.playerStats) {
@@ -349,7 +350,45 @@ const MatchDetailPage = () => {
   return (
     <div className="match-detail-page">
       <div className="match-header">
-        <h2> {matchDetails.team1_name} vs {matchDetails.team2_name} </h2>
+        <div className="match-header-teams">
+          <div className="match-header-team">
+            <span className="match-header-team-logo-wrap">
+              {matchDetails.team1_id ? (
+                <>
+                  <img
+                    src={`/images/teams/${matchDetails.team1_id}.jpg`}
+                    alt={matchDetails.team1_name}
+                    className="match-header-team-logo"
+                    onError={(e) => e.currentTarget.classList.add('is-hidden')}
+                  />
+                  <span className="match-header-team-logo-fallback" aria-hidden="true">{teamInitials(matchDetails.team1_name)}</span>
+                </>
+              ) : (
+                <span className="match-header-team-logo-fallback" aria-hidden="true">{teamInitials(matchDetails.team1_name)}</span>
+              )}
+            </span>
+            <span>{matchDetails.team1_name}</span>
+          </div>
+          <span className="match-header-vs">vs</span>
+          <div className="match-header-team">
+            <span className="match-header-team-logo-wrap">
+              {matchDetails.team2_id ? (
+                <>
+                  <img
+                    src={`/images/teams/${matchDetails.team2_id}.jpg`}
+                    alt={matchDetails.team2_name}
+                    className="match-header-team-logo"
+                    onError={(e) => e.currentTarget.classList.add('is-hidden')}
+                  />
+                  <span className="match-header-team-logo-fallback" aria-hidden="true">{teamInitials(matchDetails.team2_name)}</span>
+                </>
+              ) : (
+                <span className="match-header-team-logo-fallback" aria-hidden="true">{teamInitials(matchDetails.team2_name)}</span>
+              )}
+            </span>
+            <span>{matchDetails.team2_name}</span>
+          </div>
+        </div>
         <p>({matchDetails.season_name})</p>
         <p> <strong>Status:</strong>{" "} <span className={`status-${displayStatus.toLowerCase()}`}> {displayStatus} </span> </p>
         <p> <strong>Date:</strong>{" "} {new Date(matchDetails.match_datetime).toLocaleString()} </p>

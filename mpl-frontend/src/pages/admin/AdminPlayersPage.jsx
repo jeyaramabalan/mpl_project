@@ -15,7 +15,7 @@ const PlayerForm = ({ onSubmit, initialData = {}, loading, onCancel }) => {
     useEffect(() => {
         setFormData({
             name: initialData.name || '',
-            base_price: initialData.base_price || '100.00', // Default or existing
+            base_price: initialData.base_price || '10.00', // Default or existing
             role: initialData.role || '', // Default to empty or existing
         });
     }, [initialData]);
@@ -46,7 +46,7 @@ const PlayerForm = ({ onSubmit, initialData = {}, loading, onCancel }) => {
             </div>
             <div>
                 <label htmlFor="base_price">Base Price:</label>
-                <input type="number" id="base_price" name="base_price" value={formData.base_price} onChange={handleChange} step="0.01" placeholder="e.g., 100.00" disabled={loading} />
+                <input type="number" id="base_price" name="base_price" value={formData.base_price} onChange={handleChange} step="0.01" placeholder="e.g., 10.00" disabled={loading} />
             </div>
             <div>
                 <label htmlFor="role">Role:</label>

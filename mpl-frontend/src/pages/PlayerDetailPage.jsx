@@ -120,9 +120,9 @@ function PlayerDetailPage() {
                  <div className="player-info-column">
                      <h1 className="player-name">{player.name || 'Player Name Missing'}</h1>
                      
-                     {/* Profile Picture: /images/players/{id}.jpg with letter fallback */}
+                     {/* Profile Picture: /images/players/{id}.jpg with letter fallback when missing or on error */}
                      <div className="player-profile-picture">
-                         {playerImageError ? (
+                         {(playerImageError || !player.player_id) ? (
                              <div className="player-avatar-placeholder">
                                  {(player.name || 'P').charAt(0).toUpperCase()}
                              </div>

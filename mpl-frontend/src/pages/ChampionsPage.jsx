@@ -33,6 +33,7 @@ function ChampionsPage() {
   }, []);
 
   const viewFinalTitle = 'View season final scorecard';
+  const teamInitials = (name) => (name || '?').trim().split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
 
   return (
     <div className="champions-page mpl-section">
@@ -83,12 +84,46 @@ function ChampionsPage() {
                     <td className="season-cell">{row.season_name || `Season ${row.year}`}{row.year != null ? ` (${row.year})` : ''}</td>
                     <td className="team-cell winner-cell">
                       <Link to={`/matches/${row.match_id}`} className="champions-team-link" title={viewFinalTitle}>
-                        {row.winner_team_name || '—'}
+                        <span className="champions-team-logo-wrap">
+                          {row.winner_team_id ? (
+                            <>
+                              <img
+                                src={`/images/teams/${row.winner_team_id}.jpg`}
+                                alt={row.winner_team_name || 'Winner'}
+                                className="champions-team-logo"
+                                onError={(e) => e.currentTarget.classList.add('is-hidden')}
+                              />
+                              <span className="champions-team-logo-fallback" aria-hidden="true">{teamInitials(row.winner_team_name)}</span>
+                            </>
+                          ) : (
+                            <span className="champions-team-logo-fallback" aria-hidden="true">{teamInitials(row.winner_team_name)}</span>
+                          )}
+                        </span>
+                        <span className="champions-team-name">
+                          {row.winner_team_name || '—'}
+                        </span>
                       </Link>
                     </td>
                     <td className="team-cell runner-cell">
                       <Link to={`/matches/${row.match_id}`} className="champions-team-link" title={viewFinalTitle}>
-                        {row.runner_team_name || '—'}
+                        <span className="champions-team-logo-wrap">
+                          {row.runner_team_id ? (
+                            <>
+                              <img
+                                src={`/images/teams/${row.runner_team_id}.jpg`}
+                                alt={row.runner_team_name || 'Runner'}
+                                className="champions-team-logo"
+                                onError={(e) => e.currentTarget.classList.add('is-hidden')}
+                              />
+                              <span className="champions-team-logo-fallback" aria-hidden="true">{teamInitials(row.runner_team_name)}</span>
+                            </>
+                          ) : (
+                            <span className="champions-team-logo-fallback" aria-hidden="true">{teamInitials(row.runner_team_name)}</span>
+                          )}
+                        </span>
+                        <span className="champions-team-name">
+                          {row.runner_team_name || '—'}
+                        </span>
                       </Link>
                     </td>
                     <td className="action-cell">
@@ -108,11 +143,49 @@ function ChampionsPage() {
                 <div className="champions-card-season">{row.season_name || `Season ${row.year}`}{row.year != null ? ` (${row.year})` : ''}</div>
                 <div className="champions-card-row">
                   <span className="champions-card-label">Winner</span>
-                  <Link to={`/matches/${row.match_id}`} className="champions-team-link" title={viewFinalTitle}>{row.winner_team_name || '—'}</Link>
+                  <Link to={`/matches/${row.match_id}`} className="champions-team-link champions-card-team" title={viewFinalTitle}>
+                    <span className="champions-team-logo-wrap">
+                      {row.winner_team_id ? (
+                        <>
+                          <img
+                            src={`/images/teams/${row.winner_team_id}.jpg`}
+                            alt={row.winner_team_name || 'Winner'}
+                            className="champions-team-logo"
+                            onError={(e) => e.currentTarget.classList.add('is-hidden')}
+                          />
+                          <span className="champions-team-logo-fallback" aria-hidden="true">{teamInitials(row.winner_team_name)}</span>
+                        </>
+                      ) : (
+                        <span className="champions-team-logo-fallback" aria-hidden="true">{teamInitials(row.winner_team_name)}</span>
+                      )}
+                    </span>
+                    <span className="champions-team-name">
+                      {row.winner_team_name || '—'}
+                    </span>
+                  </Link>
                 </div>
                 <div className="champions-card-row">
                   <span className="champions-card-label">Runner</span>
-                  <Link to={`/matches/${row.match_id}`} className="champions-team-link" title={viewFinalTitle}>{row.runner_team_name || '—'}</Link>
+                  <Link to={`/matches/${row.match_id}`} className="champions-team-link champions-card-team" title={viewFinalTitle}>
+                    <span className="champions-team-logo-wrap">
+                      {row.runner_team_id ? (
+                        <>
+                          <img
+                            src={`/images/teams/${row.runner_team_id}.jpg`}
+                            alt={row.runner_team_name || 'Runner'}
+                            className="champions-team-logo"
+                            onError={(e) => e.currentTarget.classList.add('is-hidden')}
+                          />
+                          <span className="champions-team-logo-fallback" aria-hidden="true">{teamInitials(row.runner_team_name)}</span>
+                        </>
+                      ) : (
+                        <span className="champions-team-logo-fallback" aria-hidden="true">{teamInitials(row.runner_team_name)}</span>
+                      )}
+                    </span>
+                    <span className="champions-team-name">
+                      {row.runner_team_name || '—'}
+                    </span>
+                  </Link>
                 </div>
                 <Link to={`/matches/${row.match_id}`} className="champions-card-btn" title={viewFinalTitle}>View final →</Link>
               </div>

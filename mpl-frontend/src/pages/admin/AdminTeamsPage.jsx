@@ -32,9 +32,14 @@ const TeamForm = ({ onSubmit, initialData = {}, seasons = [], players = [], load
 
     const handleSubmit = (e) => {
         e.preventDefault();
+        const isAdd = !initialData.team_id;
+        const captainId = formData.captain_player_id ? parseInt(formData.captain_player_id) : null;
+        if (isAdd && !captainId) {
+            return; // Captain required when adding; prevent submit (backend will also reject)
+        }
         const payload = {
             ...formData,
-            captain_player_id: formData.captain_player_id ? parseInt(formData.captain_player_id) : null, // Ensure number or null
+            captain_player_id: captainId,
             season_id: parseInt(formData.season_id),
             budget: parseFloat(formData.budget)
         };
@@ -63,7 +68,7 @@ const TeamForm = ({ onSubmit, initialData = {}, seasons = [], players = [], load
             <div>
                 <SearchablePlayerSelect
                     id="captain_player_id"
-                    label="Captain (Optional)"
+                    label="Captain"
                     players={players}
                     value={formData.captain_player_id}
                     onChange={(v) => setFormData({ ...formData, captain_player_id: v })}
@@ -71,17 +76,15 @@ const TeamForm = ({ onSubmit, initialData = {}, seasons = [], players = [], load
                     disabled={loading}
                 />
             </div>
-            <button type="submit" disabled={loading}>{loading ? 'Saving...' : (initialData.team_id ? 'Update Team' : 'Add Team')}</button>
+            <button type="submit" disabled={loading || (!initialData.team_id && !formData.captain_player_id)}>{loading ? 'Saving...' : (initialData.team_id ? 'Update Team' : 'Add Team')}</button>
         </form>
     );
 };
 
-const PlayerAssignment = ({ teamId, seasonId, teamPlayers = [], availablePlayers = [], onAssign, onBulkAssign, onRemove, loading, lockAssignments = false }) => {
+const PlayerAssignment = ({ teamId, seasonId, teamPlayers = [], availablePlayers = [], onAssign, onRemove, loading, lockAssignments = false }) => {
      const [selectedPlayerId, setSelectedPlayerId] = useState('');
      const [purchasePrice, setPurchasePrice] = useState('');
      const [removeTarget, setRemoveTarget] = useState(null);
-     const [bulkSelectedIds, setBulkSelectedIds] = useState(new Set());
-     const [bulkPurchasePrice, setBulkPurchasePrice] = useState('');
 
      const handleAssign = (e) => {
          e.preventDefault();
@@ -94,23 +97,6 @@ const PlayerAssignment = ({ teamId, seasonId, teamPlayers = [], availablePlayers
          });
          setSelectedPlayerId('');
          setPurchasePrice('');
-     };
-
-     const toggleBulkSelect = (playerId) => {
-         setBulkSelectedIds(prev => {
-             const next = new Set(prev);
-             if (next.has(playerId)) next.delete(playerId);
-             else next.add(playerId);
-             return next;
-         });
-     };
-
-     const handleBulkAssign = (e) => {
-         e.preventDefault();
-         if (bulkSelectedIds.size === 0 || !onBulkAssign) return;
-         onBulkAssign(teamId, seasonId, Array.from(bulkSelectedIds), bulkPurchasePrice ? parseFloat(bulkPurchasePrice) : null);
-         setBulkSelectedIds(new Set());
-         setBulkPurchasePrice('');
      };
 
     return (
@@ -140,24 +126,6 @@ const PlayerAssignment = ({ teamId, seasonId, teamPlayers = [], availablePlayers
                  <button type="submit" disabled={loading || !selectedPlayerId}>Assign Player</button>
             </form>
              )}
-
-            {!lockAssignments && availablePlayers.length > 0 && (
-                <div style={{ marginTop: '1.5rem', padding: '0.75rem', background: '#f8f9fa', borderRadius: '6px' }}>
-                    <h5 style={{ marginTop: 0 }}>Bulk assign players</h5>
-                    <p style={{ fontSize: '0.9rem', color: '#555' }}>Select players below and assign them all to this team.</p>
-                    <div style={{ maxHeight: '160px', overflowY: 'auto', marginBottom: '0.5rem' }}>
-                        {availablePlayers.map(p => (
-                            <label key={p.player_id} style={{ display: 'block', marginBottom: '0.25rem' }}>
-                                <input type="checkbox" checked={bulkSelectedIds.has(p.player_id)} onChange={() => toggleBulkSelect(p.player_id)} disabled={loading} /> {p.name}
-                            </label>
-                        ))}
-                    </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.5rem' }}>
-                        <input type="number" placeholder="Purchase price (optional, for all)" value={bulkPurchasePrice} onChange={(e) => setBulkPurchasePrice(e.target.value)} step="0.01" style={{ width: '160px', padding: '0.4rem' }} disabled={loading} />
-                        <button type="button" onClick={handleBulkAssign} disabled={loading || bulkSelectedIds.size === 0}>{bulkSelectedIds.size === 0 ? 'Assign selected' : `Assign ${bulkSelectedIds.size} player(s)`}</button>
-                    </div>
-                </div>
-            )}
 
         </div>
     );
@@ -317,21 +285,6 @@ function AdminTeamsPage() {
         }
     };
 
-    const handleBulkAssign = async (teamId, seasonId, playerIds, purchasePrice) => {
-        setLoadingTeams(true);
-        setError('');
-        try {
-            for (const playerId of playerIds) {
-                await api.post('/admin/teams/players', { team_id: teamId, player_id: playerId, season_id: seasonId, purchase_price: purchasePrice ?? null });
-            }
-            fetchTeamsAndAssignments();
-        } catch (err) {
-            setError(typeof err === 'string' ? err : (err.response?.data?.message || 'Failed to assign one or more players.'));
-        } finally {
-            setLoadingTeams(false);
-        }
-    };
-
     const handleDeleteTeam = async () => {
         if (!deleteTeamTarget) return;
         setLoadingTeams(true);
@@ -432,7 +385,6 @@ function AdminTeamsPage() {
                                 teamPlayers={team.players || []}
                                 availablePlayers={availablePlayersForAssignment}
                                 onAssign={handleAssignPlayer}
-                                onBulkAssign={handleBulkAssign}
                                 onRemove={handleRemovePlayer}
                                 loading={loadingTeams || loadingPlayers}
                                 lockAssignments={isSeasonCompleted}

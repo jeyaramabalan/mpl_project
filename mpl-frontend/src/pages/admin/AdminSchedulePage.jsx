@@ -161,6 +161,8 @@ function AdminSchedulePage() {
     const [showCreateScheduleModal, setShowCreateScheduleModal] = useState(false);
     const [createScheduleForm, setCreateScheduleForm] = useState({ matches_per_team: 6, start_date: '', venue: 'Bowyer Park' });
     const [createScheduleLoading, setCreateScheduleLoading] = useState(false);
+    const [sortBy, setSortBy] = useState('match_id');
+    const [sortOrder, setSortOrder] = useState('asc');
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -379,8 +381,9 @@ function AdminSchedulePage() {
                  <div style={{ display: 'flex', gap: '0.5rem' }}>
                     <button
                         onClick={() => setShowCreateScheduleModal(true)}
-                        disabled={loading || !selectedSeasonFilter || (seasons.find(s => s.season_id == selectedSeasonFilter)?.status === 'Completed')}
+                        disabled={loading || !selectedSeasonFilter || (seasons.find(s => s.season_id == selectedSeasonFilter)?.status === 'Completed') || matches.length > 0}
                         style={{ backgroundColor: 'var(--mpl-turquoise)', color: '#fff' }}
+                        title={matches.length > 0 ? 'Schedule already created for this season' : undefined}
                     >
                         Create schedule
                     </button>
@@ -411,22 +414,48 @@ function AdminSchedulePage() {
              {!loading && matches.length === 0 && selectedSeasonFilter && <p>No matches scheduled for this season yet.</p>}
              {!loading && !selectedSeasonFilter && <p>Please select a season to view the schedule.</p>}
 
-            {!loading && matches.length > 0 && (
+            {!loading && matches.length > 0 && (() => {
+                const sortKeys = {
+                    match_id: (m) => m.match_id,
+                    match_datetime: (m) => new Date(m.match_datetime).getTime(),
+                    team1_name: (m) => (m.team1_name || '').toLowerCase(),
+                    team2_name: (m) => (m.team2_name || '').toLowerCase(),
+                    venue: (m) => (m.venue || '').toLowerCase(),
+                    status: (m) => (m.status || '').toLowerCase(),
+                    super_over_number: (m) => (m.super_over_number != null ? m.super_over_number : -1)
+                };
+                const getter = sortKeys[sortBy];
+                const sorted = [...matches].sort((a, b) => {
+                    const va = getter ? getter(a) : a[sortBy];
+                    const vb = getter ? getter(b) : b[sortBy];
+                    const cmp = typeof va === 'number' && typeof vb === 'number' ? va - vb : String(va).localeCompare(String(vb));
+                    return sortOrder === 'asc' ? cmp : -cmp;
+                });
+                const handleSort = (key) => {
+                    if (sortBy === key) setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
+                    else { setSortBy(key); setSortOrder('asc'); }
+                };
+                const SortableTh = ({ colKey, label }) => (
+                    <th onClick={() => handleSort(colKey)} style={{ cursor: 'pointer', userSelect: 'none' }} title={`Sort by ${label} (${sortBy === colKey ? (sortOrder === 'asc' ? 'descending' : 'ascending') : 'ascending'})`}>
+                        {label} {sortBy === colKey ? (sortOrder === 'asc' ? ' ↑' : ' ↓') : ''}
+                    </th>
+                );
+                return (
                 <table>
                     <thead>
                         <tr>
-                            <th>ID</th>
-                            <th>Date & Time</th>
-                            <th>Team 1</th>
-                            <th>Team 2</th>
-                            <th>Venue</th>
-                            <th>Status</th>
-                            <th>Super Over</th>
+                            <SortableTh colKey="match_id" label="ID" />
+                            <SortableTh colKey="match_datetime" label="Date & Time" />
+                            <SortableTh colKey="team1_name" label="Team 1" />
+                            <SortableTh colKey="team2_name" label="Team 2" />
+                            <SortableTh colKey="venue" label="Venue" />
+                            <SortableTh colKey="status" label="Status" />
+                            <SortableTh colKey="super_over_number" label="Super Over" />
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {matches.map(match => (
+                        {sorted.map(match => (
                             <tr key={match.match_id}>
                                 <td>{match.match_id}</td>
                                 <td>{new Date(match.match_datetime).toLocaleString('en-GB', { timeZone: 'Europe/London', dateStyle: 'short', timeStyle: 'short' })}</td>
@@ -459,7 +488,8 @@ function AdminSchedulePage() {
                         ))}
                     </tbody>
                 </table>
-            )}
+                );
+            })()}
         </div>
     );
 }

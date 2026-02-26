@@ -1,0 +1,54 @@
+.schedule-match-teams {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.schedule-team {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.schedule-team-logo-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+.schedule-team-logo {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--mpl-grey-300);
+  background-color: var(--mpl-grey-100);
+}
+.schedule-team-logo.is-hidden {
+  display: none;
+}
+.schedule-team-logo-fallback {
+  display: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  font-weight: 700;
+  background-color: var(--mpl-grey-300);
+  color: var(--mpl-heading);
+}
+.schedule-team-logo-wrap:has(.schedule-team-logo.is-hidden) .schedule-team-logo-fallback,
+.schedule-team-logo-wrap:not(:has(img)) .schedule-team-logo-fallback {
+  display: inline-flex;
+}
+
+.schedule-vs {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--mpl-heading);
+}
+

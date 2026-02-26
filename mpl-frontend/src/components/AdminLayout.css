@@ -53,28 +53,33 @@
   padding: 1rem 1.5rem;
 }
 
+/* Breadcrumb: fixed contrast – dark bar (gunmetal) + light theme colours */
 .admin-breadcrumbs {
   margin-bottom: 1rem;
+  padding: 0.5rem 0.75rem;
   font-size: 0.9rem;
-  color: var(--mpl-text-muted);
+  background: var(--mpl-gunmetal);
+  border-radius: 6px;
+  color: var(--mpl-vanilla);
 }
 
 .admin-breadcrumb-sep {
   margin: 0 0.25rem;
-  color: var(--mpl-grey-400);
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .admin-breadcrumb-link {
-  color: var(--mpl-turquoise);
+  color: var(--mpl-vanilla);
   text-decoration: none;
 }
 
 .admin-breadcrumb-link:hover {
   text-decoration: underline;
+  color: #fff;
 }
 
 .admin-breadcrumb-current {
-  color: var(--mpl-heading);
+  color: #fff;
   font-weight: 600;
 }
 

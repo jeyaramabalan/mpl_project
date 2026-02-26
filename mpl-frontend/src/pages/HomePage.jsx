@@ -291,7 +291,7 @@ function HomePage() {
                         {featuredMom ? (
                             <Link to={`/matches/${featuredMom.matchId}`} className="home-news-card-inner">
                                 <div className="home-news-img home-news-featured-img-wrap">
-                                    {featuredMomImageError ? (
+                                    {(featuredMomImageError || !featuredMom.playerId) ? (
                                         <div className="home-news-featured-avatar" aria-hidden="true">
                                             {(featuredMom.playerName || 'P').charAt(0).toUpperCase()}
                                         </div>
@@ -319,7 +319,7 @@ function HomePage() {
                         {featuredTopBatter ? (
                             <Link to={`/players/${featuredTopBatter.playerId}`} className="home-news-card-inner">
                                 <div className="home-news-img home-news-featured-img-wrap">
-                                    {featuredBatterImageError ? (
+                                    {(featuredBatterImageError || !featuredTopBatter.playerId) ? (
                                         <div className="home-news-featured-avatar" aria-hidden="true">
                                             {(featuredTopBatter.playerName || 'P').charAt(0).toUpperCase()}
                                         </div>
@@ -347,7 +347,7 @@ function HomePage() {
                         {featuredTopBowler ? (
                             <Link to={`/players/${featuredTopBowler.playerId}`} className="home-news-card-inner">
                                 <div className="home-news-img home-news-featured-img-wrap">
-                                    {featuredBowlerImageError ? (
+                                    {(featuredBowlerImageError || !featuredTopBowler.playerId) ? (
                                         <div className="home-news-featured-avatar" aria-hidden="true">
                                             {(featuredTopBowler.playerName || 'P').charAt(0).toUpperCase()}
                                         </div>
