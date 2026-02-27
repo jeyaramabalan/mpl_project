@@ -366,6 +366,8 @@
 /* Light theme adjustments (follows app theme toggle) */
 [data-theme="light"] .match-header { background-color: #f0f0f0; }
 [data-theme="light"] .match-header h2 { color: #333; }
+[data-theme="light"] .match-header-teams .match-header-team,
+[data-theme="light"] .match-header-vs { color: #2d2d2d; }
 [data-theme="light"] .match-header p { color: #555; }
 [data-theme="light"] .match-header .status-live { color: #dc3545; }
 [data-theme="light"] .match-header .status-completed { color: #28a745; }

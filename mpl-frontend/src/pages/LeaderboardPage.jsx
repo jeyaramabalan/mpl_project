@@ -15,7 +15,7 @@ const SortIcon = ({ direction }) => (
     </span>
 );
 
-/** Reusable table for one leaderboard category (batting, bowling, or impact) with sortable columns */
+/** Reusable table for one leaderboard category (batting, bowling, impact, or highest bid) with sortable columns */
 const LeaderboardTable = ({ title, data, columns }) => {
     const [sortColumn, setSortColumn] = useState(null);
     const [sortDirection, setSortDirection] = useState('desc');
@@ -98,7 +98,7 @@ const LeaderboardTable = ({ title, data, columns }) => {
                                     let displayValue = value ?? '-';
 
                                     // Check if the column is one that needs number formatting
-                                    const isNumericColumn = ['avg', 'sr', 'econ', 'total_impact', 'bat_impact', 'bowl_impact', 'field_impact'].includes(col.key);
+                                    const isNumericColumn = ['avg', 'sr', 'econ', 'total_impact', 'bat_impact', 'bowl_impact', 'field_impact', 'bid_value', 'avg_impact_per_match'].includes(col.key);
 
                                     if (isNumericColumn) {
                                         // Handle the specific case for 'avg' where Infinity means "Not Out"
@@ -131,7 +131,7 @@ const LeaderboardTable = ({ title, data, columns }) => {
 function LeaderboardPage() {
     const [seasons, setSeasons] = useState([]);
     const [selectedSeason, setSelectedSeason] = useState('');
-    const [leaderboardData, setLeaderboardData] = useState({ batting: null, bowling: null, impact: null });
+    const [leaderboardData, setLeaderboardData] = useState({ batting: null, bowling: null, impact: null, highest_bid: null });
     const [loadingSeasons, setLoadingSeasons] = useState(true);
     const [loadingData, setLoadingData] = useState(false);
     const [error, setError] = useState('');
@@ -147,7 +147,7 @@ function LeaderboardPage() {
                 if (sortedSeasons.length > 0) {
                     const firstId = sortedSeasons[0].season_id;
                     const num = Number(firstId);
-                    if (Number.isInteger(num)) setSelectedSeason(num);
+                    if (Number.isInteger(num)) setSelectedSeason(String(num));
                     else setSelectedSeason('all');
                 } else {
                     setSelectedSeason('all');
@@ -167,7 +167,7 @@ function LeaderboardPage() {
             setLoadingData(true);
             // Don't clear the season loading error
             // setError(''); 
-            setLeaderboardData({ batting: null, bowling: null, impact: null });
+            setLeaderboardData({ batting: null, bowling: null, impact: null, highest_bid: null });
             try {
                 const params = selectedSeason === 'all' ? { season_id: 'all' } : { season_id: selectedSeason };
                 const { data } = await api.get('/leaderboard', { params });
@@ -175,11 +175,12 @@ function LeaderboardPage() {
                 setLeaderboardData({
                     batting: toList(d.batting),
                     bowling: toList(d.bowling),
-                    impact: toList(d.impact)
+                    impact: toList(d.impact),
+                    highest_bid: toList(d.highest_bid)
                 });
             } catch (err) {
                 setError(`Failed to load leaderboards.`);
-                setLeaderboardData({ batting: [], bowling: [], impact: [] });
+                setLeaderboardData({ batting: [], bowling: [], impact: [], highest_bid: [] });
             } finally {
                 setLoadingData(false);
             }
@@ -187,9 +188,21 @@ function LeaderboardPage() {
         fetchLeaderboards();
     }, [selectedSeason]);
 
-    const battingColumns = [ { key: 'player_name', header: 'Player' }, { key: 'matches', header: 'Mat' }, { key: 'runs', header: 'Runs' }, { key: 'hs', header: 'HS' }, { key: 'avg', header: 'Avg' }, { key: 'sr', header: 'SR' }, { key: 'twos', header: '2s' }, { key: 'fours', header: '4s' } ];
+    const battingColumns = [ { key: 'player_name', header: 'Player' }, { key: 'matches', header: 'Mat' }, { key: 'innings', header: 'Inn' }, { key: 'runs', header: 'Runs' }, { key: 'hs', header: 'HS' }, { key: 'avg', header: 'Avg' }, { key: 'sr', header: 'SR' }, { key: 'twos', header: '2s' }, { key: 'fours', header: '4s' } ];
     const bowlingColumns = [ { key: 'player_name', header: 'Player' }, { key: 'matches', header: 'Mat' }, { key: 'overs', header: 'Overs' }, { key: 'wickets', header: 'Wkts' }, { key: 'runs', header: 'Runs' }, { key: 'econ', header: 'Econ' } ];
-    const impactColumns = [ { key: 'player_name', header: 'Player' }, { key: 'matches', header: 'Mat' }, { key: 'total_impact', header: 'Total Impact' }, { key: 'bat_impact', header: 'Batting' }, { key: 'bowl_impact', header: 'Bowling' }, { key: 'field_impact', header: 'Fielding' } ];
+    const impactColumns = [ { key: 'player_name', header: 'Player' }, { key: 'matches', header: 'Mat' }, { key: 'total_impact', header: 'Total Impact' }, { key: 'avg_impact_per_match', header: 'Avg Impact (per match)' }, { key: 'bat_impact', header: 'Batting' }, { key: 'bowl_impact', header: 'Bowling' }, { key: 'field_impact', header: 'Fielding' } ];
+    const highestBidColumns = selectedSeason === 'all'
+        ? [
+            { key: 'player_name', header: 'Player' },
+            { key: 'bid_value', header: 'Avg Bid ($)' },
+            { key: 'seasons', header: 'Seasons' },
+            { key: 'avg_impact_per_match', header: 'Avg Impact (per match)' }
+          ]
+        : [
+            { key: 'player_name', header: 'Player' },
+            { key: 'bid_value', header: 'Bid ($)' },
+            { key: 'avg_impact_per_match', header: 'Avg Impact (per match)' }
+          ];
 
     return (
         <div className="leaderboard-page mpl-section">
@@ -208,7 +221,7 @@ function LeaderboardPage() {
                             const id = s.season_id != null ? Number(s.season_id) : null;
                             if (id == null || !Number.isInteger(id)) return null;
                             return (
-                                <option key={id} value={id}>
+                                <option key={id} value={String(id)}>
                                     {s.name} ({s.year})
                                 </option>
                             );
@@ -222,11 +235,12 @@ function LeaderboardPage() {
             {error && <p className="error-message">{error}</p>}
             {selectedSeason && (
                  <>
-                    {/* Tabs: switch between batting, bowling, impact leaderboards */}
+                    {/* Tabs: switch between batting, bowling, impact, and highest-bid leaderboards */}
                     <div className="mpl-tabs tabs">
                         <button type="button" onClick={() => setActiveTab('batting')} className={activeTab === 'batting' ? 'active' : ''}>Top Batters</button>
                         <button type="button" onClick={() => setActiveTab('bowling')} className={activeTab === 'bowling' ? 'active' : ''}>Top Bowlers</button>
                         <button type="button" onClick={() => setActiveTab('impact')} className={activeTab === 'impact' ? 'active' : ''}>Impact Leaders</button>
+                        <button type="button" onClick={() => setActiveTab('highest_bid')} className={activeTab === 'highest_bid' ? 'active' : ''}>Highest Bids</button>
                     </div>
                     <div className="leaderboard-content">
                         {loadingData ? <LoadingFallback message="Loading leaderboard data..." /> : (
@@ -234,6 +248,13 @@ function LeaderboardPage() {
                                 {activeTab === 'batting' && <LeaderboardTable title="Top Run Scorers" data={leaderboardData.batting} columns={battingColumns} />}
                                 {activeTab === 'bowling' && <LeaderboardTable title="Top Wicket Takers" data={leaderboardData.bowling} columns={bowlingColumns} />}
                                 {activeTab === 'impact' && <LeaderboardTable title="Top Impact Players" data={leaderboardData.impact} columns={impactColumns} />}
+                                {activeTab === 'highest_bid' && (
+                                    <LeaderboardTable
+                                        title={selectedSeason === 'all' ? 'Highest Average Bid Players' : 'Highest Bid Players'}
+                                        data={leaderboardData.highest_bid}
+                                        columns={highestBidColumns}
+                                    />
+                                )}
                             </>
                         )}
                     </div>

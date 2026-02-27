@@ -150,8 +150,8 @@ function PlayerDetailPage() {
                              <span className="detail-value">{player.average_impact?.toFixed(2) ?? 'N/A'}</span>
                          </li>
                          <li>
-                             <span className="detail-label">Base Price:</span>
-                             <span className="detail-value">{player.base_price != null ? `$${parseFloat(player.base_price).toFixed(2)}` : '$0.00'}</span>
+                             <span className="detail-label">Average Bid Price:</span>
+                             <span className="detail-value">{player.average_bid_price != null ? `$${Number(player.average_bid_price).toFixed(2)}` : 'N/A'}</span>
                          </li>
                      </ul>
                  </div>

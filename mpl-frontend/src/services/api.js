@@ -4,7 +4,9 @@ import axios from 'axios';
 // Determine the base URL for the API from environment variables or use a default
 const API_URL = import.meta.env.VITE_API_URL
   || (import.meta.env.MODE === 'production' ? 'https://mpl.supersalessoft.com/api' : 'http://localhost:5000/api');
-console.log(`API Service configured for URL: ${API_URL}`);
+if (import.meta.env.DEV) {
+  console.log(`API Service configured for URL: ${API_URL}`);
+}
 
 // Create an Axios instance with default configuration
 const api = axios.create({
@@ -31,17 +33,16 @@ api.interceptors.request.use(
                 }
             }
         } catch (error) {
-            // Handle potential errors parsing JSON from local storage
-            console.error("Interceptor: Error reading/parsing adminInfo from localStorage:", error);
+            if (import.meta.env.DEV) {
+              console.error("Interceptor: Error reading/parsing adminInfo from localStorage:", error);
+            }
             // Optionally clear invalid item: localStorage.removeItem('adminInfo');
         }
         // Must return the config object for the request to proceed
         return config;
     },
     (error) => {
-        // Handle errors that occur during request setup
-        console.error("Interceptor: Request Error:", error);
-        // Reject the promise to propagate the error
+        if (import.meta.env.DEV) console.error("Interceptor: Request Error:", error);
         return Promise.reject(error);
     }
 );
@@ -51,30 +52,29 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Log 404s with path: if only /api/players and /api/admin work, proxy may not be forwarding other paths
-    if (error.response && error.response.status === 404 && error.config) {
-      const path = (error.config.baseURL || '') + (error.config.url || '');
-      console.warn(`API 404 (proxy may not forward this path to Node): ${path}`);
+    if (import.meta.env.DEV) {
+      if (error.response && error.response.status === 404 && error.config) {
+        const path = (error.config.baseURL || '') + (error.config.url || '');
+        console.warn(`API 404 (proxy may not forward this path to Node): ${path}`);
+      }
+      console.error('API Response Error Interceptor Caught:', error);
+      if (error.response) {
+        console.error('Error Data:', error.response.data);
+        console.error('Error Status:', error.response.status);
+      }
     }
-    console.error('API Response Error Interceptor Caught:', error);
 
     if (error.response) {
-      console.error('Error Data:', error.response.data);
-      console.error('Error Status:', error.response.status);
       // console.error('Error Headers:', error.response.headers);
 
       // Handle specific error statuses globally
       if (error.response.status === 401) {
         // --- Unauthorized Access ---
-        console.warn('Unauthorized (401) detected by interceptor.');
-        // Remove potentially invalid authentication info from storage
+        if (import.meta.env.DEV) console.warn('Unauthorized (401) detected by interceptor.');
         localStorage.removeItem('adminInfo');
-        // Redirect to login page to force re-authentication
-        // Prevent redirect loop if already on login page
         if (!window.location.pathname.includes('/admin/login')) {
-            // Preserve the page the user was trying to access for redirection after login
             const intendedPath = window.location.pathname + window.location.search;
-            console.log(`Redirecting to login, intended path: ${intendedPath}`);
+            if (import.meta.env.DEV) console.log(`Redirecting to login, intended path: ${intendedPath}`);
             // Use window.location.href for a full page reload, clearing state
             window.location.href = `/admin/login?redirect=${encodeURIComponent(intendedPath)}`;
             // Or use react-router's navigate function if available globally (more complex setup)
@@ -83,8 +83,7 @@ api.interceptors.response.use(
         return Promise.reject({ status: 401, message: 'Unauthorized. Please login again.' });
 
       } else if (error.response.status === 403) {
-        // --- Forbidden Access ---
-        console.warn('Forbidden (403) detected by interceptor.');
+        if (import.meta.env.DEV) console.warn('Forbidden (403) detected by interceptor.');
         // User is authenticated but lacks permission for the specific resource
         // Maybe show a notification or redirect to a "permission denied" page
         // Return a specific rejected promise
@@ -97,15 +96,11 @@ api.interceptors.response.use(
 
 
     } else if (error.request) {
-      // --- Network Error ---
-      // The request was made but no response was received (e.g., server down, network issue)
-      console.error('API Network Error:', error.request);
+      if (import.meta.env.DEV) console.error('API Network Error:', error.request);
        return Promise.reject({ status: null, message: 'Network Error: Could not connect to the server. Please check your connection.' });
 
     } else {
-      // --- Request Setup Error ---
-      // Something happened in setting up the request that triggered an error
-      console.error('API Request Setup Error:', error.message);
+      if (import.meta.env.DEV) console.error('API Request Setup Error:', error.message);
       return Promise.reject({ status: null, message: error.message || 'An unexpected error occurred while setting up the request.' });
     }
 

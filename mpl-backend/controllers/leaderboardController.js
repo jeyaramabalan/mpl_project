@@ -57,6 +57,7 @@ exports.getLeaderboard = async (req, res, next) => { // Renamed for consistency 
                 p.player_id,
                 p.name as player_name,
                 COUNT(DISTINCT pms.match_id) as matches_played,
+                COUNT(DISTINCT CASE WHEN pms.balls_faced > 0 THEN pms.match_id END) as innings_batted,
                 SUM(COALESCE(pms.runs_scored, 0)) as total_runs,
                 SUM(COALESCE(pms.balls_faced, 0)) as total_balls_faced,
                 SUM(CASE WHEN pms.is_out = TRUE THEN 1 ELSE 0 END) as times_out,
@@ -86,19 +87,25 @@ exports.getLeaderboard = async (req, res, next) => { // Renamed for consistency 
         // Process for leaderboards
         const battingLeaders = allStats
             .filter(s => s.total_runs > 0 || s.matches_played > 0)
-            .map(s => ({
-                player_id: s.player_id,
-                player_name: s.player_name,
-                matches: s.matches_played,
-                runs: s.total_runs,
-                avg: calculateAvg(s.total_runs, s.times_out),
-                sr: calculateSR(s.total_runs, s.total_balls_faced),
-                hs: s.highest_score,
-                fours: s.total_fours,
-                twos: s.total_twos,
-            }))
-            .sort((a, b) => b.runs - a.runs)
-            .slice(0, 20);
+            .map(s => {
+                const innings = Number(s.innings_batted) || 0;
+                const runs = s.total_runs || 0;
+                const dismissals = Number(s.times_out) || 0; // innings - not outs
+                const avg = dismissals > 0 ? calculateAvg(runs, dismissals) : Infinity; // Infinity => \"Not Out\" in UI
+                return {
+                    player_id: s.player_id,
+                    player_name: s.player_name,
+                    matches: s.matches_played,
+                    innings,
+                    runs,
+                    avg,
+                    sr: calculateSR(s.total_runs, s.total_balls_faced),
+                    hs: s.highest_score,
+                    fours: s.total_fours,
+                    twos: s.total_twos,
+                };
+            })
+            .sort((a, b) => b.runs - a.runs);
 
         const bowlingLeaders = allStats
             .filter(s => (s.total_balls_bowled ?? 0) > 0)
@@ -114,26 +121,121 @@ exports.getLeaderboard = async (req, res, next) => { // Renamed for consistency 
                     econ: calculateEcon(s.total_runs_conceded, totalOversBowled),
                 };
             })
-            .sort((a, b) => b.wickets - a.wickets || (a.econ ?? 999) - (b.econ ?? 999))
-            .slice(0, 20);
+            .sort((a, b) => b.wickets - a.wickets || (a.econ ?? 999) - (b.econ ?? 999));
 
         const impactLeaders = allStats
-             .map(s => ({
-                player_id: s.player_id,
-                player_name: s.player_name,
-                matches: s.matches_played,
-                total_impact: s.total_impact,
-                bat_impact: s.total_batting_impact,
-                bowl_impact: s.total_bowling_impact,
-                field_impact: s.total_fielding_impact,
-             }))
-             .sort((a, b) => b.total_impact - a.total_impact)
-             .slice(0, 20);
+             .map(s => {
+                const matches = s.matches_played || 0;
+                const totalImpact = s.total_impact || 0;
+                const avgImpactPerMatch = matches > 0 ? totalImpact / matches : null;
+                return {
+                    player_id: s.player_id,
+                    player_name: s.player_name,
+                    matches,
+                    total_impact: totalImpact,
+                    bat_impact: s.total_batting_impact,
+                    bowl_impact: s.total_bowling_impact,
+                    field_impact: s.total_fielding_impact,
+                    avg_impact_per_match: avgImpactPerMatch,
+                };
+             })
+             .sort((a, b) => b.total_impact - a.total_impact);
+
+        // Highest Bid Players
+        // season_id !== 'all'  -> top absolute bid for that season (one row per player, MAX purchase_price)
+        // season_id === 'all'  -> average bid across all seasons (AVG purchase_price), plus seasons count
+        let highestBidLeaders = [];
+        if (season_id === 'all') {
+            const [rows] = await pool.query(
+                `
+                SELECT
+                    tp.player_id,
+                    p.name AS player_name,
+                    AVG(tp.purchase_price) AS bid_value,
+                    COUNT(DISTINCT tp.season_id) AS seasons
+                FROM teamplayers tp
+                JOIN players p ON tp.player_id = p.player_id
+                WHERE tp.purchase_price IS NOT NULL
+                  AND tp.purchase_price > 0
+                GROUP BY tp.player_id, p.name
+                ORDER BY bid_value DESC
+                `
+            );
+            highestBidLeaders = rows.map(r => ({
+                player_id: r.player_id,
+                player_name: r.player_name,
+                bid_value: r.bid_value,
+                seasons: r.seasons,
+                avg_impact_per_match: null,
+            }));
+        } else {
+            const seasonIdNum = parseInt(season_id);
+            const [rows] = await pool.query(
+                `
+                SELECT
+                    tp.player_id,
+                    p.name AS player_name,
+                    MAX(tp.purchase_price) AS bid_value
+                FROM teamplayers tp
+                JOIN players p ON tp.player_id = p.player_id
+                WHERE tp.season_id = ?
+                  AND tp.purchase_price IS NOT NULL
+                  AND tp.purchase_price > 0
+                GROUP BY tp.player_id, p.name
+                ORDER BY bid_value DESC
+                `,
+                [seasonIdNum]
+            );
+            highestBidLeaders = rows.map(r => ({
+                player_id: r.player_id,
+                player_name: r.player_name,
+                bid_value: r.bid_value,
+                avg_impact_per_match: null,
+            }));
+        }
+
+        // Fill avg_impact_per_match via a separate query (avoids correlated subquery issues in MySQL)
+        if (highestBidLeaders.length > 0) {
+            const playerIds = highestBidLeaders.map(r => r.player_id);
+            const placeholders = playerIds.map(() => '?').join(',');
+            let impactQuery = `
+                SELECT player_id,
+                    SUM(COALESCE(batting_impact_points,0) + COALESCE(bowling_impact_points,0) + COALESCE(fielding_impact_points,0)) AS total_impact,
+                    COUNT(DISTINCT match_id) AS match_count
+                FROM playermatchstats
+                WHERE player_id IN (${placeholders})
+                GROUP BY player_id
+            `;
+            const impactParams = [...playerIds];
+            if (season_id !== 'all') {
+                const seasonIdNum = parseInt(season_id);
+                impactQuery = `
+                    SELECT pms.player_id,
+                        SUM(COALESCE(pms.batting_impact_points,0) + COALESCE(pms.bowling_impact_points,0) + COALESCE(pms.fielding_impact_points,0)) AS total_impact,
+                        COUNT(DISTINCT pms.match_id) AS match_count
+                    FROM playermatchstats pms
+                    JOIN matches m ON pms.match_id = m.match_id AND m.season_id = ?
+                    WHERE pms.player_id IN (${placeholders})
+                    GROUP BY pms.player_id
+                `;
+                impactParams.unshift(seasonIdNum);
+            }
+            const [impactRows] = await pool.query(impactQuery, impactParams);
+            const impactByPlayer = {};
+            impactRows.forEach(row => {
+                const avg = row.match_count > 0 ? row.total_impact / row.match_count : null;
+                impactByPlayer[row.player_id] = avg != null ? parseFloat(Number(avg).toFixed(2)) : null;
+            });
+            highestBidLeaders.forEach(r => {
+                r.avg_impact_per_match = impactByPlayer[r.player_id] ?? null;
+            });
+        }
 
         res.json({
             batting: battingLeaders,
             bowling: bowlingLeaders,
-            impact: impactLeaders
+            impact: impactLeaders,
+            highest_bid: highestBidLeaders
         });
 
     } catch (error) {

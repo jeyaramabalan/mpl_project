@@ -30,7 +30,7 @@ function SchedulePage() {
                 if (sortedSeasons.length > 0) {
                     const firstId = sortedSeasons[0].season_id;
                     const num = Number(firstId);
-                    if (Number.isInteger(num)) setSelectedSeason(num);
+                    if (Number.isInteger(num)) setSelectedSeason(String(num));
                 }
             } catch (err) {
                 console.error("Failed to fetch seasons:", err);
@@ -66,7 +66,7 @@ function SchedulePage() {
         };
 
         fetchFixtures();
-    }, [selectedSeason, selectedStatus, seasons]); // Refetch when filters change
+    }, [selectedSeason, selectedStatus]); // Refetch when filters change (seasons omitted to avoid double fetch when seasons load)
 
     const teamInitials = (name) => (name || '?').trim().split(/\s+/).map((w) => w[0]).join('').slice(0, 2).toUpperCase();
 

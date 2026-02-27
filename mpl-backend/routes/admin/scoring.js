@@ -4,9 +4,11 @@ const {
     getMatchesForSetup,
     submitMatchSetup,
     scoreSingleBall,
-    submitFinalMatchScore, // Keep if manual final entry/correction is needed
-    getLiveMatchState, // <-- NEW CONTROLLER FUNCTION
-    undoLastBall // <-- Endpoint from previous step
+    submitFinalMatchScore,
+    getLiveMatchState,
+    undoLastBall,
+    updateToss,
+    revertToScheduled
 } = require('../../controllers/admin/scoringController');
 
 const router = express.Router();
@@ -22,9 +24,17 @@ router.get('/setup-list', getMatchesForSetup);
 // Transitions match status from 'Scheduled' to 'Setup'.
 router.post('/matches/:matchId/setup', submitMatchSetup);
 
-// GET /api/admin/scoring/matches/:matchId/state  <-- NEW ROUTE
+// GET /api/admin/scoring/matches/:matchId/state
 // Fetch the current detailed state of a live/in-progress/completed match
 router.get('/matches/:matchId/state', getLiveMatchState);
+
+// PATCH /api/admin/scoring/matches/:matchId/toss
+// Update toss winner and decision (only when no ball bowled yet)
+router.patch('/matches/:matchId/toss', updateToss);
+
+// POST /api/admin/scoring/matches/:matchId/revert-to-scheduled
+// Revert match to Scheduled (only when no ball bowled yet)
+router.post('/matches/:matchId/revert-to-scheduled', revertToScheduled);
 
 // POST /api/admin/scoring/matches/:matchId/ball
 // Route to score a single ball

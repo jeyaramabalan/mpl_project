@@ -55,7 +55,13 @@ exports.getPlayerById = async (req, res, next) => {
         const playerData = players[0];
         const impactQuery = ` SELECT SUM(COALESCE(batting_impact_points, 0) + COALESCE(bowling_impact_points, 0) + COALESCE(fielding_impact_points, 0)) as total_impact, COUNT(DISTINCT match_id) as matches_played FROM playermatchstats WHERE player_id = ? GROUP BY player_id `;
         const [impactRes] = await pool.query(impactQuery, [id]); let averageImpact = 0; if (impactRes.length > 0 && impactRes[0].matches_played > 0) { averageImpact = impactRes[0].total_impact / impactRes[0].matches_played; }
-        const responseData = { ...playerData, average_impact: parseFloat(averageImpact.toFixed(2)) };
+        // Average Bid Price: AVG(purchase_price) over seasons where purchase_price > 0 (exclude 0/NULL; captain seasons are 0 by default)
+        const [bidRes] = await pool.query(
+            `SELECT AVG(tp.purchase_price) as average_bid_price FROM teamplayers tp WHERE tp.player_id = ? AND tp.purchase_price IS NOT NULL AND tp.purchase_price > 0`,
+            [id]
+        );
+        const averageBidPrice = bidRes.length > 0 && bidRes[0].average_bid_price != null ? parseFloat(Number(bidRes[0].average_bid_price).toFixed(2)) : null;
+        const responseData = { ...playerData, average_impact: parseFloat(averageImpact.toFixed(2)), average_bid_price: averageBidPrice };
         res.json(responseData);
     } catch (error) { console.error("Get Player By ID Error:", error); next(error); }
 };

@@ -1,6 +1,6 @@
 // mpl-project/mpl-frontend/src/App.jsx
-import React, { Suspense, lazy } from 'react';
-import { Route, Routes, Navigate } from 'react-router-dom';
+import React, { Suspense, lazy, useEffect } from 'react';
+import { Route, Routes, Navigate, useLocation } from 'react-router-dom';
 
 // --- Core Components ---
 import Navbar from './components/Navbar';
@@ -37,11 +37,37 @@ const AdminResolveMatchPage = lazy(() => import('./pages/admin/AdminResolveMatch
 // Not Found Page
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 
+const PAGE_TITLES = {
+    '/': 'Home – MPL',
+    '/players': 'Players – MPL',
+    '/schedule': 'Schedule – MPL',
+    '/standings': 'Standings – MPL',
+    '/leaderboard': 'Leaderboard – MPL',
+    '/records': 'Records – MPL',
+    '/champions': 'Champions – MPL',
+    '/contact': 'Contact – MPL',
+    '/rules': 'Rules – MPL',
+    '/admin/login': 'Admin Login – MPL',
+    '/admin/dashboard': 'Admin Dashboard – MPL',
+};
+
 function App() {
+    const location = useLocation();
+    useEffect(() => {
+        let title = PAGE_TITLES[location.pathname];
+        if (!title) {
+            if (location.pathname.startsWith('/matches/')) title = 'Match – MPL';
+            else if (location.pathname.startsWith('/players/')) title = 'Player – MPL';
+            else if (location.pathname.startsWith('/admin')) title = 'Admin – MPL';
+            else title = 'MPL';
+        }
+        document.title = title;
+    }, [location.pathname]);
+
     return (
         <>
             <Navbar /> {/* Navigation bar present on all pages */}
-            <main> {/* Main content area */}
+            <main id="main-content"> {/* Main content area; id for skip link target */}
                 {/* Suspense provides a fallback UI while lazy-loaded components are loading */}
                 <Suspense fallback={<LoadingFallback />}>
                     <Routes> {/* Defines the available routes */}

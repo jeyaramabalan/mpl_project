@@ -1,9 +1,10 @@
 // mpl-project/mpl-frontend/src/pages/admin/AdminLiveScoringPage.jsx
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom'; // Removed useLocation
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useSocket } from '../../context/SocketContext';
 import api from '../../services/api';
 import LoadingFallback from '../../components/LoadingFallback';
+import ConfirmDialog from '../../components/ConfirmDialog';
 
 // --- ScoreDisplay Component (Assume correct from previous versions) ---
 const ScoreDisplay = ({ state }) => {
@@ -59,6 +60,12 @@ function AdminLiveScoringPage() {
     const [isWicketEvent, setIsWicketEvent] = useState(false);
     const [selectedWicketType, setSelectedWicketType] = useState('');
     const [selectedFielderId, setSelectedFielderId] = useState('');
+
+    // --- State for Change Toss / Revert to Scheduled ---
+    const [showTossModal, setShowTossModal] = useState(false);
+    const [editTossWinnerTeamId, setEditTossWinnerTeamId] = useState('');
+    const [editDecision, setEditDecision] = useState('');
+    const [showRevertDialog, setShowRevertDialog] = useState(false);
 
     // --- Refs for comparing previous state ---
     const prevStateRef = useRef(null); // Initialize null
@@ -123,6 +130,16 @@ function AdminLiveScoringPage() {
 
         return () => { isMounted = false; };
     }, [matchId]); // Fetch whenever matchId changes
+
+    const refetchMatchState = useCallback(async () => {
+        if (!matchId) return;
+        try {
+            const { data } = await api.get(`/admin/scoring/matches/${matchId}/state`);
+            if (data) setMatchState(data);
+        } catch (err) {
+            setError(err.response?.data?.message || err.message || 'Failed to refresh state.');
+        }
+    }, [matchId]);
 
     // --- Auto-refresh when match is live: poll state so score and ball-by-ball update even if socket misses
     useEffect(() => {
@@ -453,6 +470,58 @@ function AdminLiveScoringPage() {
         } 
     };
 
+    const noBallsBowledYet = matchState && (
+        matchState.status === 'Setup' || (
+            matchState.status === 'Live' &&
+            (matchState.score ?? 0) === 0 &&
+            (matchState.overs ?? 0) === 0 &&
+            (matchState.balls ?? 0) === 0
+        )
+    );
+    const canChangeTossOrRevert = !!noBallsBowledYet;
+
+    const handleOpenTossModal = () => {
+        setEditTossWinnerTeamId(String(matchState?.toss_winner_team_id ?? ''));
+        setEditDecision(matchState?.decision ?? '');
+        setShowTossModal(true);
+        setError('');
+    };
+
+    const handleTossSubmit = async (e) => {
+        e.preventDefault();
+        if (!editTossWinnerTeamId || !editDecision) {
+            setError('Select toss winner and decision.');
+            return;
+        }
+        setIsSubmitting(true);
+        setError('');
+        try {
+            await api.patch(`/admin/scoring/matches/${matchId}/toss`, {
+                toss_winner_team_id: parseInt(editTossWinnerTeamId),
+                decision: editDecision,
+            });
+            setShowTossModal(false);
+            await refetchMatchState();
+        } catch (err) {
+            setError(err.response?.data?.message || err.message || 'Failed to update toss.');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleRevertConfirm = async () => {
+        setShowRevertDialog(false);
+        setIsSubmitting(true);
+        setError('');
+        try {
+            await api.post(`/admin/scoring/matches/${matchId}/revert-to-scheduled`);
+            navigate('/admin/scoring/setup');
+        } catch (err) {
+            setError(err.response?.data?.message || err.message || 'Failed to revert match.');
+            setIsSubmitting(false);
+        }
+    };
+
 
     // --- Render Logic ---
     if (isLoading) return <LoadingFallback message="Loading match state..." />;
@@ -472,13 +541,18 @@ function AdminLiveScoringPage() {
     const buttonStyle = { minWidth: '55px', padding: '0.5em 0.8em', fontSize: '0.9rem'};
     const labelStyle = { fontWeight: 'bold', marginRight: '10px', minWidth: '80px', textAlign: 'right'};
 
-console.log("matchState====>",matchState)
     return (
         <div>
             <h2>Live Scoring — Match {matchId}</h2>
             <p style={{ marginTop: '0.25rem', marginBottom: '1rem' }}>
                 <Link to="/admin/scoring/setup">← Back to Setup</Link>
             </p>
+            {canChangeTossOrRevert && (
+                <div style={{ marginBottom: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <button type="button" onClick={handleOpenTossModal} disabled={isSubmitting} style={{ padding: '0.4em 0.8em' }}>Change toss</button>
+                    <button type="button" onClick={() => setShowRevertDialog(true)} disabled={isSubmitting} style={{ padding: '0.4em 0.8em', backgroundColor: '#6c757d', color: '#fff', border: 'none', borderRadius: '4px' }}>Revert to Scheduled</button>
+                </div>
+            )}
             {error && <p className="error-message">{error}</p>}
             <ScoreDisplay state={matchState} />
 
@@ -525,6 +599,47 @@ console.log("matchState====>",matchState)
                      {currentStatus !== 'Completed' && <button onClick={() => navigate('/admin/scoring/setup')}>Back to Setup List</button>}
                 </div>
             )}
+
+            {showTossModal && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={() => !isSubmitting && setShowTossModal(false)}>
+                    <div style={{ background: '#fff', padding: '1.5rem', borderRadius: '8px', minWidth: '280px' }} onClick={e => e.stopPropagation()}>
+                        <h3 style={{ marginTop: 0 }}>Change toss</h3>
+                        <form onSubmit={handleTossSubmit}>
+                            <div style={{ marginBottom: '1rem' }}>
+                                <label htmlFor="edit-toss-winner">Toss winner: </label>
+                                <select id="edit-toss-winner" value={editTossWinnerTeamId} onChange={e => setEditTossWinnerTeamId(e.target.value)} required style={{ minWidth: '180px' }}>
+                                    <option value="">-- Select --</option>
+                                    {matchState?.team1_id != null && <option value={matchState.team1_id}>{matchState.team1_name}</option>}
+                                    {matchState?.team2_id != null && <option value={matchState.team2_id}>{matchState.team2_name}</option>}
+                                </select>
+                            </div>
+                            <div style={{ marginBottom: '1rem' }}>
+                                <label htmlFor="edit-decision">Decision: </label>
+                                <select id="edit-decision" value={editDecision} onChange={e => setEditDecision(e.target.value)} required style={{ minWidth: '120px' }}>
+                                    <option value="">-- Select --</option>
+                                    <option value="Bat">Bat</option>
+                                    <option value="Bowl">Bowl</option>
+                                </select>
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                                <button type="button" onClick={() => setShowTossModal(false)} disabled={isSubmitting}>Cancel</button>
+                                <button type="submit" disabled={isSubmitting}>Save</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            <ConfirmDialog
+                open={showRevertDialog}
+                title="Revert to Scheduled"
+                message="Put this match back to Scheduled? You can run setup again from the Setup page."
+                confirmLabel="Revert to Scheduled"
+                cancelLabel="Cancel"
+                variant="danger"
+                onConfirm={handleRevertConfirm}
+                onCancel={() => setShowRevertDialog(false)}
+            />
         </div>
     );
 }

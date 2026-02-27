@@ -88,8 +88,11 @@
 
 .searchable-player-select-option.selected {
   background: var(--mpl-turquoise);
-  color: #ffffff;
   color: #fff;
+}
+
+.searchable-player-select-option.highlighted {
+  background: var(--mpl-grey-200);
 }
 
 .searchable-player-select-option.muted {

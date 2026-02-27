@@ -61,6 +61,7 @@ function Navbar() {
 
     return (
         <header className="mpl-navbar">
+            <a href="#main-content" className="mpl-skip-link">Skip to main content</a>
             <nav>
                 <Link to="/" className="mpl-nav-brand" aria-label="MPL Home" onClick={closeMenu}>MPL</Link>
                 <button

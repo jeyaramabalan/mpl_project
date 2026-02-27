@@ -430,6 +430,8 @@ exports.getLiveMatchState = async (req, res, next) => {
             overs: displayOver, balls: displayBall, target: targetScore, superOver: super_over_number,
             battingTeamId: battingTeamId, bowlingTeamId: bowlingTeamId,
             battingTeamName: battingTeamName, bowlingTeamName: bowlingTeamName,
+            team1_id: match.team1_id, team2_id: match.team2_id, team1_name: match.team1_name, team2_name: match.team2_name,
+            toss_winner_team_id: match.toss_winner_team_id, decision: match.decision,
             lastBallCommentary: lastBallCommentary, recentBallsSummary: recentBallsSummary,
             bowlerStats: currentBowlerStats, batsmenOutIds: batsmenOutIds,
             playersBattingTeam: battingPlayersList, playersBowlingTeam: bowlingPlayersList,
@@ -449,6 +451,107 @@ exports.getLiveMatchState = async (req, res, next) => {
     } catch (error) {
         console.error(`Error in getLiveMatchState for Match ${matchId}:`, error);
         next(error);
+    }
+};
+
+/**
+ * @desc    Update toss decision (toss winner + Bat/Bowl) only when no ball has been bowled.
+ * @route   PATCH /api/admin/scoring/matches/:matchId/toss
+ * @access  Admin (Protected)
+ */
+exports.updateToss = async (req, res, next) => {
+    const matchId = parseInt(req.params.matchId);
+    const { toss_winner_team_id, decision } = req.body;
+
+    if (isNaN(matchId)) return res.status(400).json({ message: 'Invalid Match ID.' });
+    if (!toss_winner_team_id || isNaN(parseInt(toss_winner_team_id))) return res.status(400).json({ message: 'Valid Toss Winner Team ID is required.' });
+    if (!decision || !['Bat', 'Bowl'].includes(decision)) return res.status(400).json({ message: 'Decision must be "Bat" or "Bowl".' });
+
+    try {
+        const [matchRows] = await pool.query(
+            'SELECT status, team1_id, team2_id FROM matches WHERE match_id = ?',
+            [matchId]
+        );
+        if (matchRows.length === 0) return res.status(404).json({ message: 'Match not found.' });
+        const match = matchRows[0];
+        const { status, team1_id, team2_id } = match;
+
+        const allowedStatuses = ['Setup', 'Live'];
+        if (!allowedStatuses.includes(status)) {
+            return res.status(400).json({ message: `Toss can only be changed when match is in Setup or Live with no balls bowled. Current status: ${status}.` });
+        }
+
+        const [ballCount] = await pool.query('SELECT COUNT(*) as cnt FROM ballbyball WHERE match_id = ?', [matchId]);
+        if ((ballCount[0]?.cnt || 0) > 0) {
+            return res.status(400).json({ message: 'Toss cannot be changed after the first ball has been bowled.' });
+        }
+
+        if (parseInt(toss_winner_team_id) !== team1_id && parseInt(toss_winner_team_id) !== team2_id) {
+            return res.status(400).json({ message: 'Toss winner ID does not match either team in the match.' });
+        }
+
+        await pool.query(
+            'UPDATE matches SET toss_winner_team_id = ?, decision = ? WHERE match_id = ?',
+            [parseInt(toss_winner_team_id), decision, matchId]
+        );
+        console.log(`--- Match ${matchId}: Toss updated to winner=${toss_winner_team_id}, decision=${decision} ---`);
+        res.status(200).json({ message: 'Toss updated successfully.' });
+    } catch (error) {
+        console.error(`Error updating toss for Match ${matchId}:`, error);
+        next(error);
+    }
+};
+
+/**
+ * @desc    Revert match to Scheduled (clear toss, remove scoring data). Only when no ball has been bowled.
+ * @route   POST /api/admin/scoring/matches/:matchId/revert-to-scheduled
+ * @access  Admin (Protected)
+ */
+exports.revertToScheduled = async (req, res, next) => {
+    const matchId = parseInt(req.params.matchId);
+    if (isNaN(matchId)) return res.status(400).json({ message: 'Invalid Match ID.' });
+
+    const connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+
+        const [matchRows] = await connection.query(
+            'SELECT status FROM matches WHERE match_id = ? FOR UPDATE',
+            [matchId]
+        );
+        if (matchRows.length === 0) {
+            await connection.rollback();
+            return res.status(404).json({ message: 'Match not found.' });
+        }
+        const status = matchRows[0].status;
+
+        const allowedStatuses = ['Setup', 'Live'];
+        if (!allowedStatuses.includes(status)) {
+            await connection.rollback();
+            return res.status(400).json({ message: `Match can only be reverted to Scheduled when status is Setup or Live with no balls bowled. Current status: ${status}.` });
+        }
+
+        const [ballCount] = await connection.query('SELECT COUNT(*) as cnt FROM ballbyball WHERE match_id = ?', [matchId]);
+        if ((ballCount[0]?.cnt || 0) > 0) {
+            await connection.rollback();
+            return res.status(400).json({ message: 'Cannot revert to Scheduled after any ball has been bowled.' });
+        }
+
+        await connection.query(
+            'UPDATE matches SET status = ?, toss_winner_team_id = NULL, decision = NULL WHERE match_id = ?',
+            ['Scheduled', matchId]
+        );
+        await connection.query('DELETE FROM playermatchstats WHERE match_id = ?', [matchId]);
+        await connection.query('DELETE FROM ballbyball WHERE match_id = ?', [matchId]);
+        await connection.commit();
+        console.log(`--- Match ${matchId}: Reverted to Scheduled ---`);
+        res.status(200).json({ message: 'Match reverted to Scheduled. You can run setup again from the Setup page.' });
+    } catch (error) {
+        await connection.rollback();
+        console.error(`Error reverting Match ${matchId} to Scheduled:`, error);
+        next(error);
+    } finally {
+        connection.release();
     }
 };
 

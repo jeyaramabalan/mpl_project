@@ -3,6 +3,25 @@
    Gunmetal header, brand text, centered nav links, active = Vanilla. Favicon = MPL logo (title bar).
    ============================================================ */
 
+/* Skip to main content: visually hidden until focused (a11y) */
+.mpl-skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0.5rem;
+  z-index: 9999;
+  padding: 0.5rem 1rem;
+  background: var(--mpl-white);
+  color: var(--mpl-gunmetal);
+  text-decoration: none;
+  border-radius: 4px;
+  font-weight: 600;
+}
+.mpl-skip-link:focus {
+  left: 1rem;
+  outline: 2px solid var(--mpl-turquoise);
+  outline-offset: 2px;
+}
+
 /* Navbar container: full width, sticky, gunmetal background */
 .mpl-navbar {
   background-color: var(--mpl-gunmetal);

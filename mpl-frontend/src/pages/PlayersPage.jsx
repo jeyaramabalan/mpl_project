@@ -13,30 +13,28 @@ function PlayersPage() {
     const [error, setError] = useState('');
 
     useEffect(() => {
+        let isMounted = true;
         const fetchPlayers = async () => {
             setLoading(true);
             setError('');
             try {
-                console.log("Fetching players list...");
                 const response = await api.get('/players');
+                if (!isMounted) return;
                 const data = response.data;
                 const list = toList(data);
                 setPlayers(list);
-                if (list.length === 0 && data != null) {
-                    console.warn("Players API returned 0 items. Response type:", Array.isArray(data) ? 'array' : typeof data, typeof data === 'object' ? ', keys: ' + Object.keys(data || {}).join(', ') : '');
-                }
-                console.log("Players fetched:", list.length);
             } catch (err) {
-                console.error("Failed to fetch players:", err);
-                const errorMessage = typeof err === 'string' ? err : (err.message || 'Failed to load players list.');
+                if (!isMounted) return;
+                const errorMessage = (err && typeof err === 'object' && err.message) ? err.message : 'Failed to load players list.';
                 setError(errorMessage);
             } finally {
-                setLoading(false);
+                if (isMounted) setLoading(false);
             }
         };
 
         fetchPlayers();
-    }, []); // Empty dependency array ensures this runs only once on mount
+        return () => { isMounted = false; };
+    }, []);
 
     if (loading) return <LoadingFallback />;
     if (error) return <div className="error-message">Error loading players: {error}</div>;

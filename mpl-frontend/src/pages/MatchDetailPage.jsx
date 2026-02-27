@@ -100,8 +100,7 @@ const MatchDetailPage = () => {
   const [error, setError] = useState("");
   const [activeTab, setActiveTab] = useState('summary');
   const [momImageError, setMomImageError] = useState(false);
-  const matchIdParam = useParams().id;
-  useEffect(() => { setMomImageError(false); }, [matchIdParam]);
+  useEffect(() => { setMomImageError(false); }, [matchId]);
   const commentaryContainerRef = useRef(null);
 
   useEffect(() => {
@@ -279,11 +278,10 @@ const MatchDetailPage = () => {
     return { innings1: processInnings(1), innings2: processInnings(2) };
   }, [matchDetails]);
 
-  // Worm chart: cumulative runs vs overs (excluding super over) for both innings
+  // Worm chart: cumulative runs vs overs for both innings (all 5 overs count; super_over_number only marks which over has special rules)
   const wormData = useMemo(() => {
     if (matchDetails?.status !== "Completed" || !matchDetails.ballByBall || !processedScorecards) return null;
     const balls = matchDetails.ballByBall;
-    const superOverNum = matchDetails.super_over_number != null ? Number(matchDetails.super_over_number) : null;
     const name1 = processedScorecards.innings1.batTeamName;
     const name2 = processedScorecards.innings2.batTeamName;
 
@@ -291,14 +289,10 @@ const MatchDetailPage = () => {
       const result = [0]; // index 0 = after 0 overs
       for (let o = 1; o <= 5; o++) {
         const prev = result[o - 1] ?? 0;
-        if (o === superOverNum) {
-          result[o] = prev;
-        } else {
-          const runsThisOver = balls
-            .filter((b) => b.inning_number === inningNumber && Number(b.over_number) === o)
-            .reduce((s, b) => s + Number(b.runs_scored || 0) + Number(b.extra_runs || 0), 0);
-          result[o] = prev + runsThisOver;
-        }
+        const runsThisOver = balls
+          .filter((b) => b.inning_number === inningNumber && Number(b.over_number) === o)
+          .reduce((s, b) => s + Number(b.runs_scored || 0) + Number(b.extra_runs || 0), 0);
+        result[o] = prev + runsThisOver;
       }
       return result;
     };
@@ -430,23 +424,50 @@ const MatchDetailPage = () => {
         )}
       </div>
       
-      <nav className="match-tabs">
-        <button className={`tab-button ${activeTab === 'scorecard' ? 'active' : ''}`} onClick={() => setActiveTab('scorecard')}>Scorecard</button>
-        <button className={`tab-button ${activeTab === 'commentary' ? 'active' : ''}`} onClick={() => setActiveTab('commentary')}>Ball-by-Ball</button>
-        <button className={`tab-button ${activeTab === 'worm' ? 'active' : ''}`} onClick={() => setActiveTab('worm')}>Worm</button>
+      <nav className="match-tabs" role="tablist" aria-label="Match details">
+        <button
+            type="button"
+            role="tab"
+            id="tab-scorecard"
+            aria-selected={activeTab === 'scorecard'}
+            aria-controls="panel-scorecard"
+            className={`tab-button ${activeTab === 'scorecard' ? 'active' : ''}`}
+            onClick={() => setActiveTab('scorecard')}
+            tabIndex={activeTab === 'scorecard' ? 0 : -1}
+        >Scorecard</button>
+        <button
+            type="button"
+            role="tab"
+            id="tab-commentary"
+            aria-selected={activeTab === 'commentary'}
+            aria-controls="panel-commentary"
+            className={`tab-button ${activeTab === 'commentary' ? 'active' : ''}`}
+            onClick={() => setActiveTab('commentary')}
+            tabIndex={activeTab === 'commentary' ? 0 : -1}
+        >Ball-by-Ball</button>
+        <button
+            type="button"
+            role="tab"
+            id="tab-worm"
+            aria-selected={activeTab === 'worm'}
+            aria-controls="panel-worm"
+            className={`tab-button ${activeTab === 'worm' ? 'active' : ''}`}
+            onClick={() => setActiveTab('worm')}
+            tabIndex={activeTab === 'worm' ? 0 : -1}
+        >Worm</button>
       </nav>
 
       <div className="tab-content">
         {activeTab === 'commentary' && (
-             <div className="commentary-section">
+             <div id="panel-commentary" role="tabpanel" aria-labelledby="tab-commentary" className="commentary-section">
                 <div ref={commentaryContainerRef} className="commentary-box">
-                {displayCommentary.length > 0 ? ( displayCommentary.map((ball) => ( <CommentaryItem key={ball.ball_id || `comm-${Math.random()}`} ball={ball} /> )) ) : ( <p>Waiting for commentary...</p> )}
+                {displayCommentary.length > 0 ? ( displayCommentary.map((ball, idx) => ( <CommentaryItem key={ball.ball_id ?? `comm-${idx}`} ball={ball} /> )) ) : ( <p>Waiting for commentary...</p> )}
                 </div>
             </div>
         )}
 
         {activeTab === 'scorecard' && displayStatus === "Completed" && processedScorecards && (
-          <div className="detailed-scorecards-section">
+          <div id="panel-scorecard" role="tabpanel" aria-labelledby="tab-scorecard" className="detailed-scorecards-section">
             <InningsScorecard 
                 stats={processedScorecards.innings1.batStats} 
                 teamName={processedScorecards.innings1.batTeamName} 
@@ -479,7 +500,7 @@ const MatchDetailPage = () => {
         )}
 
         {activeTab === 'worm' && displayStatus === "Completed" && wormData && processedScorecards && (
-          <div className="worm-section">
+          <div id="panel-worm" role="tabpanel" aria-labelledby="tab-worm" className="worm-section">
             <h3 className="worm-title">Worm</h3>
             <div className="worm-chart-wrapper">
               <ResponsiveContainer width="100%" height={320}>
