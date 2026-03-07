@@ -6,6 +6,7 @@ const {
     getSeasonById,
     updateSeason,
     deleteSeason,
+    deleteSeasonWithAllData,
 } = require('../../controllers/admin/seasonController');
 
 const router = express.Router();
@@ -16,6 +17,9 @@ const router = express.Router();
 router.route('/')
     .post(createSeason) // POST /api/admin/seasons - Create a new season
     .get(getSeasons);   // GET /api/admin/seasons - Get all seasons
+
+// POST /api/admin/seasons/:id/delete-with-data — requires destructive_password in body; wipes all related data (must be before generic :id)
+router.post('/:id/delete-with-data', deleteSeasonWithAllData);
 
 // Route for specific season by ID: /api/admin/seasons/:id
 router.route('/:id')

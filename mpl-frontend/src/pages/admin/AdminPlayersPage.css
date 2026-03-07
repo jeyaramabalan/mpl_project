@@ -1,0 +1,22 @@
+/* Add/Edit Player form: light panel with dark text in both themes */
+.admin-players-form {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  border: 1px solid var(--mpl-border, #ccc);
+  border-radius: 8px;
+  background-color: #f5f5f5;
+  color: #1a1a1a;
+}
+.admin-players-form label {
+  color: #1a1a1a;
+}
+.admin-players-form h3 {
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  color: #1a1a1a;
+}
+.admin-players-form input,
+.admin-players-form select {
+  color: #1a1a1a;
+  background-color: #fff;
+}

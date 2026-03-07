@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { path: '/admin/seasons', label: 'Seasons' },
   { path: '/admin/teams', label: 'Teams' },
   { path: '/admin/players', label: 'Players' },
+  { path: '/admin/auction', label: 'Auction' },
   { path: '/admin/schedule', label: 'Schedule' },
   { path: '/admin/scoring/setup', label: 'Setup Scoring' },
   { path: '/admin/resolve', label: 'Resolve Match' },
@@ -36,6 +37,7 @@ function getBreadcrumbs(pathname, params) {
         break;
       }
     } else if (seg === 'resolve') crumbs.push({ path: acc, label: 'Resolve Match' });
+    else if (seg === 'auction') crumbs.push({ path: acc, label: 'Auction' });
     else crumbs.push({ path: acc, label: seg });
   }
   return crumbs;

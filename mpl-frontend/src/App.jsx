@@ -32,7 +32,8 @@ const AdminMatchSetupPage = lazy(() => import('./pages/admin/AdminMatchSetupPage
 const AdminLiveScoringPage = lazy(() => import('./pages/admin/AdminLiveScoringPage'));
 const AdminPlayersPage = lazy(() => import('./pages/admin/AdminPlayersPage'));
 const AdminResolveMatchPage = lazy(() => import('./pages/admin/AdminResolveMatchPage'));
-// TODO: Import other admin pages (e.g., AdminPaymentsPage, AdminPlayerManagementPage) when created
+const AdminAuctionPage = lazy(() => import('./pages/admin/AdminAuctionPage'));
+const AuctionPage = lazy(() => import('./pages/AuctionPage'));
 
 // Not Found Page
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
@@ -102,8 +103,10 @@ function App() {
                                 <Route path="scoring/setup" element={<AdminMatchSetupPage />} />
                                 <Route path="scoring/live/:matchId" element={<AdminLiveScoringPage />} />
                                 <Route path="resolve" element={<AdminResolveMatchPage />} />
+                                <Route path="auction" element={<AdminAuctionPage />} />
                             </Route>
                         </Route>
+                        <Route path="/auction" element={<AuctionPage />} />
 
                         {/* --- Catch-all 404 Not Found Route --- */}
                         {/* This route matches any path not defined above */}

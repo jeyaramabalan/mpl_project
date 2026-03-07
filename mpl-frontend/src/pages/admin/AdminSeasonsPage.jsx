@@ -3,7 +3,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import { toList } from '../../utils/apiResponse';
 import LoadingFallback from '../../components/LoadingFallback';
-import ConfirmDialog from '../../components/ConfirmDialog';
 
 function AdminSeasonsPage() {
     const [seasons, setSeasons] = useState([]);
@@ -12,6 +11,8 @@ function AdminSeasonsPage() {
     const [isEditing, setIsEditing] = useState(null);
     const [formData, setFormData] = useState({ year: '', name: '', start_date: '', end_date: '', status: 'Planned' });
     const [deleteSeasonTarget, setDeleteSeasonTarget] = useState(null);
+    const [destructivePassword, setDestructivePassword] = useState('');
+    const [deleteWithDataLoading, setDeleteWithDataLoading] = useState(false);
 
     const fetchSeasons = useCallback(async () => {
         setLoading(true);
@@ -98,24 +99,60 @@ function AdminSeasonsPage() {
         if (!deleteSeasonTarget) return;
         const seasonId = deleteSeasonTarget.season_id;
         setError('');
-        setLoading(true);
+        setDeleteWithDataLoading(true);
         try {
-            await api.delete(`/admin/seasons/${seasonId}`);
+            await api.post(`/admin/seasons/${seasonId}/delete-with-data`, {
+                destructive_password: destructivePassword,
+            });
             setDeleteSeasonTarget(null);
+            setDestructivePassword('');
             if (isEditing === seasonId) resetForm();
             fetchSeasons();
         } catch (err) {
-            setError(typeof err === 'string' ? err : (err?.response?.data?.message || err?.message || 'Failed to delete season.'));
+            const msg = err?.response?.data?.message || err?.message || 'Failed to delete season.';
+            setError(msg);
+            if (err?.response?.status !== 403) setDeleteWithDataLoading(false);
         } finally {
-            setLoading(false);
+            setDeleteWithDataLoading(false);
         }
+    };
+
+    const closeDeleteModal = () => {
+        setDeleteSeasonTarget(null);
+        setDestructivePassword('');
+        setError('');
     };
 
     return (
         <div>
             <h2>Manage Seasons</h2>
 
-            <ConfirmDialog open={!!deleteSeasonTarget} title="Delete season" message={deleteSeasonTarget ? `Delete season "${deleteSeasonTarget.name}" (${deleteSeasonTarget.year})? This cannot be undone.` : ''} confirmLabel="Delete" cancelLabel="Cancel" variant="danger" onConfirm={handleDeleteSeason} onCancel={() => setDeleteSeasonTarget(null)} />
+            {/* Delete season and all data — requires destructive action password */}
+            {deleteSeasonTarget && (
+                <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={() => !deleteWithDataLoading && closeDeleteModal()}>
+                    <div className="mpl-card" style={{ padding: '1.5rem', minWidth: 320, maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
+                        <h3 style={{ marginTop: 0 }}>Delete season and all data</h3>
+                        <p style={{ marginBottom: '1rem' }}>This will <strong>permanently delete</strong> season &quot;{deleteSeasonTarget.name}&quot; ({deleteSeasonTarget.year}) and <strong>all related data</strong>: matches, ball-by-ball, schedules, teams, squads, registrations, auction. This cannot be undone.</p>
+                        <p style={{ marginBottom: '0.5rem', fontSize: '0.9rem' }}>Enter the destructive action password to confirm:</p>
+                        <input
+                            type="password"
+                            value={destructivePassword}
+                            onChange={(e) => setDestructivePassword(e.target.value)}
+                            placeholder="Password"
+                            disabled={deleteWithDataLoading}
+                            style={{ display: 'block', width: '100%', marginBottom: '1rem', padding: '0.5rem' }}
+                            autoComplete="off"
+                        />
+                        {error && <p className="error-message" style={{ marginBottom: '0.5rem' }}>{error}</p>}
+                        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                            <button type="button" onClick={closeDeleteModal} disabled={deleteWithDataLoading}>Cancel</button>
+                            <button type="button" onClick={handleDeleteSeason} disabled={deleteWithDataLoading || !destructivePassword.trim()} style={{ backgroundColor: '#dc3545', color: '#fff' }}>
+                                {deleteWithDataLoading ? 'Deleting...' : 'Delete everything'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Add/Edit Form */}
             <form onSubmit={handleSubmit} style={{ marginBottom: '2rem', padding: '1rem', border: '1px solid #ccc', borderRadius: '5px' }}>
@@ -184,7 +221,7 @@ function AdminSeasonsPage() {
 
             {/* Seasons List */}
             <h3>Existing Seasons</h3>
-            <p style={{ fontSize: '0.9rem', color: 'var(--mpl-text-muted)', marginBottom: '0.5rem' }}>Completed seasons cannot be edited or deleted.</p>
+            <p style={{ fontSize: '0.9rem', color: 'var(--mpl-text-muted)', marginBottom: '0.5rem' }}>Delete removes the season and all related data (matches, balls, teams, payments, auction). You must enter the destructive action password.</p>
              {loading && seasons.length === 0 && <LoadingFallback message="Loading seasons..." />} {/* Show loading only if list is empty */}
 
             {seasons.length > 0 ? (
@@ -211,7 +248,7 @@ function AdminSeasonsPage() {
                                 <td>{season.status}</td>
                                 <td>
                                     <button onClick={() => handleEditClick(season)} disabled={loading || isEditing === season.season_id || isCompleted} title={isCompleted ? 'Completed seasons cannot be edited' : ''} style={{padding: '0.3em 0.6em', fontSize: '0.9rem'}}>Edit</button>
-                                    <button type="button" onClick={() => setDeleteSeasonTarget(season)} disabled={loading || isCompleted} title={isCompleted ? 'Completed seasons cannot be deleted' : ''} style={{ backgroundColor: '#dc3545', marginLeft: '0.5rem', padding: '0.3em 0.6em', fontSize: '0.9rem' }}>Delete</button>
+                                    <button type="button" onClick={() => { setDeleteSeasonTarget(season); setError(''); setDestructivePassword(''); }} disabled={loading || isCompleted} title={isCompleted ? 'Completed seasons cannot be deleted' : 'Delete season and all related data (password required)'} style={{ backgroundColor: '#dc3545', marginLeft: '0.5rem', padding: '0.3em 0.6em', fontSize: '0.9rem' }}>Delete</button>
                                 </td>
                             </tr>
                             );

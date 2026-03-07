@@ -21,6 +21,7 @@ const matchRoutes = require('./routes/matches');
 //const ratingRoutes = require('./routes/ratings'); // Contains public GET and protected POST
 const standingsRoutes = require('./routes/standings');
 const publicSeasonRoutes = require('./routes/seasons');
+const publicAuctionRoutes = require('./routes/auction');
 
 // Admin Auth Route (Login endpoint is public)
 const adminAuthRoutes = require('./routes/admin/auth');
@@ -30,7 +31,7 @@ const adminSeasonRoutes = require('./routes/admin/seasons');
 const adminTeamRoutes = require('./routes/admin/teams');
 const adminScoringRoutes = require('./routes/admin/scoring');
 const adminMatchRoutes = require('./routes/admin/matchesAdmin');
-// TODO: Import other admin routes (e.g., payments, player management) if created
+const adminAuctionRoutes = require('./routes/admin/auction');
 
 // --- App & Server Initialization ---
 const app = express(); // Create Express application instance
@@ -75,6 +76,7 @@ app.use('/api/matches', matchRoutes);
 app.use('/api/standings', standingsRoutes)
 //app.use('/api/ratings', ratingRoutes); // Remember POST is protected internally if auth middleware added
 app.use('/api/seasons', publicSeasonRoutes);
+app.use('/api/auction', publicAuctionRoutes);
 
 // Mount Admin Authentication Routes (Login is public)
 app.use('/api/admin/auth', adminAuthRoutes);
@@ -86,7 +88,7 @@ app.use('/api/admin/seasons', protect, adminSeasonRoutes);
 app.use('/api/admin/teams', protect, adminTeamRoutes);
 app.use('/api/admin/scoring', protect, adminScoringRoutes);
 app.use('/api/admin/matches', protect, adminMatchRoutes);
-// TODO: Mount other protected admin routes here...
+app.use('/api/admin/auction', protect, adminAuctionRoutes);
 // Example: app.use('/api/admin/payments', protect, paymentRoutes);
 
 

@@ -185,3 +185,57 @@ exports.deleteSeason = async (req, res, next) => {
         next(error);
     }
 };
+
+/**
+ * @desc    Delete a season and ALL related data (matches, balls, teams, squad, registrations, auction).
+ *          Requires separate "destructive action" password in body.
+ * @route   POST /api/admin/seasons/:id/delete-with-data
+ * @access  Admin (Protected)
+ * Body: { destructive_password: "..." }
+ */
+const DESTRUCTIVE_PASSWORD = process.env.DESTRUCTIVE_ACTION_PASSWORD || 'N3ll@1T26';
+
+exports.deleteSeasonWithAllData = async (req, res, next) => {
+    const { id } = req.params;
+    const { destructive_password } = req.body || {};
+    if (isNaN(parseInt(id))) {
+        return res.status(400).json({ message: 'Invalid Season ID.' });
+    }
+    if (!destructive_password || String(destructive_password).trim() === '') {
+        return res.status(400).json({ message: 'Destructive action password is required.' });
+    }
+    if (String(destructive_password) !== DESTRUCTIVE_PASSWORD) {
+        return res.status(403).json({ message: 'Invalid password. Season was not deleted.' });
+    }
+    const connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+        const [existing] = await connection.query('SELECT season_id, name, year FROM seasons WHERE season_id = ? FOR UPDATE', [id]);
+        if (existing.length === 0) {
+            await connection.rollback();
+            return res.status(404).json({ message: 'Season not found.' });
+        }
+        const seasonId = parseInt(id, 10);
+        const [matchIds] = await connection.query('SELECT match_id FROM matches WHERE season_id = ?', [seasonId]);
+        const matchIdList = matchIds.map(r => r.match_id);
+        if (matchIdList.length > 0) {
+            const placeholders = matchIdList.map(() => '?').join(',');
+            await connection.query(`DELETE FROM ballbyball WHERE match_id IN (${placeholders})`, matchIdList);
+            await connection.query(`DELETE FROM playermatchstats WHERE match_id IN (${placeholders})`, matchIdList);
+        }
+        await connection.query('DELETE FROM matches WHERE season_id = ?', [seasonId]);
+        await connection.query('DELETE FROM teamplayers WHERE season_id = ?', [seasonId]);
+        await connection.query('DELETE FROM teams WHERE season_id = ?', [seasonId]);
+        try { await connection.query('DELETE FROM season_registrations WHERE season_id = ?', [seasonId]); } catch (e) { if (e.code !== 'ER_NO_SUCH_TABLE') throw e; }
+        try { await connection.query('DELETE FROM auction_state WHERE season_id = ?', [seasonId]); } catch (e) { if (e.code !== 'ER_NO_SUCH_TABLE') throw e; }
+        await connection.query('DELETE FROM seasons WHERE season_id = ?', [seasonId]);
+        await connection.commit();
+        res.status(200).json({ message: 'Season and all related data deleted successfully.' });
+    } catch (error) {
+        await connection.rollback();
+        console.error('Delete Season With All Data Error:', error);
+        next(error);
+    } finally {
+        connection.release();
+    }
+};

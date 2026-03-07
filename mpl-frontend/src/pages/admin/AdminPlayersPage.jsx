@@ -1,6 +1,7 @@
 // src/pages/admin/AdminPlayersPage.jsx
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
+import './AdminPlayersPage.css';
 import { toList } from '../../utils/apiResponse';
 import LoadingFallback from '../../components/LoadingFallback';
 import ConfirmDialog from '../../components/ConfirmDialog';
@@ -39,8 +40,8 @@ const PlayerForm = ({ onSubmit, initialData = {}, loading, onCancel }) => {
     const roles = ['Batsman', 'Bowler', 'AllRounder', 'WicketKeeper'];
 
     return (
-        <form onSubmit={handleSubmit} style={{ marginBottom: '2rem', padding: '1.5rem', border: '1px solid #ccc', borderRadius: '8px', backgroundColor: '#f9f9f9' }}>
-            <h3 style={{ marginTop: 0, marginBottom: '1.5rem' }}>{isEditing ? `Edit Player: ${initialData.name}` : 'Add New Player'}</h3>
+        <form onSubmit={handleSubmit} className="admin-players-form">
+            <h3>{isEditing ? `Edit Player: ${initialData.name}` : 'Add New Player'}</h3>
             <div>
                 <label htmlFor="name">Name:*</label>
                 <input type="text" id="name" name="name" value={formData.name} onChange={handleChange} required disabled={loading} />
