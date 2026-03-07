@@ -67,8 +67,8 @@ exports.createMatch = async (req, res, next) => {
             throw new Error('One or both Team IDs are invalid or do not belong to the selected season.');
         }
 
-        // Random super over (dice): 1-5
-        const superOverNumber = Math.floor(Math.random() * 5) + 1;
+        // Super over is one of overs 1–4 only (Over 5 cannot be Super Over per rules)
+        const superOverNumber = Math.floor(Math.random() * 4) + 1;
 
         // Insert the match
         const [result] = await connection.query(
@@ -199,12 +199,18 @@ exports.updateMatch = async (req, res, next) => {
         return res.status(400).json({ message: 'Invalid Match ID format.' });
     }
 
-    const { team1_id, team2_id, match_datetime, venue, status } = req.body;
+    const { team1_id, team2_id, match_datetime, venue, status, super_over_number } = req.body;
 
     // --- Input Validation ---
-    const validFieldsProvided = [team1_id, team2_id, match_datetime, venue, status].some(f => f !== undefined);
+    const validFieldsProvided = [team1_id, team2_id, match_datetime, venue, status, super_over_number].some(f => f !== undefined);
     if (!validFieldsProvided) {
         return res.status(400).json({ message: 'No fields provided for update.' });
+    }
+    if (super_over_number !== undefined && super_over_number !== null && super_over_number !== '') {
+        const soNum = parseInt(super_over_number, 10);
+        if (isNaN(soNum) || soNum < 1 || soNum > 4) {
+            return res.status(400).json({ message: 'Super Over must be 1, 2, 3, or 4 (Over 5 cannot be Super Over per MPL rules).' });
+        }
     }
     if (match_datetime && isNaN(new Date(match_datetime).getTime())) {
         return res.status(400).json({ message: 'Invalid Match Datetime format.' });
@@ -255,6 +261,9 @@ exports.updateMatch = async (req, res, next) => {
         if (match_datetime !== undefined) fieldsToUpdate.match_datetime = match_datetime;
         if (venue !== undefined) fieldsToUpdate.venue = venue;
         if (status !== undefined) fieldsToUpdate.status = status;
+        if (super_over_number !== undefined) {
+            fieldsToUpdate.super_over_number = (super_over_number === null || super_over_number === '') ? null : parseInt(super_over_number, 10);
+        }
 
         // Validate teams if any team ID was provided
         if (teamsToValidate.length > 0) {
@@ -452,7 +461,8 @@ exports.generateSchedule = async (req, res, next) => {
             const hours = 8 + Math.floor((slot * 30) / 60);
             const mins = (slot * 30) % 60;
             const matchDatetime = `${startDateStr} ${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:00`;
-            const superOverNumber = Math.floor(Math.random() * 5) + 1;
+            // Super over is one of overs 1–4 only (Over 5 cannot be Super Over per rules)
+            const superOverNumber = Math.floor(Math.random() * 4) + 1;
             const f = ordered[slot];
             await connection.query(
                 `INSERT INTO matches (season_id, team1_id, team2_id, match_datetime, venue, status, super_over_number)

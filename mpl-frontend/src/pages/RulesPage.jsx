@@ -15,7 +15,7 @@ function RulesPage() {
                     <li><strong>Zone A (Behind the stumps)</strong>
                         <ul>
                             <li>1 run if the ball off the bat crosses the rope</li>
-                            <li>1 bye if the ball crosses the boundary rope without touching the batsman or wide cone</li>
+                            <li>1 bye if the ball crosses the boundary rope without touching the batter or wide cone</li>
                         </ul>
                     </li>
                     <li><strong>Zone B (Parallel boundaries – leg and off side)</strong>
@@ -68,19 +68,32 @@ function RulesPage() {
             <section className="rules-block rules-block--super">
                 <h2 className="rules-block__title">🔥 Super Over Rules</h2>
                 <ul className="rules-list">
-                    <li>Super Over is randomly selected from one of the 5 overs using a lottery-style draw</li>
-                    <li>The selected over is common for both teams</li>
-                    <li>All runs (including extras) are counted as double</li>
-                    <li>All fielders must be within the bowling stumps</li>
-                    <li>The bowler who delivers the Super Over cannot bowl 2 regular overs</li>
+                    <li>A Super Over may replace any one over from Over 1 to Over 4 only. Over 5 can never be designated as a Super Over.</li>
+                    <li>The selected over is common for both teams (e.g. lottery-style draw from Overs 1–4).</li>
+                    <li>All runs (including extras) in the Super Over are counted as double.</li>
+                    <li>All fielders must be within the bowling stumps during the Super Over.</li>
+                    <li>The bowler who delivers the Super Over cannot bowl 2 regular overs.</li>
                 </ul>
             </section>
 
             <section className="rules-block rules-block--bowling">
                 <h2 className="rules-block__title">🎯 Bowling Rules</h2>
                 <ul className="rules-list">
-                    <li>Only one bowler can bowl maximum 2 overs</li>
-                    <li>Bowler who bowls the Super Over cannot bowl 2 regular overs</li>
+                    <li>The first four overs must be bowled by four different bowlers.</li>
+                    <li>Only one bowler in the innings may bowl two overs.</li>
+                    <li>If that bowler bowls two overs: their second over must be the 5th over; their first over may be Over 1, 2, or 3 only (not Over 4).</li>
+                    <li>No bowler may bowl both Over 4 and Over 5.</li>
+                    <li>The bowler who bowls the Super Over cannot bowl 2 regular overs.</li>
+                </ul>
+            </section>
+
+            <section className="rules-block rules-block--batting">
+                <h2 className="rules-block__title">🏏 Batting Restrictions</h2>
+                <ul className="rules-list">
+                    <li>A batter must retire after facing 12 legal deliveries.</li>
+                    <li>A batter cannot retire voluntarily before completing 12 legal balls.</li>
+                    <li>If the batter is dismissed (bowled, caught, etc.), the next batter comes in normally.</li>
+                    <li>If all wickets fall and retired batters remain, they may return to bat in the same order in which they retired.</li>
                 </ul>
             </section>
 

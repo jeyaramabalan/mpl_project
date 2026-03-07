@@ -8,7 +8,8 @@ const {
     getLiveMatchState,
     undoLastBall,
     updateToss,
-    revertToScheduled
+    revertToScheduled,
+    retireBatter
 } = require('../../controllers/admin/scoringController');
 
 const router = express.Router();
@@ -39,6 +40,10 @@ router.post('/matches/:matchId/revert-to-scheduled', revertToScheduled);
 // POST /api/admin/scoring/matches/:matchId/ball
 // Route to score a single ball
 router.post('/matches/:matchId/ball', scoreSingleBall);
+
+// POST /api/admin/scoring/matches/:matchId/retire-batter
+// Retire batter (after 12 legal balls per MPL rules)
+router.post('/matches/:matchId/retire-batter', retireBatter);
 
 // DELETE /api/admin/scoring/matches/:matchId/ball/last <-- Route from previous step
 // Undo the last recorded ball event

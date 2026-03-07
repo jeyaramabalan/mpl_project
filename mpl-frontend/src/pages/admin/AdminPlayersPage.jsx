@@ -53,7 +53,7 @@ const PlayerForm = ({ onSubmit, initialData = {}, loading, onCancel }) => {
                 <label htmlFor="role">Role:</label>
                 <select id="role" name="role" value={formData.role} onChange={handleChange} disabled={loading}>
                     <option value="">-- Select Role (Optional) --</option>
-                    {roles.map(r => <option key={r} value={r}>{r}</option>)}
+                    {roles.map(r => <option key={r} value={r}>{r === 'Batsman' ? 'Batter' : r}</option>)}
                 </select>
             </div>
             <div style={{ marginTop: '1.5rem' }}>
@@ -177,7 +177,7 @@ function AdminPlayersPage() {
                             <tr key={player.player_id}>
                                 <td>{player.player_id}</td>
                                 <td>{player.name}</td>
-                                <td>{player.role || 'N/A'}</td>
+                                <td>{player.role === 'Batsman' ? 'Batter' : (player.role || 'N/A')}</td>
                                 <td>{player.current_team_name || 'N/A'}</td> {/* Display team name */}
                                 <td>
                                     <button onClick={() => handleEditClick(player)} disabled={loading || formLoading || !!editingPlayer} style={{ padding: '0.3em 0.6em', fontSize: '0.9rem', marginRight: '0.5rem' }}>Edit</button>

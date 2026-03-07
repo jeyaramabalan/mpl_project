@@ -149,7 +149,7 @@ const SearchablePlayerSelect = ({ players = [], value, onChange, placeholder = '
                                 className={`searchable-player-select-option ${highlightedIndex === i + 1 ? 'highlighted' : ''} ${value === String(p.player_id) ? 'selected' : ''}`}
                                 onClick={() => { onChange(String(p.player_id)); setOpen(false); setSearch(''); }}
                             >
-                                {p.name} {p.role ? `(${p.role})` : ''}
+                                {p.name} {p.role ? `(${p.role === 'Batsman' ? 'Batter' : p.role})` : ''}
                             </li>
                         ))}
                         {filtered.length === 0 && <li className="searchable-player-select-option muted" role="option">No players match</li>}

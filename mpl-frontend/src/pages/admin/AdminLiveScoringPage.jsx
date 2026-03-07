@@ -8,7 +8,7 @@ import ConfirmDialog from '../../components/ConfirmDialog';
 
 // --- ScoreDisplay Component (Assume correct from previous versions) ---
 const ScoreDisplay = ({ state }) => {
-    if (!state) return <div style={{ border: '1px solid #eee', padding: '1rem', marginBottom: '1rem', backgroundColor: '#f9f9f9', borderRadius: '5px', color: '#888' }}>Waiting for match state...</div>;
+    if (!state) return <div style={{ border: '1px solid #eee', padding: '1rem', marginBottom: '1rem', backgroundColor: '#f9f9f9', borderRadius: '5px', color: '#1a1a1a' }}>Waiting for match state...</div>;
     const status = state.status;
     const battingTeamId = state.battingTeamId;
     const bowlingTeamId = state.bowlingTeamId;
@@ -16,8 +16,8 @@ const ScoreDisplay = ({ state }) => {
     const bowlingTeamName = state.bowlingTeamName;
 
     return (
-         <div style={{ border: '1px solid #eee', padding: '1rem', marginBottom: '1rem', backgroundColor: '#f9f9f9', borderRadius: '5px' }}>
-            <p><strong>Status:</strong> <span style={{ fontWeight: 'bold', color: status === 'Live' ? 'red' : 'inherit' }}>{status ?? 'Loading...'}</span></p>
+         <div style={{ border: '1px solid #eee', padding: '1rem', marginBottom: '1rem', backgroundColor: '#f9f9f9', borderRadius: '5px', color: '#1a1a1a' }}>
+            <p><strong>Status:</strong> <span style={{ fontWeight: 'bold', color: status === 'Live' ? '#c00' : 'inherit' }}>{status ?? 'Loading...'}</span></p>
             {['Setup', 'Live', 'InningsBreak', 'Completed'].includes(status) && battingTeamId && bowlingTeamId &&
               <p><strong>Batting:</strong> {battingTeamName} | <strong>Bowling:</strong> {bowlingTeamName}</p>
             }
@@ -66,6 +66,8 @@ function AdminLiveScoringPage() {
     const [editTossWinnerTeamId, setEditTossWinnerTeamId] = useState('');
     const [editDecision, setEditDecision] = useState('');
     const [showRevertDialog, setShowRevertDialog] = useState(false);
+    // --- Retire batter (after 12 legal balls per MPL rules) ---
+    const [showRetireDialog, setShowRetireDialog] = useState(false);
 
     // --- Refs for comparing previous state ---
     const prevStateRef = useRef(null); // Initialize null
@@ -170,11 +172,6 @@ function AdminLiveScoringPage() {
              }
         }
 
-        if(matchState.status=="InningsBreak"){
-            setCurrentBatsmanId(null)
-            setCurrentBowlerId(null)
-        }
-
         const attemptJoinRoom = () => {
             if (isConnected && !hasJoinedRoom.current) {
                 console.log(`---> Admin attempting to join room match_${matchId}`);
@@ -271,32 +268,66 @@ function AdminLiveScoringPage() {
     }, [socket, isConnected, matchId, isLoading, matchState, connectSocket, joinMatchRoom, leaveMatchRoom]);
 
 
+    // Next over number (1–5) for bowler eligibility: overs completed + 1
+    const nextOverNumber = useMemo(() => Math.min(5, (matchState?.overs ?? 0) + 1), [matchState?.overs]);
+
     // --- Calculate Eligible Players ---
-     const eligibleBowlers = useMemo(() => {
+    const eligibleBowlers = useMemo(() => {
         if (!matchState?.playersBowlingTeam) return [];
         const bowlerStatsMap = new Map(matchState.bowlerStats?.map(s => [s.player_id, s.completed_overs || 0]) || []);
         const twoOverBowlerExists = matchState.bowlerStats?.some(s => (s.completed_overs || 0) >= 2) || false;
         const twoOverBowlerId = twoOverBowlerExists ? matchState.bowlerStats?.find(s => (s.completed_overs || 0) >= 2)?.player_id : null;
+        const lastOverBowlerId = matchState?.lastOverBowlerId ?? null;
+        const bowlersByOver = matchState?.bowlersByOver || {};
+        // Only exclude last-over bowler when the last ball completed an over (6 legal balls). After a wide/nb we may have 0 legal balls in current over but same bowler continues.
+        const atStartOfNewOver = !!matchState?.nextBallStartsNewOver;
         return matchState.playersBowlingTeam.filter(player => {
             const completedOvers = bowlerStatsMap.get(player.player_id) || 0;
             if (completedOvers >= 2) return false;
             if (completedOvers >= 1 && twoOverBowlerExists && player.player_id !== twoOverBowlerId) return false;
+            // Cannot bowl consecutive overs (only when selecting bowler for a new over, not mid-over)
+            if (atStartOfNewOver && lastOverBowlerId !== null && lastOverBowlerId === player.player_id) return false;
+            // Over 5: cannot bowl if bowled over 4 or Super Over (per MPL rules)
+            if (nextOverNumber === 5) {
+                const bowledOver4 = (bowlersByOver[4] || []).includes(player.player_id);
+                const superOver = matchState?.superOver ?? 1;
+                const bowledSuperOver = (bowlersByOver[superOver] || []).includes(player.player_id);
+                if (bowledOver4 || bowledSuperOver) return false;
+            }
+            // Overs 1–4: four different bowlers — exclude if already bowled any other of 1–4
+            if (nextOverNumber >= 1 && nextOverNumber <= 4) {
+                for (let o = 1; o <= 4; o++) {
+                    if (o !== nextOverNumber && (bowlersByOver[o] || []).includes(player.player_id)) return false;
+                }
+            }
             return true;
         });
-    }, [matchState?.playersBowlingTeam, matchState?.bowlerStats]);
+    }, [matchState?.playersBowlingTeam, matchState?.bowlerStats, matchState?.lastOverBowlerId, matchState?.nextBallStartsNewOver, matchState?.bowlersByOver, matchState?.superOver, nextOverNumber]);
 
     const availableBatsmen = useMemo(() => {
         if (!matchState?.playersBattingTeam) return [];
         const outIds = new Set(matchState.batsmenOutIds || []);
-        return matchState.playersBattingTeam.filter(player => !outIds.has(player.player_id));
-    }, [matchState?.playersBattingTeam, matchState?.batsmenOutIds]);
+        const retiredIds = new Set(matchState.batsmenRetiredIds || []);
+        const retirementOrder = matchState?.retirementOrder || [];
+        const notOut = matchState.playersBattingTeam.filter(p => !outIds.has(p.player_id));
+        const nonRetiredNotOut = notOut.filter(p => !retiredIds.has(p.player_id));
+        const retiredNotOut = notOut.filter(p => retiredIds.has(p.player_id));
+        if (nonRetiredNotOut.length > 0) return nonRetiredNotOut;
+        if (retiredNotOut.length > 0) {
+            if (retirementOrder.length > 0) {
+                return retirementOrder.filter(id => retiredIds.has(id)).map(id => matchState.playersBattingTeam.find(p => p.player_id === id)).filter(Boolean);
+            }
+            return retiredNotOut;
+        }
+        return [];
+    }, [matchState?.playersBattingTeam, matchState?.batsmenOutIds, matchState?.batsmenRetiredIds, matchState?.retirementOrder]);
 
 
     // --- Ball API Submission Handler ---
     const submitBallData = useCallback(async (ballDetails) => {
         setError('');
         if (!currentBowlerId) { setError("Please select the Bowler."); return; }
-        if (!currentBatsmanId) { setError("Please select the Batsman."); return; }
+        if (!currentBatsmanId) { setError("Please select the batter."); return; }
         // Allow submission if Live OR Setup (to trigger start) OR InningsBreak (to trigger start)
         if (!matchState || !['Setup', 'Live', 'InningsBreak'].includes(matchState.status)) { setError(`Cannot score: Status is '${matchState?.status || 'Unknown'}'.`); return; }
         if (ballDetails.isWicket && !ballDetails.wicketType) { setError("Wicket Type missing."); return; }
@@ -348,6 +379,32 @@ function AdminLiveScoringPage() {
         }
     }, [matchState, matchId, currentBowlerId, currentBatsmanId]);
 
+    // --- Retire batter (after 12 legal balls) ---
+    const strikerBallsFaced = useMemo(() => {
+        if (!currentBatsmanId || !matchState?.batsmanStats) return 0;
+        return matchState.batsmanStats.find(s => s.player_id === parseInt(currentBatsmanId, 10))?.balls_faced ?? 0;
+    }, [currentBatsmanId, matchState?.batsmanStats]);
+    const isLastAvailableBatter = availableBatsmen.length === 1 && availableBatsmen[0]?.player_id === parseInt(currentBatsmanId, 10);
+    const hasReturnedFromRetirement = (matchState?.batsmenRetiredIds || []).includes(parseInt(currentBatsmanId, 10));
+    const canRetireBatter = matchState?.status === 'Live' && currentBatsmanId && strikerBallsFaced >= 12 && !isLastAvailableBatter && !hasReturnedFromRetirement;
+    const handleRetireBatter = useCallback(async () => {
+        if (!currentBatsmanId || !matchId) return;
+        setError('');
+        setIsSubmitting(true);
+        try {
+            await api.post(`/admin/scoring/matches/${matchId}/retire-batter`, { batsmanPlayerId: parseInt(currentBatsmanId, 10) });
+            setShowRetireDialog(false);
+            setCurrentBatsmanId(null);
+            const { data } = await api.get(`/admin/scoring/matches/${matchId}/state`);
+            if (data) setMatchState(data);
+        } catch (err) {
+            const msg = err.response?.data?.message || err.message || 'Failed to retire batter.';
+            setError(msg);
+            setShowRetireDialog(false);
+        } finally {
+            setIsSubmitting(false);
+        }
+    }, [matchId, currentBatsmanId]);
 
     // --- Handlers for UI Controls ---
     const handleLegalBall = (runs) =>
@@ -532,8 +589,8 @@ function AdminLiveScoringPage() {
     const isScoringPossible = ['Setup', 'Live', 'InningsBreak'].includes(currentStatus);
     // Corrected: Check if players are selected
     const selectionRequiredNow = isScoringPossible && (!currentBowlerId || !currentBatsmanId);
-    // CORRECTED: Fieldset disabled only if submitting or players not selected
-    const controlsDisabled = isSubmitting || !currentBowlerId || !currentBatsmanId;
+    // Disable scoring when submitting, players not selected, or batter at 12 balls (must retire first)
+    const controlsDisabled = isSubmitting || !currentBowlerId || !currentBatsmanId || canRetireBatter;
     const showStatusMessageArea = ['InningsBreak', 'Completed', 'Abandoned'].includes(currentStatus); // Show message for these states
 
     // Styles
@@ -558,22 +615,22 @@ function AdminLiveScoringPage() {
 
             {/* Player Selection Area */}
             {isScoringPossible && (
-                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', margin: '1rem 0', padding: '1rem', border: '1px solid #eee', borderRadius: '5px', backgroundColor: selectionRequiredNow ? '#fffadf' : 'transparent' }}>
+                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', margin: '1rem 0', padding: '1rem', border: '1px solid #eee', borderRadius: '5px', backgroundColor: selectionRequiredNow ? '#fffadf' : 'transparent', color: selectionRequiredNow ? '#1a1a1a' : 'var(--mpl-text)' }}>
                      {/* Bowler Select */}
                      <div><label htmlFor="bowler-select">{currentStatus === 'InningsBreak' ? 'Opening Bowler (Inn 2):*' : (currentStatus === 'Setup' ? 'Select Opening Bowler:*' : 'Current Bowler:*')}</label><br/><select id="bowler-select" value={currentBowlerId} onChange={(e) => setCurrentBowlerId(e.target.value)} disabled={isSubmitting || (currentStatus === 'Live' && matchState.balls !== 0 && currentBowlerId)} style={{borderColor: selectionRequiredNow && !currentBowlerId ? 'orange' : 'initial', minWidth: '150px'}}> <option value="">-- Select --</option> {eligibleBowlers.map(p => <option key={`bowl-${p.player_id}`} value={p.player_id}>{p.name}</option>)} </select>{selectionRequiredNow && !currentBowlerId && <span style={{color: 'orange', marginLeft: '5px', fontWeight:'bold'}}>☜ Required!</span>}{currentBowlerId && currentStatus === 'Live' && <span style={{fontSize: '0.8em', marginLeft: '5px'}}>({matchState?.bowlerStats?.find(b=>b.player_id == currentBowlerId)?.completed_overs || 0}/ {matchState?.bowlerStats?.some(b=>b.completed_overs >= 2 && b.player_id != currentBowlerId) ? '1' : '2'} ov)</span>}</div>
-                     {/* Batsman Select */}
-                     <div><label htmlFor="batsman-select">{currentStatus === 'InningsBreak' ? 'Opening Batsman (Inn 2):*' : (currentStatus === 'Setup' ? 'Select Opening Batsman:*' : 'Batsman on Strike:*')}</label><br/><select id="batsman-select" value={currentBatsmanId} onChange={(e) => setCurrentBatsmanId(e.target.value)} disabled={isSubmitting} style={{borderColor: selectionRequiredNow && !currentBatsmanId ? 'red' : 'initial', minWidth: '150px'}}> <option value="">-- Select --</option> {availableBatsmen.map(p => <option key={`bat-${p.player_id}`} value={p.player_id}>{p.name}</option>)} </select>{selectionRequiredNow && !currentBatsmanId && <span style={{color: 'red', marginLeft: '5px', fontWeight:'bold'}}>☜ Required!</span>}</div>
+                     {/* Batter select */}
+                     <div><label htmlFor="batsman-select">{currentStatus === 'InningsBreak' ? 'Opening batter (Inn 2):*' : (currentStatus === 'Setup' ? 'Select opening batter:*' : 'Batter on strike:*')}</label><br/><select id="batsman-select" value={currentBatsmanId} onChange={(e) => setCurrentBatsmanId(e.target.value)} disabled={isSubmitting} style={{borderColor: selectionRequiredNow && !currentBatsmanId ? 'red' : 'initial', minWidth: '150px'}}> <option value="">-- Select --</option> {availableBatsmen.map(p => <option key={`bat-${p.player_id}`} value={p.player_id}>{p.name}</option>)} </select>{selectionRequiredNow && !currentBatsmanId && <span style={{color: 'red', marginLeft: '5px', fontWeight:'bold'}}>☜ Required!</span>}{currentBatsmanId && currentStatus === 'Live' && <span style={{fontSize: '0.8em', marginLeft: '5px'}}>({strikerBallsFaced} legal balls)</span>}{canRetireBatter && <><span style={{marginLeft: '8px'}} /><button type="button" onClick={() => setShowRetireDialog(true)} disabled={isSubmitting} style={{padding: '0.35em 0.6em', fontSize: '0.85rem', backgroundColor: '#856404', color: '#fff', border: 'none', borderRadius: '4px'}}>Retire batter</button></>}</div>
                  </div>
             )}
 
             {/* Scoring Controls Container (Rendered if scoring is possible: Setup, Live, InningsBreak) */}
             {isScoringPossible ? (
-               <div style={{ border: '1px solid #ccc', padding: '1rem', marginTop: '1rem', borderRadius: '5px' }}>
+               <div style={{ border: '1px solid #ccc', padding: '1rem', marginTop: '1rem', borderRadius: '5px', color: 'var(--mpl-text)' }}>
                     <h4>Record Ball Event</h4>
                     {/* Fieldset handles disabling based on CORRECTED controlsDisabled */}
                     <fieldset disabled={controlsDisabled}>
-                        <legend style={{fontWeight: 'bold', color: selectionRequiredNow ? 'red': 'inherit'}}>
-                            {selectionRequiredNow ? 'Select Players Above!' : 'Choose Event:'}
+                        <legend style={{fontWeight: 'bold', color: selectionRequiredNow ? 'var(--mpl-danger)' : canRetireBatter ? 'var(--mpl-heading)' : 'var(--mpl-text)'}}>
+                            {selectionRequiredNow ? 'Select Players Above!' : canRetireBatter ? 'Retire batter (12 balls faced) before recording more.' : 'Choose Event:'}
                         </legend>
                         {/* Buttons are only rendered *inside* the fieldset if players ARE selected */}
                         {!selectionRequiredNow && ( <> {/* Legal Runs / Byes */} <div style={buttonGroupStyle}> <span style={labelStyle}>Runs/Byes:</span> {[0, 1, 2, 4].map(r => (<button type="button" key={`run-${r}`} onClick={() => handleLegalBall(r)} style={buttonStyle}>{r}</button>))} <button type="button" key="bye-1" onClick={() => handleBye(1)} style={buttonStyle}>1b</button> </div> {/* Extras */} <div style={buttonGroupStyle}> <span style={labelStyle}>Extras:</span> <button type="button" onClick={handleWideClick} style={buttonStyle}>WD</button> <button type="button" onClick={() => handleWideByeClick(1)} style={buttonStyle}>WD+1b</button> <button type="button" onClick={() => handleNoBallClick(0)} style={buttonStyle}>NB+0</button> <button type="button" onClick={() => handleNoBallByeClick(1)} style={buttonStyle}>NB+1b</button> {[1, 2, 4].map(r => (<button type="button" key={`nb-${r}`} onClick={() => handleNoBallClick(r)} style={buttonStyle}>NB+{r}</button>))} </div> {/* Wicket Toggle & Details */} <div style={{ margin: '1rem 0' }}> <button type="button" onClick={() => setIsWicketEvent(!isWicketEvent)} style={{backgroundColor: isWicketEvent ? '#d1ecf1' : '#ffc107', marginRight: '1rem', padding: '0.5em 1em'}}>{isWicketEvent ? 'Cancel Wicket' : 'Record Wicket'}</button> {isWicketEvent && ( <div style={{border: '1px dashed gray', padding: '1rem', marginTop: '0.5rem', display: 'inline-block', verticalAlign: 'top'}}> <label htmlFor="wicket-type">Type:* </label> <select id="wicket-type" value={selectedWicketType} onChange={e => {setSelectedWicketType(e.target.value); if(!['Caught', 'Stumped'].includes(e.target.value)) setSelectedFielderId('');}}> <option value="">--Select--</option> <option value="Bowled">Bowled</option><option value="Caught">Caught</option><option value="Stumped">Stumped</option><option value="Hit Outside">Hit Outside</option><option value="Hit Wicket">Hit Wicket</option> </select> {(selectedWicketType === 'Caught' || selectedWicketType === 'Stumped') && ( <div style={{marginTop: '0.5rem'}}> <label htmlFor="fielder-select">Fielder:* </label> <select id="fielder-select" value={selectedFielderId} onChange={e => setSelectedFielderId(e.target.value)}> <option value="">--Select Fielder--</option> {matchState?.playersBowlingTeam?.map(p => <option key={`field-${p.player_id}`} value={p.player_id}>{p.name}</option>)} </select> </div> )} <button type="button" onClick={handleWicketConfirm} disabled={!selectedWicketType || (['Caught','Stumped'].includes(selectedWicketType) && !selectedFielderId)} style={{backgroundColor: '#dc3545', marginTop: '1rem'}}>Confirm Wicket</button> </div> )} </div> </> )}
@@ -639,6 +696,16 @@ function AdminLiveScoringPage() {
                 variant="danger"
                 onConfirm={handleRevertConfirm}
                 onCancel={() => setShowRevertDialog(false)}
+            />
+            <ConfirmDialog
+                open={showRetireDialog}
+                title="Retire batter"
+                message="Retire this batter (after 12 legal balls per MPL rules)? They can return in retirement order if all other wickets fall."
+                confirmLabel="Retire"
+                cancelLabel="Cancel"
+                variant="warning"
+                onConfirm={handleRetireBatter}
+                onCancel={() => setShowRetireDialog(false)}
             />
         </div>
     );

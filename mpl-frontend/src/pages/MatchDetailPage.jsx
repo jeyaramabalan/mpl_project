@@ -79,7 +79,7 @@ const ScoreDisplay = ({ state, matchDetails, innings1Data, innings2Data }) => {
   if (displayData?.battingTeamId) { battingTeamName = displayData.battingTeamId == matchDetails.team1_id ? team1Name : team2Name; }
   if (displayData?.bowlingTeamId) { bowlingTeamName = displayData.bowlingTeamId == matchDetails.team1_id ? team1Name : team2Name; }
   if (status === "Completed") { battingTeamName = innings1Data?.teamName; }
-  const lastBallCommentary = state?.commentary && state.commentary.length > 0 ? state.commentary[0].commentary_text : null;
+  const lastBallCommentary = state?.commentary && state.commentary.length > 0 ? state.commentary[state.commentary.length - 1].commentary_text : null;
   if (status === "Live" || status === "InningsBreak") {
     return ( <div className="score-summary-box"> {battingTeamName && bowlingTeamName && ( <p className="batting-bowling-info"> <strong>Batting:</strong> {battingTeamName} |{" "} <strong>Bowling:</strong> {bowlingTeamName} </p> )} <p className="main-score"> {displayData?.score ?? "N/A"} / {displayData?.wickets ?? "N/A"} </p> <p className="overs-info"> Overs: {displayData?.overs ?? "N/A"}.{displayData?.balls ?? "N/A"} / 5.0 </p> {displayData?.target > 0 && displayData?.inningNumber === 2 && ( <p className="target-info"> <strong>Target: {displayData.target}</strong> </p> )} {lastBallCommentary && ( <p className="last-ball-commentary"> {lastBallCommentary} </p> )} </div> );
   } else if (status === "Completed") {
@@ -216,7 +216,7 @@ const MatchDetailPage = () => {
       const isFirstInnings = inningsNumber === 1;
       const battingTeamId = isFirstInnings ? inn1BatTeamId : inn2BatTeamId;
       const bowlingTeamId = isFirstInnings ? inn2BatTeamId : inn1BatTeamId;
-      const inningsBalls = ballByBall.filter(b => b.inning_number === inningsNumber);
+      const inningsBalls = ballByBall.filter(b => Number(b.inning_number) === inningsNumber);
       
       const battingOrderIds = [...new Set(inningsBalls.map(b => b.batsman_on_strike_player_id))];
       const bowlingOrderIds = [...new Set(inningsBalls.map(b => b.bowler_player_id))];
@@ -290,7 +290,7 @@ const MatchDetailPage = () => {
       for (let o = 1; o <= 5; o++) {
         const prev = result[o - 1] ?? 0;
         const runsThisOver = balls
-          .filter((b) => b.inning_number === inningNumber && Number(b.over_number) === o)
+          .filter((b) => Number(b.inning_number) === inningNumber && Number(b.over_number) === o)
           .reduce((s, b) => s + Number(b.runs_scored || 0) + Number(b.extra_runs || 0), 0);
         result[o] = prev + runsThisOver;
       }
@@ -334,7 +334,39 @@ const MatchDetailPage = () => {
     finalInnings1Data = { teamName: processedScorecards.innings1.batTeamName, score: inn1Summary.total, wickets: inn1Summary.wickets, oversDisplay: inn1Summary.overs };
     finalInnings2Data = { teamName: processedScorecards.innings2.batTeamName, score: inn2Summary.total, wickets: inn2Summary.wickets, oversDisplay: inn2Summary.overs };
   }
-  
+
+  const momImpactSummary = useMemo(() => {
+    if (matchDetails?.status !== 'Completed' || !matchDetails.man_of_the_match_player_id || !matchDetails.playerStats?.length) return null;
+    const momId = matchDetails.man_of_the_match_player_id;
+    const momStats = matchDetails.playerStats.find(p => p.player_id === momId);
+    if (!momStats) return null;
+    const bat = Number(momStats.batting_impact_points) || 0;
+    const bowl = Number(momStats.bowling_impact_points) || 0;
+    const field = Number(momStats.fielding_impact_points) || 0;
+    if (bat === 0 && bowl === 0 && field === 0) return null;
+    const top = bat >= bowl && bat >= field ? 'batting' : bowl >= field ? 'bowling' : 'fielding';
+    if (top === 'batting') {
+      const runs = Number(momStats.runs_scored) ?? 0;
+      const balls = Number(momStats.balls_faced) ?? 0;
+      return { label: 'Batting', text: `${runs} run${runs !== 1 ? 's' : ''} in ${balls} ball${balls !== 1 ? 's' : ''}` };
+    }
+    if (top === 'bowling') {
+      const wkts = Number(momStats.wickets_taken) ?? 0;
+      const runs = Number(momStats.runs_conceded) ?? 0;
+      const overs = Number(momStats.overs_bowled) ?? 0;
+      const ovStr = formatOversDisplay(overs);
+      return { label: 'Bowling', text: `${wkts} for ${runs} in ${ovStr} over${ovStr === '1.0' || ovStr === '1' ? '' : 's'}` };
+    }
+    const catches = Number(momStats.catches) ?? 0;
+    const stumps = Number(momStats.stumps) ?? 0;
+    const runOuts = Number(momStats.run_outs) ?? 0;
+    const parts = [];
+    if (catches) parts.push(`${catches} catch${catches !== 1 ? 'es' : ''}`);
+    if (stumps) parts.push(`${stumps} stumping${stumps !== 1 ? 's' : ''}`);
+    if (runOuts) parts.push(`${runOuts} run-out${runOuts !== 1 ? 's' : ''}`);
+    return { label: 'Fielding', text: parts.length ? parts.join(', ') : '—' };
+  }, [matchDetails]);
+
   if (loading) return <LoadingFallback />;
   if (error) return <p className="error-message">Error: {error}</p>;
   if (!matchDetails) return <div>Match details could not be loaded.</div>;
@@ -412,13 +444,16 @@ const MatchDetailPage = () => {
               </div>
             )}
             <div className="extras-mom-text">
-              {processedScorecards && (
-                <div className="extras-breakdown" style={{ fontSize: '0.95rem' }}>
-                  <p><strong>Extras – Innings 1:</strong> {processedScorecards.innings1.summary.extras} {processedScorecards.innings1.summary.extras_detail}</p>
-                  <p><strong>Extras – Innings 2:</strong> {processedScorecards.innings2.summary.extras} {processedScorecards.innings2.summary.extras_detail}</p>
-                </div>
+              {matchDetails.man_of_the_match_name && (
+                <>
+                  <p className="mom-info"><strong>Man of the Match:</strong>{" "}{matchDetails.man_of_the_match_name}</p>
+                  {momImpactSummary && (
+                    <p className="mom-impact-summary" style={{ fontSize: '0.95rem' }}>
+                      <strong>Top impact – {momImpactSummary.label}:</strong>{" "}{momImpactSummary.text}
+                    </p>
+                  )}
+                </>
               )}
-              {matchDetails.man_of_the_match_name && ( <p className="mom-info"> <strong>Man of the Match:</strong>{" "} {matchDetails.man_of_the_match_name} </p> )}
             </div>
           </div>
         )}

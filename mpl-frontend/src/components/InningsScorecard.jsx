@@ -28,7 +28,7 @@ const InningsScorecard = ({ stats, teamName, inningsNumber, summary }) => {
                 <table className="scorecard-table batting-scorecard">
                     <thead>
                         <tr>
-                            <th>Batsman</th>
+                            <th>Batter</th>
                             <th>Dismissal</th>
                             <th>Runs</th>
                             <th>Balls</th>

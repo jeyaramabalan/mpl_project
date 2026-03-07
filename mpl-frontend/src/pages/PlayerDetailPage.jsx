@@ -139,7 +139,7 @@ function PlayerDetailPage() {
                      <ul className="player-details-list">
                          <li>
                              <span className="detail-label">Role:</span>
-                             <span className="detail-value">{player.role || 'N/A'}</span>
+                             <span className="detail-value">{player.role === 'Batsman' ? 'Batter' : (player.role || 'N/A')}</span>
                          </li>
                          <li>
                              <span className="detail-label">Current Team:</span>

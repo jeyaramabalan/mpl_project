@@ -66,6 +66,7 @@
 .rules-block--boundary .rules-block__title { border-bottom-color: var(--mpl-turquoise); }
 .rules-block--super .rules-block__title { border-bottom-color: var(--mpl-turquoise-hover); }
 .rules-block--bowling .rules-block__title { border-bottom-color: var(--mpl-gunmetal); }
+.rules-block--batting .rules-block__title { border-bottom-color: var(--mpl-turquoise); }
 .rules-block--stumping .rules-block__title { border-bottom-color: var(--mpl-grey-400, #555); }
 
 @media (max-width: 600px) {

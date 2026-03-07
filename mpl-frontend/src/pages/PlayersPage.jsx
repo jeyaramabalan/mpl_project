@@ -56,7 +56,7 @@ function PlayersPage() {
                         {players.map((player) => (
                             <tr key={player.player_id}>
                                 <td>{player.name}</td>
-                                <td>{player.role || 'N/A'}</td>
+                                <td>{player.role === 'Batsman' ? 'Batter' : (player.role || 'N/A')}</td>
                                 <td>
                                     <Link to={`/players/${player.player_id}`}>View Profile</Link>
                                 </td>

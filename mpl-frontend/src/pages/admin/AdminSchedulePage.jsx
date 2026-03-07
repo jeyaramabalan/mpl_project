@@ -4,6 +4,10 @@ import api from '../../services/api';
 import { toList } from '../../utils/apiResponse';
 import LoadingFallback from '../../components/LoadingFallback';
 import ConfirmDialog from '../../components/ConfirmDialog';
+import './AdminSchedulePage.css';
+
+// Normalize ID for form/select (string so select value matches option values)
+const toId = (v) => (v != null && v !== '' ? String(v) : '');
 
 // --- Match Form Component ---
 const MatchForm = ({ onSubmit, initialData = {}, seasons = [], teams = [], loading, onCancel }) => {
@@ -13,40 +17,44 @@ const MatchForm = ({ onSubmit, initialData = {}, seasons = [], teams = [], loadi
         team2_id: '',
         match_datetime: '',
         venue: 'Bowyer Park',
-        // status: 'Scheduled' // Status generally not editable here
+        super_over_number: '',
     });
-     const [filteredTeams, setFilteredTeams] = useState([]);
+    const [filteredTeams, setFilteredTeams] = useState([]);
 
-    // Effect to initialize form when initialData or seasons change
+    // Effect to initialize form when initialData or seasons change (load teams when editing)
     useEffect(() => {
-        const initialSeason = initialData.season_id || (seasons.length > 0 ? seasons[0].season_id : '');
+        const initialSeason = toId(initialData.season_id) || (seasons.length > 0 ? toId(seasons[0].season_id) : '');
         setFormData({
             season_id: initialSeason,
-            team1_id: initialData.team1_id || '',
-            team2_id: initialData.team2_id || '',
-            match_datetime: initialData.match_datetime ? initialData.match_datetime.substring(0, 16) : '', // Format for datetime-local T separation
+            team1_id: toId(initialData.team1_id),
+            team2_id: toId(initialData.team2_id),
+            match_datetime: initialData.match_datetime ? initialData.match_datetime.substring(0, 16) : '',
             venue: initialData.venue || 'Bowyer Park',
-            status: initialData.status || 'Scheduled' // Keep track of status for display/logic
+            super_over_number: initialData.super_over_number != null && initialData.super_over_number >= 1 && initialData.super_over_number <= 4 ? String(initialData.super_over_number) : '',
+            status: initialData.status || 'Scheduled',
         });
     }, [initialData, seasons]);
 
-     // Effect to update available teams when selected season changes
-     useEffect(() => {
-         if (formData.season_id) {
-            const seasonTeams = teams.filter(t => t.season_id === parseInt(formData.season_id));
+    // Effect to update available teams when selected season changes; only clear team selections if they are not in the new season's list (don't clear when opening edit form)
+    useEffect(() => {
+        if (formData.season_id) {
+            const seasonTeams = teams.filter(t => Number(t.season_id) === Number(formData.season_id));
             setFilteredTeams(seasonTeams);
-             // Reset team selections if the currently selected teams are not in the newly selected season
-             if (formData.team1_id && !seasonTeams.some(t => t.team_id === parseInt(formData.team1_id))) {
-                setFormData(prev => ({ ...prev, team1_id: '' }));
-             }
-              if (formData.team2_id && !seasonTeams.some(t => t.team_id === parseInt(formData.team2_id))) {
-                setFormData(prev => ({ ...prev, team2_id: '' }));
-             }
-         } else {
-             setFilteredTeams([]);
-              setFormData(prev => ({ ...prev, team1_id: '', team2_id: '' })); // Clear teams if no season
-         }
-     }, [formData.season_id, teams]);
+            const tid1 = formData.team1_id ? parseInt(formData.team1_id, 10) : null;
+            const tid2 = formData.team2_id ? parseInt(formData.team2_id, 10) : null;
+            const inSeason = (id) => seasonTeams.some(t => Number(t.team_id) === id);
+            if ((tid1 != null && !inSeason(tid1)) || (tid2 != null && !inSeason(tid2))) {
+                setFormData(prev => ({
+                    ...prev,
+                    team1_id: tid1 != null && !inSeason(tid1) ? '' : prev.team1_id,
+                    team2_id: tid2 != null && !inSeason(tid2) ? '' : prev.team2_id,
+                }));
+            }
+        } else {
+            setFilteredTeams([]);
+            if (!initialData.match_id) setFormData(prev => ({ ...prev, team1_id: '', team2_id: '' }));
+        }
+    }, [formData.season_id, formData.team1_id, formData.team2_id, teams, initialData.match_id]);
 
 
     const handleChange = (e) => {
@@ -69,10 +77,11 @@ const MatchForm = ({ onSubmit, initialData = {}, seasons = [], teams = [], loadi
              season_id: parseInt(formData.season_id),
              team1_id: parseInt(formData.team1_id),
              team2_id: parseInt(formData.team2_id),
-             match_datetime: formData.match_datetime.replace('T', ' ') + ':00'
+             match_datetime: formData.match_datetime.replace('T', ' ') + ':00',
          };
-         // Remove status if we don't want to send it during create/update of schedule
          delete payload.status;
+         if (isEditing && formData.super_over_number !== '') payload.super_over_number = parseInt(formData.super_over_number, 10);
+         else if (isEditing) payload.super_over_number = null;
 
         onSubmit(payload);
     };
@@ -80,33 +89,32 @@ const MatchForm = ({ onSubmit, initialData = {}, seasons = [], teams = [], loadi
     const isEditing = !!initialData.match_id;
 
     return (
-        <form onSubmit={handleSubmit} style={{ marginBottom: '2rem', padding: '1.5rem', border: '1px solid #ccc', borderRadius: '8px', backgroundColor: '#f9f9f9' }}>
-            <h3 style={{ marginTop: 0, marginBottom: '1.5rem' }}>{isEditing ? `Edit Match ID: ${initialData.match_id}` : 'Schedule New Match'}</h3>
-             <div>
-                 <label htmlFor="season_id">Season:*</label>
-                 <select id="season_id" name="season_id" value={formData.season_id} onChange={handleChange} required disabled={loading || isEditing}> {/* Disable season change when editing */}
-                     <option value="">-- Select Season --</option>
-                     {seasons.map(s => <option key={s.season_id} value={s.season_id}>{s.name} ({s.year})</option>)}
-                 </select>
-             </div>
-             <div>
-                 <label htmlFor="team1_id">Team 1:*</label>
-                 <select id="team1_id" name="team1_id" value={formData.team1_id} onChange={handleChange} required disabled={loading || !formData.season_id || (isEditing && formData.status !== 'Scheduled')}>
-                     <option value="">-- Select Team 1 --</option>
-                     {filteredTeams.map(t => <option key={'t1-'+t.team_id} value={t.team_id}>{t.name}</option>)}
-                 </select>
-             </div>
-             <div>
-                 <label htmlFor="team2_id">Team 2:*</label>
-                 <select id="team2_id" name="team2_id" value={formData.team2_id} onChange={handleChange} required disabled={loading || !formData.season_id || (isEditing && formData.status !== 'Scheduled')}>
-                     <option value="">-- Select Team 2 --</option>
-                      {/* Filter out selected team 1 */}
-                     {filteredTeams.filter(t => t.team_id !== parseInt(formData.team1_id)).map(t => <option key={'t2-'+t.team_id} value={t.team_id}>{t.name}</option>)}
-                 </select>
-             </div>
-             <div>
-                 <label htmlFor="match_datetime">Date & Time:*</label>
-                 <input
+        <form className="admin-schedule-form" onSubmit={handleSubmit}>
+            <h3>{isEditing ? `Edit Match ID: ${initialData.match_id}` : 'Schedule New Match'}</h3>
+            <div>
+                <label htmlFor="season_id">Season:*</label>
+                <select id="season_id" name="season_id" value={formData.season_id} onChange={handleChange} required disabled={loading || isEditing}>
+                    <option value="">-- Select Season --</option>
+                    {seasons.map(s => <option key={s.season_id} value={String(s.season_id)}>{s.name} ({s.year})</option>)}
+                </select>
+            </div>
+            <div>
+                <label htmlFor="team1_id">Team 1:*</label>
+                <select id="team1_id" name="team1_id" value={formData.team1_id} onChange={handleChange} required disabled={loading || !formData.season_id || (isEditing && formData.status !== 'Scheduled')}>
+                    <option value="">-- Select Team 1 --</option>
+                    {filteredTeams.map(t => <option key={'t1-'+t.team_id} value={String(t.team_id)}>{t.name}</option>)}
+                </select>
+            </div>
+            <div>
+                <label htmlFor="team2_id">Team 2:*</label>
+                <select id="team2_id" name="team2_id" value={formData.team2_id} onChange={handleChange} required disabled={loading || !formData.season_id || (isEditing && formData.status !== 'Scheduled')}>
+                    <option value="">-- Select Team 2 --</option>
+                    {filteredTeams.filter(t => String(t.team_id) !== formData.team1_id).map(t => <option key={'t2-'+t.team_id} value={String(t.team_id)}>{t.name}</option>)}
+                </select>
+            </div>
+            <div>
+                <label htmlFor="match_datetime">Date & Time:*</label>
+                <input
                     type="datetime-local"
                     id="match_datetime"
                     name="match_datetime"
@@ -114,34 +122,33 @@ const MatchForm = ({ onSubmit, initialData = {}, seasons = [], teams = [], loadi
                     onChange={handleChange}
                     required
                     disabled={loading || (isEditing && formData.status !== 'Scheduled')}
-                 />
-             </div>
-             <div>
-                 <label htmlFor="venue">Venue:</label>
-                 <input
+                />
+            </div>
+            <div>
+                <label htmlFor="venue">Venue:</label>
+                <input
                     type="text"
                     id="venue"
                     name="venue"
                     value={formData.venue}
                     onChange={handleChange}
                     disabled={loading}
-                    placeholder='Defaults to Bowyer Park'
-                 />
-             </div>
-             {/* Optionally allow editing status back to Scheduled or to Abandoned if needed */}
-             {/* {isEditing && (
-                 <div>
-                     <label htmlFor="status">Status:</label>
-                     <select name="status" value={formData.status} onChange={handleChange} disabled={loading}>
-                         <option value="Scheduled">Scheduled</option>
-                         <option value="Abandoned">Abandoned</option>
-                     </select>
-                 </div>
-             )} */}
-             <div style={{ marginTop: '1.5rem' }}>
-                 <button type="submit" disabled={loading}>{loading ? 'Saving...' : (isEditing ? 'Update Match' : 'Add Match')}</button>
-                 {isEditing && <button type="button" onClick={onCancel} style={{ marginLeft: '1rem', backgroundColor: '#6c757d' }} disabled={loading}>Cancel Edit</button>}
-             </div>
+                    placeholder="Defaults to Bowyer Park"
+                />
+            </div>
+            {isEditing && (
+                <div>
+                    <label htmlFor="super_over_number">Super Over (Over 1–4):</label>
+                    <select id="super_over_number" name="super_over_number" value={formData.super_over_number} onChange={handleChange} disabled={loading}>
+                        <option value="">-- Select --</option>
+                        {[1, 2, 3, 4].map(n => <option key={n} value={String(n)}>Over {n}</option>)}
+                    </select>
+                </div>
+            )}
+            <div style={{ marginTop: '1.5rem' }}>
+                <button type="submit" disabled={loading}>{loading ? 'Saving...' : (isEditing ? 'Update Match' : 'Add Match')}</button>
+                {isEditing && <button type="button" onClick={onCancel} style={{ marginLeft: '1rem', backgroundColor: '#6c757d' }} disabled={loading}>Cancel Edit</button>}
+            </div>
         </form>
     );
 };
@@ -319,7 +326,7 @@ function AdminSchedulePage() {
                 <div className="modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={() => !createScheduleLoading && setShowCreateScheduleModal(false)}>
                     <div className="modal-content mpl-card" style={{ padding: '1.5rem', minWidth: '320px', maxWidth: '90vw' }} onClick={e => e.stopPropagation()}>
                         <h3 style={{ marginTop: 0 }}>Create schedule</h3>
-                        <p style={{ fontSize: '0.9rem', color: 'var(--mpl-grey-600)', marginBottom: '1rem' }}>Matches start at 8:00 AM London time, 30 minutes apart. A random super over (1–5) is assigned per match. Cannot create for a completed season.</p>
+                        <p style={{ fontSize: '0.9rem', color: 'var(--mpl-grey-600)', marginBottom: '1rem' }}>Matches start at 8:00 AM London time, 30 minutes apart. A random Super Over (Over 1–4 only; Over 5 cannot be Super Over per MPL rules) is assigned per match. Cannot create for a completed season.</p>
                         <form onSubmit={handleCreateScheduleSubmit}>
                             <div style={{ marginBottom: '1rem' }}>
                                 <label htmlFor="matches_per_team">Number of league matches per team *</label>

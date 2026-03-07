@@ -54,3 +54,13 @@
 .confirm-dialog-danger:hover {
   background: #c82333;
 }
+
+.confirm-dialog-warning {
+  background: var(--mpl-vanilla, #f1e8a9);
+  color: var(--mpl-gunmetal, #2e3532);
+}
+
+.confirm-dialog-warning:hover {
+  background: #e6dc90;
+  color: var(--mpl-gunmetal, #2e3532);
+}

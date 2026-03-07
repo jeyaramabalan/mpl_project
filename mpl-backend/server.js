@@ -1,7 +1,8 @@
 // mpl-project/mpl-backend/server.js
 
 // --- Core Modules ---
-const http = require('http'); // For creating HTTP server for Express & Socket.IO
+const http = require('http');
+const path = require('path');
 const express = require('express'); // Web framework
 const { Server } = require("socket.io"); // Socket.IO server
 const cors = require('cors'); // Middleware for enabling Cross-Origin Resource Sharing
@@ -92,6 +93,19 @@ app.use('/api/admin/matches', protect, adminMatchRoutes);
 // --- Initialize Socket.IO Event Handlers ---
 initializeSocket(io); // Pass the initialized Socket.IO server instance
 
+// --- Serve frontend (when Node is document root, e.g. Passenger on mpl.supersalessoft.com) ---
+// In production, put the built React app (mpl-frontend/dist contents) in mpl-backend/public/
+const publicDir = path.join(__dirname, 'public');
+if (process.env.NODE_ENV === 'production') {
+    app.use(express.static(publicDir));
+    // SPA fallback: any GET not under /api or /socket.io and not a static file → index.html
+    app.get('*', (req, res, next) => {
+        if (req.path.startsWith('/api') || req.path.startsWith('/socket.io')) return next();
+        res.sendFile(path.join(publicDir, 'index.html'), (err) => {
+            if (err) next();
+        });
+    });
+}
 
 // --- Error Handling Middleware ---
 

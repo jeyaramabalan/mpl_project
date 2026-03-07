@@ -47,6 +47,40 @@ This guide walks you through hosting the MPL app (React frontend + Node/Express 
 
 ---
 
+## Two folders: frontend in domain root, backend in mplapi (mpl.supersalessoft.com)
+
+On your server the **domain** `mpl.supersalessoft.com` is served from one folder (the “website” or document root), and the **Node backend** lives in another folder, **mplapi**. That’s the correct split.
+
+- **Frontend (what the site “looks for”)**  
+  The server serves the site from the **mpl.supersalessoft.com** folder. So that folder must contain the built frontend:
+  - **Upload the contents of `mpl-frontend/dist/`** into the **mpl.supersalessoft.com** folder (the domain’s document root).
+  - You must have there: **`index.html`** at the root, the **`assets/`** folder (with all built JS/CSS), and **`.htaccess`** (from `mpl-frontend/public/.htaccess`, copied into `dist/` by the build).
+  - If that folder is empty or has no `index.html`, you get **403** or **404** when opening `https://mpl.supersalessoft.com/`.
+
+- **Backend**  
+  Stays in **mplapi** (Passenger or however you run Node). No frontend files need to be in mplapi for this setup.
+
+- **How `/api` and `/socket.io` work**  
+  When the browser requests `https://mpl.supersalessoft.com/api/...` or `.../socket.io/...`, the server must **proxy** those requests to the Node app in mplapi (e.g. `http://127.0.0.1:5000`). That is usually done in the **Apache vhost** (or server config) for `mpl.supersalessoft.com`, not in the frontend `.htaccess`. The frontend `.htaccess` only makes sure `/api` and `/socket.io` are *not* rewritten to `index.html`; the actual proxy to mplapi has to be configured by the host or in the vhost.
+
+**Summary:** Put the **frontend** (build output) in the **mpl.supersalessoft.com** folder; keep the **backend** in **mplapi**; ensure the server proxies `/api` and `/socket.io` from the domain to the Node app.
+
+---
+
+## Passenger / Node at document root (e.g. mpl.supersalessoft.com with PassengerAppRoot)
+
+If your `.htaccess` uses **Passenger** so that the **Node app (server.js) is the document root** (e.g. `PassengerAppRoot "/home/supersa2/mplapi"`, `PassengerBaseURI "/"`), then **every request**, including `GET /`, is handled by Express. There is no separate static folder for the frontend; the backend must serve it.
+
+1. **Build the frontend** (same as above, with `VITE_API_URL` and `VITE_SOCKET_URL` pointing to the same origin, e.g. `https://mpl.supersalessoft.com` and `https://mpl.supersalessoft.com`).
+2. **Copy the built frontend into the backend’s `public/` folder**  
+   Copy *all contents* of `mpl-frontend/dist/` (e.g. `index.html`, `assets/`) into `mpl-backend/public/`. So on the server, `mplapi/public/index.html` and `mplapi/public/assets/` must exist.
+3. **Deploy the backend** (including the updated `server.js` and the `public/` folder) to the Passenger app root (e.g. `/home/supersa2/mplapi`).
+4. **Set `NODE_ENV=production`** on the server so Express serves static files and the SPA fallback from `public/`.
+
+Then `GET /` returns `index.html`, and `/api/*` and `/socket.io` continue to work as before. You do **not** need the SPA rewrite rules in `.htaccess` for `/` in this setup; you can leave the Passenger block and optionally keep or remove the RewriteRules (Express handles routing).
+
+---
+
 ## Socket.IO "server error" – proxy must forward `/socket.io`
 
 If the REST API works (e.g. Schedule, Home load data) but the browser shows **"Socket connection error: server error"**, the reverse proxy is likely forwarding only `/api` to the Node app and not **`/socket.io`**. Socket.IO needs both HTTP long‑polling and (optionally) WebSocket for the same origin.

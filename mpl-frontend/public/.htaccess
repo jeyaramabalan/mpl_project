@@ -1,6 +1,8 @@
 # MPL frontend - SPA fallback for React Router (shared hosting / Apache)
 # Serve real files; only send index.html for app routes (not for assets).
 
+DirectoryIndex index.html
+
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
