@@ -14,6 +14,7 @@ exports.getFixtures = async (req, res, next) => {
         let query = `
             SELECT
                 m.match_id, m.match_datetime, m.status, m.venue, m.result_summary,
+                m.super_over_number,
                 m.season_id, s.name as season_name,
                 m.team1_id, t1.name as team1_name,
                 m.team2_id, t2.name as team2_name,

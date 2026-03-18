@@ -125,6 +125,7 @@ function SchedulePage() {
                         <tr>
                             <th>Date & Time</th>
                             <th>Match</th>
+                            <th>Super Over</th>
                             <th>Venue</th>
                             <th>Status</th>
                             <th>Result / Link</th>
@@ -175,6 +176,7 @@ function SchedulePage() {
                                         </div>
                                     </div>
                                 </td>
+                                <td>{match.super_over_number != null ? match.super_over_number : '—'}</td>
                                 <td>{match.venue}</td>
                                 <td>
                                     {match.status === 'Live' ? (
