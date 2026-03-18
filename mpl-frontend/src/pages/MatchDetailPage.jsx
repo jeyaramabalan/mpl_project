@@ -71,7 +71,42 @@ const CommentaryItem = ({ ball }) => {
 const ScoreDisplay = ({ state, matchDetails, innings1Data, innings2Data }) => {
   if (!matchDetails) return <p>Loading score display...</p>;
   const status = state?.status || matchDetails.status;
-  const displayData = state && status !== "Completed" ? state : matchDetails;
+
+  // Prefer live state for non-completed matches; fall back to matchDetails
+  let displayData = state && status !== "Completed" ? state : matchDetails || {};
+
+  // If we are Live/InningsBreak but do not have a proper live state (e.g. older backend),
+  // derive per-innings score/overs/wickets directly from ballByBall so we never mix innings.
+  if ((status === "Live" || status === "InningsBreak") && (!state || typeof state.score === "undefined") && Array.isArray(matchDetails.ballByBall) && matchDetails.ballByBall.length > 0) {
+    const allBalls = matchDetails.ballByBall;
+    const currentInningNumber = allBalls.reduce((max, b) => {
+      const n = Number(b.inning_number) || 0;
+      return n > max ? n : max;
+    }, 1);
+    const inningBalls = allBalls.filter(b => Number(b.inning_number) === currentInningNumber);
+    const score = inningBalls.reduce((sum, b) => sum + Number(b.runs_scored || 0) + Number(b.extra_runs || 0), 0);
+    const wickets = inningBalls.filter(b => b.is_wicket).length;
+    const legalBalls = inningBalls.filter(b => !b.is_extra).length;
+    const overs = Math.floor(legalBalls / 6);
+    const ballsInOver = legalBalls % 6;
+    let target = 0;
+    if (currentInningNumber === 2) {
+      const inn1Score = allBalls
+        .filter(b => Number(b.inning_number) === 1)
+        .reduce((sum, b) => sum + Number(b.runs_scored || 0) + Number(b.extra_runs || 0), 0);
+      target = inn1Score + 1;
+    }
+    displayData = {
+      ...displayData,
+      score,
+      wickets,
+      overs,
+      balls: ballsInOver,
+      target,
+      inningNumber: currentInningNumber,
+    };
+  }
+
   const team1Name = matchDetails?.team1_name || `Team ${matchDetails?.team1_id || "1"}`;
   const team2Name = matchDetails?.team2_name || `Team ${matchDetails?.team2_id || "2"}`;
   let battingTeamName = `Team ${displayData?.battingTeamId || "?"}`;
