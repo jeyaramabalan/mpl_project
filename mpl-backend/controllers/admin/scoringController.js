@@ -315,6 +315,11 @@ exports.getLiveMatchState = async (req, res, next) => {
         const [summaryWicketData] = await pool.query(`SELECT COUNT(*) as totalWickets FROM playermatchstats WHERE match_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, battingTeamId]);
         const score = summaryScoreData[0]?.totalScore || 0;
         const wickets = summaryWicketData[0]?.totalWickets || 0;
+        const [ballsInInningsRow] = await pool.query(
+            `SELECT COUNT(*) AS c FROM ballbyball WHERE match_id = ? AND inning_number = ?`,
+            [matchId, inningNumber]
+        );
+        const ballsInCurrentInnings = Number(ballsInInningsRow[0]?.c) || 0;
 
         // Calculate current overs/balls display (using corrected logic)
         const maxOvers = 5;
@@ -477,7 +482,7 @@ exports.getLiveMatchState = async (req, res, next) => {
         // --- 6. Construct and Return State ---
         const fullLiveState = {
             matchId: matchId, status: status, inningNumber: inningNumber,
-            score: score, wickets: wickets,
+            score: score, wickets: wickets, ballsInCurrentInnings,
             overs: displayOver, balls: displayBall, target: targetScore, superOver: superOverNormalized,
             battingTeamId: battingTeamId, bowlingTeamId: bowlingTeamId,
             battingTeamName: battingTeamName, bowlingTeamName: bowlingTeamName,

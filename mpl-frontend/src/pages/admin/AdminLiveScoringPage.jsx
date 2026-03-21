@@ -273,32 +273,40 @@ function AdminLiveScoringPage() {
     const nextOverNumber = useMemo(() => Math.min(5, (matchState?.overs ?? 0) + 1), [matchState?.overs]);
 
     // --- Calculate Eligible Players ---
+    /** Stable numeric id for Set / Map lookups (API may return string or number). */
+    const numId = (id) => (id == null || id === '' ? NaN : Number(id));
+
     const eligibleBowlers = useMemo(() => {
         if (!matchState?.playersBowlingTeam) return [];
-        const bowlerStatsMap = new Map(matchState.bowlerStats?.map(s => [s.player_id, s.completed_overs || 0]) || []);
-        const twoOverBowlerExists = matchState.bowlerStats?.some(s => (s.completed_overs || 0) >= 2) || false;
-        const twoOverBowlerId = twoOverBowlerExists ? matchState.bowlerStats?.find(s => (s.completed_overs || 0) >= 2)?.player_id : null;
-        const lastOverBowlerId = matchState?.lastOverBowlerId ?? null;
+        const bowlerStatsMap = new Map(
+            (matchState.bowlerStats || []).map((s) => [numId(s.player_id), s.completed_overs || 0])
+        );
+        const twoOverBowlerExists = matchState.bowlerStats?.some((s) => (s.completed_overs || 0) >= 2) || false;
+        const twoOverBowlerId = twoOverBowlerExists
+            ? numId(matchState.bowlerStats?.find((s) => (s.completed_overs || 0) >= 2)?.player_id)
+            : null;
+        const lastOverBowlerId = matchState?.lastOverBowlerId != null ? numId(matchState.lastOverBowlerId) : null;
         const bowlersByOver = matchState?.bowlersByOver || {};
         // Only exclude last-over bowler when the last ball completed an over (6 legal balls). After a wide/nb we may have 0 legal balls in current over but same bowler continues.
         const atStartOfNewOver = !!matchState?.nextBallStartsNewOver;
-        return matchState.playersBowlingTeam.filter(player => {
-            const completedOvers = bowlerStatsMap.get(player.player_id) || 0;
+        return matchState.playersBowlingTeam.filter((player) => {
+            const pid = numId(player.player_id);
+            const completedOvers = bowlerStatsMap.get(pid) || 0;
             if (completedOvers >= 2) return false;
-            if (completedOvers >= 1 && twoOverBowlerExists && player.player_id !== twoOverBowlerId) return false;
+            if (completedOvers >= 1 && twoOverBowlerExists && pid !== twoOverBowlerId) return false;
             // Cannot bowl consecutive overs (only when selecting bowler for a new over, not mid-over)
-            if (atStartOfNewOver && lastOverBowlerId !== null && lastOverBowlerId === player.player_id) return false;
+            if (atStartOfNewOver && lastOverBowlerId !== null && lastOverBowlerId === pid) return false;
             // Over 5: cannot bowl if bowled over 4 or Super Over (per MPL rules)
             if (nextOverNumber === 5) {
-                const bowledOver4 = (bowlersByOver[4] || []).includes(player.player_id);
+                const bowledOver4 = (bowlersByOver[4] || []).map(numId).includes(pid);
                 const superOver = matchState?.superOver ?? 1;
-                const bowledSuperOver = (bowlersByOver[superOver] || []).includes(player.player_id);
+                const bowledSuperOver = (bowlersByOver[superOver] || []).map(numId).includes(pid);
                 if (bowledOver4 || bowledSuperOver) return false;
             }
             // Overs 1–4: four different bowlers — exclude if already bowled any other of 1–4
             if (nextOverNumber >= 1 && nextOverNumber <= 4) {
                 for (let o = 1; o <= 4; o++) {
-                    if (o !== nextOverNumber && (bowlersByOver[o] || []).includes(player.player_id)) return false;
+                    if (o !== nextOverNumber && (bowlersByOver[o] || []).map(numId).includes(pid)) return false;
                 }
             }
             return true;
@@ -307,21 +315,27 @@ function AdminLiveScoringPage() {
 
     const availableBatsmen = useMemo(() => {
         if (!matchState?.playersBattingTeam) return [];
-        const outIds = new Set(matchState.batsmenOutIds || []);
-        const retiredIds = new Set(matchState.batsmenRetiredIds || []);
-        const retirementOrder = matchState?.retirementOrder || [];
-        const notOut = matchState.playersBattingTeam.filter(p => !outIds.has(p.player_id));
-        const nonRetiredNotOut = notOut.filter(p => !retiredIds.has(p.player_id));
-        const retiredNotOut = notOut.filter(p => retiredIds.has(p.player_id));
+        const outIds = new Set((matchState.batsmenOutIds || []).map(numId).filter((n) => !Number.isNaN(n)));
+        const retiredIds = new Set((matchState.batsmenRetiredIds || []).map(numId).filter((n) => !Number.isNaN(n)));
+        const retirementOrder = (matchState?.retirementOrder || []).map(numId).filter((n) => !Number.isNaN(n));
+        const notOut = matchState.playersBattingTeam.filter((p) => !outIds.has(numId(p.player_id)));
+        // Before any ball in this innings: show everyone not out (ignore retirement — avoids bad/stale retired flags hiding squad)
+        const beforeAnyBallInInnings = (matchState.ballsInCurrentInnings ?? 0) === 0;
+        if (beforeAnyBallInInnings) return notOut;
+        const nonRetiredNotOut = notOut.filter((p) => !retiredIds.has(numId(p.player_id)));
+        const retiredNotOut = notOut.filter((p) => retiredIds.has(numId(p.player_id)));
         if (nonRetiredNotOut.length > 0) return nonRetiredNotOut;
         if (retiredNotOut.length > 0) {
             if (retirementOrder.length > 0) {
-                return retirementOrder.filter(id => retiredIds.has(id)).map(id => matchState.playersBattingTeam.find(p => p.player_id === id)).filter(Boolean);
+                return retirementOrder
+                    .filter((id) => retiredIds.has(id))
+                    .map((id) => matchState.playersBattingTeam.find((p) => numId(p.player_id) === id))
+                    .filter(Boolean);
             }
             return retiredNotOut;
         }
         return [];
-    }, [matchState?.playersBattingTeam, matchState?.batsmenOutIds, matchState?.batsmenRetiredIds, matchState?.retirementOrder]);
+    }, [matchState?.playersBattingTeam, matchState?.batsmenOutIds, matchState?.batsmenRetiredIds, matchState?.retirementOrder, matchState?.ballsInCurrentInnings]);
 
 
     // --- Ball API Submission Handler ---
