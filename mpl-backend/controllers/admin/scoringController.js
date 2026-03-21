@@ -673,6 +673,148 @@ exports.retireBatter = async (req, res, next) => {
     }
 };
 
+const FIELDING_BONUS_GOOD_CATCH = 2;
+const FIELDING_BONUS_GOOD_STOP = 1;
+const FIELDING_BONUS_MISFIELD = -1;
+const FIELDING_BONUS_CATCH_DROP = -2;
+
+const FIELDING_BONUS_LABELS = {
+    good_catch: 'good catch',
+    good_stop: 'good stop',
+    misfield: 'misfield',
+    catch_drop: 'catch drop',
+};
+
+/** Display titles for commentary line */
+const FIELDING_BONUS_COMMENTARY_TITLES = {
+    good_catch: 'Good catch',
+    good_stop: 'Good stop',
+    misfield: 'Misfield',
+    catch_drop: 'Catch drop',
+};
+
+/**
+ * @desc    Manual fielding impact on the **last completed ball** (ballbyball row): +2 / +1 / -1 / -2. Appends commentary. Undo last ball reverses.
+ * @route   POST /api/admin/scoring/matches/:matchId/fielding-bonus
+ * @access  Admin (Protected)
+ */
+exports.addFieldingBonus = async (req, res, next) => {
+    const matchId = parseInt(req.params.matchId, 10);
+    const fielderId = req.body?.fielder_player_id != null ? parseInt(req.body.fielder_player_id, 10) : NaN;
+    const bonusType = req.body?.bonus_type;
+    if (isNaN(matchId) || isNaN(fielderId)) {
+        return res.status(400).json({ message: 'Valid match ID and fielder_player_id are required.' });
+    }
+    const points = bonusType === 'good_catch' ? FIELDING_BONUS_GOOD_CATCH
+        : bonusType === 'good_stop' ? FIELDING_BONUS_GOOD_STOP
+        : bonusType === 'misfield' ? FIELDING_BONUS_MISFIELD
+        : bonusType === 'catch_drop' ? FIELDING_BONUS_CATCH_DROP
+        : null;
+    if (points == null) {
+        return res.status(400).json({ message: 'bonus_type must be "good_catch", "good_stop", "misfield", or "catch_drop".' });
+    }
+    const connection = await pool.getConnection();
+    try {
+        await connection.beginTransaction();
+        const [matchRows] = await connection.query(
+            'SELECT status, team1_id, team2_id, toss_winner_team_id, decision, season_id FROM matches WHERE match_id = ? FOR UPDATE',
+            [matchId]
+        );
+        if (matchRows.length === 0) {
+            await connection.rollback();
+            return res.status(404).json({ message: 'Match not found.' });
+        }
+        const match = matchRows[0];
+        if (match.status !== 'Live') {
+            await connection.rollback();
+            return res.status(400).json({ message: 'Fielding impact can only be added while the match is Live.' });
+        }
+        const [lastBallRows] = await connection.query(
+            `SELECT ball_id, inning_number, fielding_adjustment_type, fielding_adjustment_points
+             FROM ballbyball WHERE match_id = ? ORDER BY ball_id DESC LIMIT 1 FOR UPDATE`,
+            [matchId]
+        );
+        if (lastBallRows.length === 0) {
+            await connection.rollback();
+            return res.status(400).json({ message: 'Record at least one ball before adding fielding impact.' });
+        }
+        const ballRow = lastBallRows[0];
+        if (ballRow.fielding_adjustment_type != null || ballRow.fielding_adjustment_points != null) {
+            await connection.rollback();
+            return res.status(400).json({ message: 'The last ball already has a fielding adjustment. Undo that ball or use the next delivery.' });
+        }
+        const inningNumber = Number(ballRow.inning_number) || 1;
+        const { team1_id, team2_id, toss_winner_team_id, decision, season_id } = match;
+        let bowlingTeamId;
+        if (inningNumber === 1) {
+            const battingTeamId = (decision === 'Bat') ? toss_winner_team_id : (toss_winner_team_id === team1_id ? team2_id : team1_id);
+            bowlingTeamId = (battingTeamId === team1_id) ? team2_id : team1_id;
+        } else {
+            bowlingTeamId = (decision === 'Bat') ? toss_winner_team_id : (toss_winner_team_id === team1_id ? team2_id : team1_id);
+        }
+        const [onTeam] = await connection.query(
+            'SELECT 1 FROM teamplayers WHERE team_id = ? AND season_id = ? AND player_id = ?',
+            [bowlingTeamId, season_id, fielderId]
+        );
+        if (onTeam.length === 0) {
+            await connection.rollback();
+            return res.status(400).json({ message: 'Player must be on the bowling (fielding) team for this innings.' });
+        }
+        const [nameRows] = await connection.query('SELECT name FROM players WHERE player_id = ?', [fielderId]);
+        const fielderName = nameRows[0]?.name || `Player ${fielderId}`;
+        const title = FIELDING_BONUS_COMMENTARY_TITLES[bonusType] || bonusType;
+        const impactStr = points >= 0 ? `(+${points} impact)` : `(${points} impact)`;
+        const suffix = ` [Fielding: ${title} — ${fielderName} ${impactStr}]`;
+
+        const [upd] = await connection.query(
+            'UPDATE playermatchstats SET fielding_impact_points = fielding_impact_points + ? WHERE match_id = ? AND player_id = ? AND team_id = ?',
+            [points, matchId, fielderId, bowlingTeamId]
+        );
+        if (!upd || upd.affectedRows === 0) {
+            await connection.rollback();
+            return res.status(400).json({ message: 'Could not update fielder stats. Ensure match setup completed (player in squad).' });
+        }
+        await connection.query(
+            `UPDATE ballbyball SET
+                commentary_text = CONCAT(IFNULL(commentary_text, ''), ?),
+                fielding_adjustment_player_id = ?,
+                fielding_adjustment_type = ?,
+                fielding_adjustment_points = ?,
+                fielding_adjustment_suffix = ?
+             WHERE ball_id = ?`,
+            [suffix, fielderId, bonusType, points, suffix, ballRow.ball_id]
+        );
+        await connection.commit();
+
+        const fullLiveState = await new Promise((resolve, reject) => {
+            const mockRes = { json: (data) => resolve(data) };
+            exports.getLiveMatchState({ params: { matchId } }, mockRes, reject);
+        });
+        const io = req.app.get('io');
+        if (io && fullLiveState && fullLiveState.status) {
+            io.to(`match_${matchId}`).emit('updateScore', fullLiveState);
+        }
+        const label = FIELDING_BONUS_LABELS[bonusType] || bonusType;
+        const signStr = points >= 0 ? `+${points}` : `${points}`;
+        res.status(200).json({
+            message: `${signStr} fielding impact (${label}) on last ball`,
+            points,
+            bonus_type: bonusType,
+            ball_id: ballRow.ball_id,
+            newState: fullLiveState || {},
+        });
+    } catch (error) {
+        await connection.rollback().catch(() => {});
+        if (error.code === 'ER_BAD_FIELD_ERROR') {
+            return res.status(500).json({ message: 'Database missing fielding adjustment columns. Run scripts/add-ball-fielding-adjustment.sql' });
+        }
+        console.error(`Error adding fielding bonus for Match ${matchId}:`, error);
+        next(error);
+    } finally {
+        connection.release();
+    }
+};
+
 // --- submitFinalMatchScore ---
 /**
  * @desc    Manually submit final match score and details (optional)
@@ -1229,14 +1371,15 @@ exports.undoLastBall = async (req, res, next) => {
         const [lastBallArr] = await connection.query(`SELECT * FROM ballbyball WHERE match_id = ? ORDER BY ball_id DESC LIMIT 1 FOR UPDATE`, [matchId]);
         if (lastBallArr.length === 0) throw new Error('No balls recorded yet to undo.');
         const lastBall = lastBallArr[0];
-        const { ball_id, inningNumber, over_number, bowler_player_id, batsman_on_strike_player_id, runs_scored, is_bye, is_extra, extra_type, extra_runs, is_wicket, wicket_type, fielder_player_id } = lastBall;
+        const { ball_id, over_number, bowler_player_id, batsman_on_strike_player_id, runs_scored, is_bye, is_extra, extra_type, extra_runs, is_wicket, wicket_type, fielder_player_id } = lastBall;
+        const inningNum = lastBall.inning_number ?? lastBall.inningNumber;
         const isExtra = is_extra;
         const extraType = extra_type;
         const extraRuns = extra_runs;
         const isWicket = is_wicket;
         const wicketType = wicket_type;
         const isBye = is_bye;
-        console.log(`--- Undoing Ball ID: ${ball_id}, Inning: ${inningNumber}, Over: ${over_number} ---`);
+        console.log(`--- Undoing Ball ID: ${ball_id}, Inning: ${inningNum}, Over: ${over_number} ---`);
 
         // 2. Fetch Match state & details
         const [matches] = await connection.query('SELECT status, team1_id, team2_id, toss_winner_team_id, decision, season_id, winner_team_id, result_summary, super_over_number FROM matches WHERE match_id = ? FOR UPDATE', [matchId]);
@@ -1247,9 +1390,20 @@ exports.undoLastBall = async (req, res, next) => {
 
         // Determine batting/bowling team
         let battingTeamId, bowlingTeamId;
-        if (inningNumber == 1) { battingTeamId = (match.decision === 'Bat') ? match.toss_winner_team_id : (match.toss_winner_team_id == match.team1_id ? match.team2_id : match.team1_id); bowlingTeamId = (battingTeamId == match.team1_id) ? match.team2_id : match.team1_id; }
+        if (inningNum == 1) { battingTeamId = (match.decision === 'Bat') ? match.toss_winner_team_id : (match.toss_winner_team_id == match.team1_id ? match.team2_id : match.team1_id); bowlingTeamId = (battingTeamId == match.team1_id) ? match.team2_id : match.team1_id; }
         else { bowlingTeamId = (match.decision === 'Bat') ? match.toss_winner_team_id : (match.toss_winner_team_id == match.team1_id ? match.team2_id : match.team1_id); battingTeamId = (bowlingTeamId == match.team1_id) ? match.team2_id : match.team1_id; }
         console.log(`--- Undo Context: Batting=${battingTeamId}, Bowling=${bowlingTeamId} ---`);
+
+        // --- 2b. Reverse manual fielding adjustment on this ball (if any), before other impact reversals ---
+        const adjPid = lastBall.fielding_adjustment_player_id;
+        const adjPts = lastBall.fielding_adjustment_points;
+        if (adjPid != null && adjPts != null && Number(adjPts) !== 0) {
+            await connection.query(
+                'UPDATE playermatchstats SET fielding_impact_points = fielding_impact_points - ? WHERE match_id = ? AND player_id = ? AND team_id = ?',
+                [Number(adjPts), matchId, adjPid, bowlingTeamId]
+            );
+            console.log(`--- Reversed manual fielding adjustment: player ${adjPid}, points ${adjPts} ---`);
+        }
 
         // --- 3. Reverse PlayerMatchStats changes ---
         console.log(`--- Reverting Player Stats ---`);
@@ -1301,7 +1455,7 @@ exports.undoLastBall = async (req, res, next) => {
         // --- 5. Revert Match Status if necessary ---
         let newStatus = currentStatus; let revertStatus = false; const maxOvers = 5; const maxWickets = 5;
         const [prevProgressInfo] = await connection.query(`SELECT COUNT(*) as wickets_this_inning FROM playermatchstats WHERE match_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, battingTeamId]);
-        const [prevOverProgress] = await pool.query(`SELECT over_number, COUNT(*) as legal_balls FROM ballbyball WHERE match_id = ? AND inning_number = ? AND (is_extra = false) GROUP BY over_number ORDER BY over_number DESC LIMIT 1`, [matchId, inningNumber]);
+        const [prevOverProgress] = await connection.query(`SELECT over_number, COUNT(*) as legal_balls FROM ballbyball WHERE match_id = ? AND inning_number = ? AND (is_extra = false) GROUP BY over_number ORDER BY over_number DESC LIMIT 1`, [matchId, inningNum]);
         const prevLastLegalOverNum = prevOverProgress[0]?.over_number || 0;
         const ballsInPrevLastLegalOver = prevOverProgress[0]?.legal_balls || 0;
 
@@ -1314,10 +1468,10 @@ exports.undoLastBall = async (req, res, next) => {
             prevInningsEndReason = 'Overs Completed';
         }
 
-        if (currentStatus === 'InningsBreak' && inningNumber === 1 && !prevInningsEndReason) {
+        if (currentStatus === 'InningsBreak' && inningNum === 1 && !prevInningsEndReason) {
             revertStatus = true;
         }
-        else if (currentStatus === 'Completed' && inningNumber === 2) {
+        else if (currentStatus === 'Completed' && inningNum === 2) {
             let wasTargetAchievedBefore = false;
             if (!prevInningsEndReason) { // Check target achievement only if innings didn't end for other reasons
                 const [prevInn2ScoreData] = await connection.query(`SELECT SUM(runs_scored + extra_runs) as score FROM ballbyball WHERE match_id = ? AND inning_number = 2`, [matchId]); // Score AFTER deleting ball

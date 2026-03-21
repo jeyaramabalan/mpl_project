@@ -60,6 +60,7 @@ function AdminLiveScoringPage() {
     const [isWicketEvent, setIsWicketEvent] = useState(false);
     const [selectedWicketType, setSelectedWicketType] = useState('');
     const [selectedFielderId, setSelectedFielderId] = useState('');
+    const [bonusFielderId, setBonusFielderId] = useState('');
 
     // --- State for Change Toss / Revert to Scheduled ---
     const [showTossModal, setShowTossModal] = useState(false);
@@ -585,6 +586,27 @@ function AdminLiveScoringPage() {
         }
     };
 
+    const handleFieldingBonus = async (bonusType) => {
+        if (!matchId || !bonusFielderId) {
+            setError('Select a fielder for the fielding bonus.');
+            return;
+        }
+        setIsSubmitting(true);
+        setError('');
+        try {
+            const { data } = await api.post(`/admin/scoring/matches/${matchId}/fielding-bonus`, {
+                fielder_player_id: parseInt(bonusFielderId, 10),
+                bonus_type: bonusType,
+            });
+            if (data?.newState) setMatchState(data.newState);
+            setError('');
+        } catch (err) {
+            setError(err.response?.data?.message || err.message || 'Failed to add fielding bonus.');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
 
     // --- Render Logic ---
     if (isLoading) return <LoadingFallback message="Loading match state..." />;
@@ -643,6 +665,71 @@ function AdminLiveScoringPage() {
                         {!selectionRequiredNow && ( <> {/* Legal Runs / Byes — blocked at 12 legal until retire */} <div style={buttonGroupStyle}> <span style={labelStyle}>Runs/Byes:</span> {[0, 1, 2, 4].map(r => (<button type="button" key={`run-${r}`} onClick={() => handleLegalBall(r)} disabled={legalRunsBlocked} style={buttonStyle}>{r}</button>))} <button type="button" key="bye-1" onClick={() => handleBye(1)} disabled={legalRunsBlocked} style={buttonStyle}>1b</button> </div> {/* Extras — still allowed after 12 legal */} <div style={buttonGroupStyle}> <span style={labelStyle}>Extras:</span> <button type="button" onClick={handleWideClick} style={buttonStyle}>WD</button> <button type="button" onClick={() => handleWideByeClick(1)} style={buttonStyle}>WD+1b</button> <button type="button" onClick={() => handleNoBallClick(0)} style={buttonStyle}>NB+0</button> <button type="button" onClick={() => handleNoBallByeClick(1)} style={buttonStyle}>NB+1b</button> {[1, 2, 4].map(r => (<button type="button" key={`nb-${r}`} onClick={() => handleNoBallClick(r)} style={buttonStyle}>NB+{r}</button>))} </div> {/* Wicket Toggle & Details */} <div style={{ margin: '1rem 0' }}> <button type="button" onClick={() => setIsWicketEvent(!isWicketEvent)} disabled={legalRunsBlocked} style={{backgroundColor: isWicketEvent ? '#d1ecf1' : '#ffc107', marginRight: '1rem', padding: '0.5em 1em'}}>{isWicketEvent ? 'Cancel Wicket' : 'Record Wicket'}</button> {isWicketEvent && ( <div style={{border: '1px dashed gray', padding: '1rem', marginTop: '0.5rem', display: 'inline-block', verticalAlign: 'top'}}> <label htmlFor="wicket-type">Type:* </label> <select id="wicket-type" value={selectedWicketType} onChange={e => {setSelectedWicketType(e.target.value); if(!['Caught', 'Stumped'].includes(e.target.value)) setSelectedFielderId('');}}> <option value="">--Select--</option> <option value="Bowled">Bowled</option><option value="Caught">Caught</option><option value="Stumped">Stumped</option><option value="Hit Outside">Hit Outside</option><option value="Hit Wicket">Hit Wicket</option> </select> {(selectedWicketType === 'Caught' || selectedWicketType === 'Stumped') && ( <div style={{marginTop: '0.5rem'}}> <label htmlFor="fielder-select">Fielder:* </label> <select id="fielder-select" value={selectedFielderId} onChange={e => setSelectedFielderId(e.target.value)}> <option value="">--Select Fielder--</option> {matchState?.playersBowlingTeam?.map(p => <option key={`field-${p.player_id}`} value={p.player_id}>{p.name}</option>)} </select> </div> )} <button type="button" onClick={handleWicketConfirm} disabled={!selectedWicketType || (['Caught','Stumped'].includes(selectedWicketType) && !selectedFielderId)} style={{backgroundColor: '#dc3545', marginTop: '1rem'}}>Confirm Wicket</button> </div> )} </div> </> )}
                     </fieldset>
                     {isSubmitting && <LoadingFallback message="Submitting..." />}
+                    {currentStatus === 'Live' && (
+                        <div
+                            style={{
+                                marginTop: '1.25rem',
+                                padding: '1rem',
+                                border: '1px dashed var(--mpl-border)',
+                                borderRadius: '8px',
+                                backgroundColor: 'var(--mpl-surface)',
+                            }}
+                        >
+                            <h4 style={{ marginTop: 0, marginBottom: '0.5rem', color: 'var(--mpl-text)' }}>Fielding impact (manual)</h4>
+                            <p style={{ fontSize: '0.88rem', color: 'var(--mpl-text-muted)', marginTop: 0, marginBottom: '0.75rem' }}>
+                                Applies to the <strong>last completed ball</strong> (extra +2/+1/−1/−2 on top of normal ball impact, e.g. +5 for a catch). Choose a <strong>bowling-team</strong> fielder, then an action — commentary is appended to that ball. Does not add a delivery. One adjustment per ball; if you miss timing, skip it.
+                            </p>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center' }}>
+                                <label htmlFor="bonus-fielder-select" style={{ fontWeight: 600 }}>Fielder (bowling team):</label>
+                                <select
+                                    id="bonus-fielder-select"
+                                    value={bonusFielderId}
+                                    onChange={(e) => setBonusFielderId(e.target.value)}
+                                    disabled={isSubmitting}
+                                    style={{ minWidth: '200px' }}
+                                >
+                                    <option value="">-- Select fielder --</option>
+                                    {(matchState?.playersBowlingTeam || []).map((p) => (
+                                        <option key={`bonus-f-${p.player_id}`} value={p.player_id}>{p.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', alignItems: 'center', marginTop: '0.75rem' }}>
+                                <button
+                                    type="button"
+                                    onClick={() => handleFieldingBonus('good_catch')}
+                                    disabled={isSubmitting || !bonusFielderId}
+                                    style={{ padding: '0.45em 0.85em', backgroundColor: '#0d6efd', color: '#fff', border: 'none', borderRadius: '6px' }}
+                                >
+                                    Good catch (+2)
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleFieldingBonus('good_stop')}
+                                    disabled={isSubmitting || !bonusFielderId}
+                                    style={{ padding: '0.45em 0.85em', backgroundColor: '#198754', color: '#fff', border: 'none', borderRadius: '6px' }}
+                                >
+                                    Good stop (+1)
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleFieldingBonus('misfield')}
+                                    disabled={isSubmitting || !bonusFielderId}
+                                    style={{ padding: '0.45em 0.85em', backgroundColor: '#fd7e14', color: '#fff', border: 'none', borderRadius: '6px' }}
+                                >
+                                    Misfield (−1)
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleFieldingBonus('catch_drop')}
+                                    disabled={isSubmitting || !bonusFielderId}
+                                    style={{ padding: '0.45em 0.85em', backgroundColor: '#dc3545', color: '#fff', border: 'none', borderRadius: '6px' }}
+                                >
+                                    Catch drop (−2)
+                                </button>
+                            </div>
+                        </div>
+                    )}
                     {/* Undo Button */}
                     {(currentStatus === 'Live' || currentStatus === 'InningsBreak' || currentStatus === 'Completed') && (
                         <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #ccc' }}>
