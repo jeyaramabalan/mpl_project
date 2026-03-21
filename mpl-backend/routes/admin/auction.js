@@ -10,6 +10,7 @@ const {
   startAuction,
   placeBid,
   sellPlayer,
+  parkUnsoldPlayer,
 } = require('../../controllers/admin/auctionController');
 
 const router = express.Router();
@@ -23,5 +24,6 @@ router.get('/state', getAuctionState);
 router.post('/start', startAuction);
 router.post('/bid', placeBid);
 router.post('/sell', sellPlayer);
+router.post('/park', parkUnsoldPlayer);
 
 module.exports = router;

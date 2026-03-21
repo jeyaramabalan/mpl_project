@@ -231,6 +231,22 @@ export default function AdminAuctionPage() {
     }
   };
 
+  const handleParkUnsold = async () => {
+    if (!selectedSeasonId) return;
+    if (!window.confirm('Park this player as unsold? They will go to the end of the queue. Current bid will reset.')) return;
+    setFormLoading(true);
+    setError('');
+    try {
+      await api.post('/admin/auction/park', { season_id: parseInt(selectedSeasonId) });
+      fetchAuctionState();
+      fetchPool();
+    } catch (e) {
+      setError(e?.message || 'Park failed.');
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
   const seasonName = seasons.find(s => s.season_id == selectedSeasonId)?.name || '';
   const registeredPlayerIds = registrations.map(r => r.player_id);
   const availableToAdd = players.filter(p => !registeredPlayerIds.includes(p.player_id));
@@ -414,9 +430,19 @@ export default function AdminAuctionPage() {
                       </div>
                     ))}
                   </div>
-                  <button type="button" onClick={handleSell} disabled={formLoading || !auctionState.state.current_team_id}>
-                    Sell to current team
-                  </button>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center' }}>
+                    <button type="button" onClick={handleSell} disabled={formLoading || !auctionState.state.current_team_id}>
+                      Sell to current team
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleParkUnsold}
+                      disabled={formLoading || !auctionState.currentPlayer}
+                      title="No sale — player goes to the end of the queue for later"
+                    >
+                      Park unsold (to end of queue)
+                    </button>
+                  </div>
                 </>
               )}
               {auctionState?.state && auctionState.state.status === 'completed' && (
@@ -432,6 +458,35 @@ export default function AdminAuctionPage() {
                       </li>
                     ))}
                   </ul>
+                </div>
+              )}
+              {Array.isArray(auctionState?.team_rosters) && auctionState.team_rosters.length > 0 && (
+                <div className="auction-team-rosters" style={{ marginTop: '1.5rem', padding: '1rem', border: '1px solid #ccc', borderRadius: 8, background: 'var(--mpl-surface)' }}>
+                  <h4>Squads so far (captain + auction buys)</h4>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--mpl-text-muted)', marginTop: 0 }}>Captain shows at £0. Players show purchase price.</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1rem' }}>
+                    {auctionState.team_rosters.map((tr) => (
+                      <div key={tr.team_id} style={{ border: '1px solid var(--mpl-border)', borderRadius: 8, padding: '0.75rem' }}>
+                        <div style={{ fontWeight: 700, marginBottom: '0.5rem' }}>{tr.name}</div>
+                        <ul style={{ margin: 0, paddingLeft: '1.1rem', fontSize: '0.95rem' }}>
+                          {tr.captain && (
+                            <li>
+                              <strong>{tr.captain.name}</strong> (Captain) — £{tr.captain.price}
+                            </li>
+                          )}
+                          {!tr.captain && <li style={{ color: 'var(--mpl-text-muted)' }}>No captain set</li>}
+                          {(tr.purchases || []).map((p) => (
+                            <li key={p.player_id}>
+                              {p.name} — £{p.purchase_price}
+                            </li>
+                          ))}
+                          {(tr.purchases || []).length === 0 && tr.captain && (
+                            <li style={{ color: 'var(--mpl-text-muted)', fontStyle: 'italic' }}>No auction players yet</li>
+                          )}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </section>

@@ -148,6 +148,82 @@ exports.getAuctionPool = async (req, res, next) => {
   }
 };
 
+/** Budget slots + captain + auction purchases per team (same season). */
+async function buildAuctionTeamsAndRosters(seasonId) {
+  const [teams] = await pool.query(
+    `SELECT t.team_id, t.name, t.budget,
+            COALESCE(SUM(CASE WHEN tp.is_captain = 0 THEN tp.purchase_price ELSE 0 END), 0) as spent,
+            COUNT(CASE WHEN tp.is_captain = 0 THEN 1 END) as players_won
+     FROM teams t
+     LEFT JOIN teamplayers tp ON tp.team_id = t.team_id AND tp.season_id = t.season_id
+     WHERE t.season_id = ?
+     GROUP BY t.team_id, t.name, t.budget`,
+    [seasonId]
+  );
+
+  const [captainRows] = await pool.query(
+    `SELECT t.team_id, t.captain_player_id, cap.name AS captain_name
+     FROM teams t
+     LEFT JOIN players cap ON cap.player_id = t.captain_player_id
+     WHERE t.season_id = ?`,
+    [seasonId]
+  );
+  const captainByTeam = new Map(captainRows.map((r) => [r.team_id, r]));
+
+  const [purchaseRows] = await pool.query(
+    `SELECT tp.team_id, tp.player_id, p.name AS player_name, tp.purchase_price
+     FROM teamplayers tp
+     JOIN players p ON p.player_id = tp.player_id
+     WHERE tp.season_id = ? AND tp.is_captain = 0
+     ORDER BY tp.team_id, p.name`,
+    [seasonId]
+  );
+  const purchasesByTeam = new Map();
+  for (const row of purchaseRows) {
+    const tid = row.team_id;
+    if (!purchasesByTeam.has(tid)) purchasesByTeam.set(tid, []);
+    purchasesByTeam.get(tid).push({
+      player_id: row.player_id,
+      name: row.player_name,
+      purchase_price: Number(row.purchase_price) || 0,
+    });
+  }
+
+  const team_rosters = teams.map((t) => {
+    const cap = captainByTeam.get(t.team_id);
+    const captain =
+      cap && cap.captain_player_id
+        ? {
+            player_id: cap.captain_player_id,
+            name: cap.captain_name || 'Captain',
+            price: 0,
+          }
+        : null;
+    return {
+      team_id: t.team_id,
+      name: t.name,
+      captain,
+      purchases: purchasesByTeam.get(t.team_id) || [],
+    };
+  });
+
+  const teamsWithSlotsSync = teams.map((t) => {
+    const spent = Number(t.spent) || 0;
+    const budget = Number(t.budget) || AUCTION_BUDGET;
+    const wins = Number(t.players_won) || 0;
+    return {
+      team_id: t.team_id,
+      name: t.name,
+      budget_total: budget,
+      budget_spent: spent,
+      budget_remaining: budget - spent,
+      players_won: wins,
+      slots_remaining: SLOTS_PER_TEAM - wins,
+    };
+  });
+  return { teamsWithSlotsSync, team_rosters };
+}
+
 // GET /api/admin/auction/state?season_id=X (admin and public)
 exports.getAuctionState = async (req, res, next) => {
   const { season_id } = req.query;
@@ -160,8 +236,15 @@ exports.getAuctionState = async (req, res, next) => {
       [season_id]
     );
     const state = stateRows[0] || null;
+    const { teamsWithSlotsSync, team_rosters } = await buildAuctionTeamsAndRosters(season_id);
     if (!state) {
-      return res.json({ state: null, currentPlayer: null, currentTeamName: null, teams: [] });
+      return res.json({
+        state: null,
+        currentPlayer: null,
+        currentTeamName: null,
+        teams: teamsWithSlotsSync,
+        team_rosters,
+      });
     }
     const poolOrder = state.pool_order && (typeof state.pool_order === 'string' ? JSON.parse(state.pool_order) : state.pool_order) || [];
     const currentPlayerId = poolOrder[state.current_pool_index] || null;
@@ -175,30 +258,6 @@ exports.getAuctionState = async (req, res, next) => {
       const [t] = await pool.query('SELECT name FROM teams WHERE team_id = ?', [state.current_team_id]);
       currentTeamName = t[0] ? t[0].name : null;
     }
-    const [teams] = await pool.query(
-      `SELECT t.team_id, t.name, t.budget,
-              COALESCE(SUM(CASE WHEN tp.is_captain = 0 THEN tp.purchase_price ELSE 0 END), 0) as spent,
-              COUNT(CASE WHEN tp.is_captain = 0 THEN 1 END) as players_won
-       FROM teams t
-       LEFT JOIN teamplayers tp ON tp.team_id = t.team_id AND tp.season_id = t.season_id
-       WHERE t.season_id = ?
-       GROUP BY t.team_id, t.name, t.budget`,
-      [season_id]
-    );
-    const teamsWithSlotsSync = teams.map(t => {
-      const spent = Number(t.spent) || 0;
-      const budget = Number(t.budget) || AUCTION_BUDGET;
-      const wins = Number(t.players_won) || 0;
-      return {
-        team_id: t.team_id,
-        name: t.name,
-        budget_total: budget,
-        budget_spent: spent,
-        budget_remaining: budget - spent,
-        players_won: wins,
-        slots_remaining: SLOTS_PER_TEAM - wins,
-      };
-    });
     res.json({
       state: {
         season_id: state.season_id,
@@ -211,6 +270,7 @@ exports.getAuctionState = async (req, res, next) => {
       currentPlayer,
       currentTeamName,
       teams: teamsWithSlotsSync,
+      team_rosters,
     });
   } catch (err) {
     console.error('getAuctionState:', err);
@@ -381,6 +441,77 @@ exports.sellPlayer = async (req, res, next) => {
   } catch (err) {
     await connection.rollback();
     console.error('sellPlayer:', err);
+    next(err);
+  } finally {
+    connection.release();
+  }
+};
+
+/** Move current player to end of pool (unsold); continue with next player. */
+function computePoolAfterPark(poolOrder, idx) {
+  if (!poolOrder.length || idx < 0 || idx >= poolOrder.length) return null;
+  const playerId = poolOrder[idx];
+  const rest = [...poolOrder.slice(0, idx), ...poolOrder.slice(idx + 1)];
+  const newPool = [...rest, playerId];
+  let nextIndex;
+  if (rest.length === 0) {
+    nextIndex = 0;
+  } else if (idx < poolOrder.length - 1) {
+    nextIndex = idx;
+  } else {
+    nextIndex = 0;
+  }
+  return { newPool, nextIndex, parked_player_id: playerId };
+}
+
+// POST /api/admin/auction/park — Body: { season_id }. Unsold: move current player to end of pool, reset bid.
+exports.parkUnsoldPlayer = async (req, res, next) => {
+  const { season_id } = req.body;
+  if (!season_id || isNaN(parseInt(season_id))) {
+    return res.status(400).json({ message: 'season_id is required.' });
+  }
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [stateRows] = await connection.query(
+      'SELECT pool_order, current_pool_index, status FROM auction_state WHERE season_id = ? FOR UPDATE',
+      [season_id]
+    );
+    if (stateRows.length === 0 || stateRows[0].status !== 'active') {
+      await connection.rollback();
+      return res.status(400).json({ message: 'Auction not active.' });
+    }
+    const state = stateRows[0];
+    const poolOrder = state.pool_order && (typeof state.pool_order === 'string' ? JSON.parse(state.pool_order) : state.pool_order) || [];
+    const idx = state.current_pool_index;
+    if (idx >= poolOrder.length || poolOrder.length === 0) {
+      await connection.rollback();
+      return res.status(400).json({ message: 'No current player in pool.' });
+    }
+    if (poolOrder.length === 1) {
+      await connection.rollback();
+      return res.status(400).json({ message: 'Cannot park: only one player left in the pool. Use Sell or add more players.' });
+    }
+    const result = computePoolAfterPark(poolOrder, idx);
+    if (!result) {
+      await connection.rollback();
+      return res.status(400).json({ message: 'Could not park player.' });
+    }
+    const { newPool, nextIndex, parked_player_id } = result;
+    await connection.query(
+      'UPDATE auction_state SET pool_order = ?, current_pool_index = ?, current_bid = ?, current_team_id = NULL, status = ? WHERE season_id = ?',
+      [JSON.stringify(newPool), nextIndex, MIN_BID, newPool.length === 0 ? 'completed' : 'active', season_id]
+    );
+    await connection.commit();
+    res.json({
+      message: 'Player parked to end of queue.',
+      parked_player_id,
+      next_pool_index: nextIndex,
+      pool_remaining: newPool.length,
+    });
+  } catch (err) {
+    await connection.rollback();
+    console.error('parkUnsoldPlayer:', err);
     next(err);
   } finally {
     connection.release();

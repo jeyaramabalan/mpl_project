@@ -120,7 +120,7 @@ export default function AuctionPage() {
   if (loading) return <LoadingFallback message="Loading..." />;
 
   return (
-    <div className="auction-page" style={{ maxWidth: 600, margin: '0 auto', padding: '1.5rem' }}>
+    <div className="auction-page" style={{ maxWidth: 960, margin: '0 auto', padding: '1.5rem' }}>
       <h1>Auction – Live</h1>
       {error && <p className="error-message">{error}</p>}
       <div style={{ marginBottom: '1rem' }}>
@@ -137,6 +137,51 @@ export default function AuctionPage() {
         </select>
       </div>
       {!seasonId && <p>Select a season to view the auction.</p>}
+      {seasonId && state && Array.isArray(state.team_rosters) && state.team_rosters.length > 0 && (
+        <section
+          className="auction-squads-preview"
+          style={{
+            marginBottom: '1.25rem',
+            padding: '1rem 1.25rem',
+            border: '1px solid var(--mpl-border)',
+            borderRadius: 12,
+            background: 'var(--mpl-surface)',
+          }}
+        >
+          <h2 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem' }}>Squads so far</h2>
+          <p style={{ margin: '0 0 0.75rem 0', fontSize: '0.9rem', color: 'var(--mpl-text-muted)' }}>
+            Captain at £0; auction players with purchase price.
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.75rem' }}>
+            {state.team_rosters.map((tr) => (
+              <div
+                key={tr.team_id}
+                style={{
+                  border: '1px solid var(--mpl-border)',
+                  borderRadius: 8,
+                  padding: '0.65rem 0.75rem',
+                  fontSize: '0.9rem',
+                }}
+              >
+                <div style={{ fontWeight: 700, marginBottom: '0.35rem' }}>{tr.name}</div>
+                <ul style={{ margin: 0, paddingLeft: '1.1rem' }}>
+                  {tr.captain && (
+                    <li>
+                      <strong>{tr.captain.name}</strong> (C) — £{tr.captain.price}
+                    </li>
+                  )}
+                  {!tr.captain && <li style={{ color: 'var(--mpl-text-muted)' }}>Captain TBC</li>}
+                  {(tr.purchases || []).map((p) => (
+                    <li key={p.player_id}>
+                      {p.name} — £{p.purchase_price}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
       {seasonId && state && (
         <div className="auction-live-box" style={{ padding: '1.5rem', border: '1px solid var(--mpl-border)', borderRadius: 12, background: 'var(--mpl-surface)' }}>
           {state.state?.status === 'completed' && (
