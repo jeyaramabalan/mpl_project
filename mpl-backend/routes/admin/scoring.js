@@ -9,7 +9,8 @@ const {
     undoLastBall,
     updateToss,
     revertToScheduled,
-    retireBatter
+    retireBatter,
+    addFieldingBonus
 } = require('../../controllers/admin/scoringController');
 
 const router = express.Router();
@@ -44,6 +45,9 @@ router.post('/matches/:matchId/ball', scoreSingleBall);
 // POST /api/admin/scoring/matches/:matchId/retire-batter
 // Retire batter (after 12 legal balls per MPL rules)
 router.post('/matches/:matchId/retire-batter', retireBatter);
+
+// POST /api/admin/scoring/matches/:matchId/fielding-bonus — manual fielding impact (good catch/stop, misfield, catch drop)
+router.post('/matches/:matchId/fielding-bonus', addFieldingBonus);
 
 // DELETE /api/admin/scoring/matches/:matchId/ball/last <-- Route from previous step
 // Undo the last recorded ball event

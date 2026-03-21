@@ -1,0 +1,2 @@
+# Place the built frontend here when deploying (Passenger / same-origin).
+# Copy contents of mpl-frontend/dist/ into this folder: index.html, assets/, etc.

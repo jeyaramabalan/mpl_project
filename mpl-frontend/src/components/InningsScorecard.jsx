@@ -16,6 +16,7 @@ const InningsScorecard = ({ stats, teamName, inningsNumber, summary }) => {
 
     const formatDismissal = (stat) => {
         if (stat.did_not_bat) return <span className="did-not-bat">did not bat</span>;
+        if (stat.scorecardDismissal === 'retired') return <span className="retired">Retired</span>;
         if (!stat.is_out) return <span className="not-out">not out</span>;
         // The detailed dismissal text is now calculated in the parent and passed down
         return stat.how_out || "out"; 

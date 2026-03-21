@@ -1,5 +1,6 @@
 // mpl-project/mpl-backend/controllers/matchController.js
 const pool = require('../config/db');
+const scoringController = require('./admin/scoringController');
 
 /**
  * @desc    Get match fixtures (list view, can be filtered)
@@ -238,60 +239,17 @@ exports.getMatchCommentary = async (req, res, next) => {
     }
 };
 
+/**
+ * Public live state — must match admin/socket payload (getLiveMatchState).
+ * The old implementation summed all innings and used team1/team2 as batting/bowling, which broke
+ * the viewer header vs ball-by-ball and missed socket updates when the client joined before connect.
+ */
 exports.getMatchState = async (req, res, next) => {
   const { id } = req.params;
   if (isNaN(parseInt(id))) return res.status(400).json({ message: 'Invalid Match ID.' });
 
-  try {
-    // Get match status
-    const [matchRows] = await pool.query(`SELECT status, team1_id, team2_id FROM matches WHERE match_id = ?`, [id]);
-    if (matchRows.length === 0) return res.status(404).json({ message: 'Match not found.' });
-
-    const match = matchRows[0];
-
-    // Get latest ball(s) for commentary
-    const [balls] = await pool.query(`
-      SELECT b.*, batsman.name as batsman_name, bowler.name as bowler_name, fielder.name as fielder_name
-      FROM ballbyball b
-      JOIN players batsman ON b.batsman_on_strike_player_id = batsman.player_id
-      JOIN players bowler ON b.bowler_player_id = bowler.player_id
-      LEFT JOIN players fielder ON b.fielder_player_id = fielder.player_id
-      WHERE b.match_id = ?
-      ORDER BY b.inning_number ASC, b.over_number ASC, b.ball_number_in_over ASC, b.ball_id ASC
-    `, [id]);
-
-    const latestBall = balls[0];
-
-    // Calculate live score
-    const [scoreRows] = await pool.query(`
-      SELECT
-        SUM(runs_scored + extra_runs) as score,
-        SUM(is_wicket) as wickets,
-        COUNT(CASE WHEN is_extra = false OR extra_type = 'NoBall' THEN 1 END) as legal_balls
-      FROM ballbyball
-      WHERE match_id = ?
-    `, [id]);
-
-    const scoreData = scoreRows[0];
-    const overs = Math.floor(scoreData.legal_balls / 6);
-    const ballsInOver = scoreData.legal_balls % 6;
-
-    res.json({
-  matchId: parseInt(id),
-  status: match.status,
-  score: scoreData.score || 0,
-  wickets: scoreData.wickets || 0,
-  overs,
-  balls: ballsInOver,
-  battingTeamId: match.team1_id,
-  bowlingTeamId: match.team2_id,
-  commentary: balls // ✅ now includes all commentary
-});
-
-  } catch (error) {
-    console.error(`Get Match State Error for Match ${id}:`, error);
-    next(error);
-  }
+  req.params.matchId = id;
+  return scoringController.getLiveMatchState(req, res, next);
 };
 
 /**

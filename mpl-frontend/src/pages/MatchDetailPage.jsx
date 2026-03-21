@@ -28,6 +28,20 @@ const oversToDecimal = (oversStr) => {
   return over + ball / 6;
 };
 
+/** How many separate times this batter came on strike in the innings (2+ ⇒ returned after retiring). */
+function countStrikerSegmentsForInnings(playerId, inningsBallsSorted) {
+  const pid = Number(playerId);
+  if (Number.isNaN(pid)) return 0;
+  let segments = 0;
+  let wasOnStrike = false;
+  for (const ball of inningsBallsSorted) {
+    const on = Number(ball.batsman_on_strike_player_id) === pid;
+    if (on && !wasOnStrike) segments += 1;
+    wasOnStrike = on;
+  }
+  return segments;
+}
+
 // Interpolate runs from worm data at given x so wicket dot sits on the line
 const wormYAt = (wormData, x, teamKey) => {
   const data = wormData.data;
@@ -57,7 +71,11 @@ const CommentaryItem = ({ ball }) => {
     if (ball.runs_scored === 0) return <div className="ball-badge dot"> • </div>;
     return <div className="ball-badge run">{ball.runs_scored}</div>;
   };
-  const overDisplay = `${Math.floor(ball.over_number - 1)}.${ball.ball_number_in_over}`;
+  // Prefer the over shown in commentary text (logical over/ball); DB columns can disagree after extras.
+  const lead = /^(\d+)\.(\d+):/.exec(ball.commentary_text || '');
+  const overDisplay = lead
+    ? `${lead[1]}.${lead[2]}`
+    : `${Math.floor((ball.over_number ?? 1) - 1)}.${ball.ball_number_in_over ?? 0}`;
   return (
     <div className="commentary-item">
       <div className="commentary-over">{overDisplay}</div>
@@ -114,7 +132,11 @@ const ScoreDisplay = ({ state, matchDetails, innings1Data, innings2Data }) => {
   if (displayData?.battingTeamId) { battingTeamName = displayData.battingTeamId == matchDetails.team1_id ? team1Name : team2Name; }
   if (displayData?.bowlingTeamId) { bowlingTeamName = displayData.bowlingTeamId == matchDetails.team1_id ? team1Name : team2Name; }
   if (status === "Completed") { battingTeamName = innings1Data?.teamName; }
-  const lastBallCommentary = state?.commentary && state.commentary.length > 0 ? state.commentary[state.commentary.length - 1].commentary_text : null;
+  const lastBallCommentary =
+    state?.lastBallCommentary ||
+    (state?.commentary && state.commentary.length > 0
+      ? state.commentary[state.commentary.length - 1].commentary_text
+      : null);
   if (status === "Live" || status === "InningsBreak") {
     return ( <div className="score-summary-box"> {battingTeamName && bowlingTeamName && ( <p className="batting-bowling-info"> <strong>Batting:</strong> {battingTeamName} |{" "} <strong>Bowling:</strong> {bowlingTeamName} </p> )} <p className="main-score"> {displayData?.score ?? "N/A"} / {displayData?.wickets ?? "N/A"} </p> <p className="overs-info"> Overs: {displayData?.overs ?? "N/A"}.{displayData?.balls ?? "N/A"} / 5.0 </p> {displayData?.target > 0 && displayData?.inningNumber === 2 && ( <p className="target-info"> <strong>Target: {displayData.target}</strong> </p> )} {lastBallCommentary && ( <p className="last-ball-commentary"> {lastBallCommentary} </p> )} </div> );
   } else if (status === "Completed") {
@@ -127,13 +149,14 @@ const ScoreDisplay = ({ state, matchDetails, innings1Data, innings2Data }) => {
 // --- Main Component ---
 const MatchDetailPage = () => {
   const { matchId } = useParams();
-  const { socket } = useSocket();
+  const { socket, connectSocket, isConnected } = useSocket();
   const [matchDetails, setMatchDetails] = useState(null);
   const [liveScoreState, setLiveScoreState] = useState(null);
   const [displayCommentary, setDisplayCommentary] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [activeTab, setActiveTab] = useState('summary');
+  /** Default: ball-by-ball for in-progress matches; fetch sets scorecard when Completed */
+  const [activeTab, setActiveTab] = useState('commentary');
   const [momImageError, setMomImageError] = useState(false);
   useEffect(() => { setMomImageError(false); }, [matchId]);
   const commentaryContainerRef = useRef(null);
@@ -159,10 +182,14 @@ const MatchDetailPage = () => {
             setMatchDetails(matchData);
 
             if (["Setup", "Live", "InningsBreak", "Completed"].includes(matchData.status)) {
-                const stateRes = await api.get(`/matches/${matchId}/state`);
+                const [stateRes, commRes] = await Promise.all([
+                    api.get(`/matches/${matchId}/state`),
+                    api.get(`/matches/${matchId}/commentary`).catch(() => ({ data: [] })),
+                ]);
                 if (isMounted) {
                     setLiveScoreState(stateRes.data);
-                    setDisplayCommentary(stateRes.data?.commentary || []);
+                    const balls = Array.isArray(commRes.data) ? commRes.data : [];
+                    setDisplayCommentary(balls.slice().reverse());
                 }
             } else {
                 setLiveScoreState({ status: matchData.status });
@@ -171,6 +198,8 @@ const MatchDetailPage = () => {
             if (matchData.status === "Completed" && matchData.ballByBall) {
                 setDisplayCommentary(matchData.ballByBall.slice().reverse());
                 setActiveTab('scorecard');
+            } else if (["Setup", "Live", "InningsBreak"].includes(matchData.status)) {
+                setActiveTab('commentary');
             }
 
         } catch (err) {
@@ -183,54 +212,78 @@ const MatchDetailPage = () => {
     return () => { isMounted = false; };
   }, [matchId]);
 
-/*  useEffect(() => {
+  // Socket payload matches getLiveMatchState (no full commentary array). Refetch commentary on each update.
+  // Re-join room on connect so viewers who loaded before the socket was ready still receive broadcasts.
+  useEffect(() => {
     if (!socket || !matchDetails || !["Setup", "Live", "InningsBreak"].includes(matchDetails.status)) return;
-    socket.emit('joinMatchRoom', matchId);
-    const handleUpdateScore = (newState) => { if (newState && newState.matchId === parseInt(matchId)) { setLiveScoreState(newState); setDisplayCommentary(newState.commentary || []); } };
-    const handleMatchEnded = () => { window.location.reload(); };
-    socket.on("updateScore", handleUpdateScore);
-    socket.on("matchEnded", handleMatchEnded);
-    return () => { socket.emit('leaveMatchRoom', matchId); socket.off("updateScore", handleUpdateScore); socket.off("matchEnded", handleMatchEnded); };
-  }, [socket, matchId, matchDetails]); */
 
-  // --- CORRECTED SOCKET useEffect FOR LIVE COMMENTARY ---
-    useEffect(() => {
-    if (!socket || !matchDetails || !["Setup", "Live", "InningsBreak"].includes(matchDetails.status)) return;
-    
-    socket.emit('joinMatchRoom', matchId);
+    const joinRoom = () => {
+      if (socket.connected) socket.emit('joinMatchRoom', matchId);
+    };
+
+    const refreshCommentary = async () => {
+      try {
+        const { data } = await api.get(`/matches/${matchId}/commentary`);
+        if (Array.isArray(data)) {
+          setDisplayCommentary(data.slice().reverse());
+        }
+      } catch (e) {
+        console.warn('MatchDetail: commentary refresh failed', e?.message || e);
+      }
+    };
 
     const handleUpdateScore = (newState) => {
-        if (newState && newState.matchId === parseInt(matchId)) {
-            // Update the main score state
-            setLiveScoreState(newState);
-
-            // Get the single newest ball from the incoming update
-            const newBall = newState.commentary ? newState.commentary[0] : null;
-
-            // Prepend the new ball to the existing commentary list
-            if (newBall) {
-                setDisplayCommentary(prevCommentary => {
-                    // Prevent adding duplicates if the socket reconnects
-                    if (prevCommentary.some(c => c.ball_id === newBall.ball_id)) {
-                        return prevCommentary;
-                    }
-                    return [newBall, ...prevCommentary];
-                });
-            }
-        }
+      if (newState && Number(newState.matchId) === Number(matchId)) {
+        setLiveScoreState(newState);
+        refreshCommentary();
+      }
     };
 
-    const handleMatchEnded = () => { window.location.reload(); };
-    
-    socket.on("updateScore", handleUpdateScore);
-    socket.on("matchEnded", handleMatchEnded);
-    
-    return () => { 
-        socket.emit('leaveMatchRoom', matchId); 
-        socket.off("updateScore", handleUpdateScore); 
-        socket.off("matchEnded", handleMatchEnded); 
+    const handleMatchEnded = () => {
+      window.location.reload();
+    };
+
+    joinRoom();
+    socket.on('connect', joinRoom);
+    socket.on('updateScore', handleUpdateScore);
+    socket.on('matchEnded', handleMatchEnded);
+
+    return () => {
+      socket.off('connect', joinRoom);
+      if (socket.connected) socket.emit('leaveMatchRoom', matchId);
+      socket.off('updateScore', handleUpdateScore);
+      socket.off('matchEnded', handleMatchEnded);
     };
   }, [socket, matchId, matchDetails]);
+
+  /** Backup: HTTP refresh so header + ball list stay aligned if a socket event is missed */
+  useEffect(() => {
+    if (!matchId || !matchDetails || !['Live', 'InningsBreak', 'Setup'].includes(matchDetails.status)) return;
+
+    const refreshLive = async () => {
+      try {
+        const [stateRes, commRes] = await Promise.all([
+          api.get(`/matches/${matchId}/state`),
+          api.get(`/matches/${matchId}/commentary`).catch(() => ({ data: [] })),
+        ]);
+        if (stateRes?.data) setLiveScoreState(stateRes.data);
+        if (Array.isArray(commRes?.data)) setDisplayCommentary(commRes.data.slice().reverse());
+      } catch (_) {
+        /* ignore */
+      }
+    };
+
+    // Initial score + commentary already loaded in fetchMatchData; interval covers missed socket events.
+    const period = isConnected ? 14000 : 5000;
+    const id = setInterval(refreshLive, period);
+    return () => clearInterval(id);
+  }, [matchId, matchDetails?.status, isConnected]);
+
+  useEffect(() => {
+    if (!matchDetails || !['Live', 'InningsBreak', 'Setup'].includes(matchDetails.status)) return;
+    connectSocket();
+  }, [matchDetails, connectSocket]);
+
 
   
   useEffect(() => { if (commentaryContainerRef.current) { commentaryContainerRef.current.scrollTop = 0; } }, [displayCommentary]);
@@ -283,6 +336,15 @@ const MatchDetailPage = () => {
             else stat.how_out = dismissalBall.wicket_type.toLowerCase();
           }
         }
+      });
+
+      const inningsBallsChrono = [...inningsBalls].sort((a, b) => Number(a.ball_id) - Number(b.ball_id));
+      batStats.forEach((stat) => {
+        if (stat.did_not_bat || stat.is_out) return;
+        const retiredFlag = stat.retired == true || stat.retired === 1 || Number(stat.retired) === 1;
+        if (!retiredFlag) return;
+        const segments = countStrikerSegmentsForInnings(stat.player_id, inningsBallsChrono);
+        if (segments === 1) stat.scorecardDismissal = 'retired';
       });
 
       const wides = inningsBalls.filter(b => b.extra_type === 'Wide').reduce((sum, b) => sum + Number(b.extra_runs), 0);

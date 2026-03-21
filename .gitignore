@@ -6,3 +6,6 @@ mpl-backend/node_modules/
 mpl-backend/.env
 mpl-backend/.env
 mpl-backend/server.zip
+
+# Local build artifacts (do not commit)
+mpl-frontend/dist.zip

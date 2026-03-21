@@ -80,6 +80,10 @@
     color: #a0ffa0;
     font-style: italic;
 }
+.scorecard-table .dismissal .retired {
+    color: #c9e87a;
+    font-style: italic;
+}
 .scorecard-table .dismissal .did-not-bat {
     color: #888;
     font-style: italic;
@@ -165,6 +169,9 @@
 }
 [data-theme="light"] .scorecard-table .dismissal .not-out {
   color: #008000;
+}
+[data-theme="light"] .scorecard-table .dismissal .retired {
+  color: #5c6d1f;
 }
 [data-theme="light"] .scorecard-table .dismissal .did-not-bat {
   color: #999;
