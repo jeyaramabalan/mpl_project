@@ -84,7 +84,7 @@ exports.getStandings = async (req, res, next) => {
                 // NRR Calculation only for Completed matches
                 // Fetch Ball-by-Ball data
                 const [ballsData] = await connection.query(`
-                    SELECT inning_number, runs_scored, extra_runs, is_extra, extra_type, is_bye
+                    SELECT inning_number, runs_scored, extra_runs, super_over_runs, is_extra, extra_type, is_bye
                     FROM ballbyball
                     WHERE match_id = ?
                     ORDER BY inning_number, ball_id
@@ -96,7 +96,9 @@ exports.getStandings = async (req, res, next) => {
                 ballsData.forEach(ball => {
                     const isLegalDelivery = !(ball.is_extra && ball.extra_type === 'Wide');
                     // Include extras in runs scored/conceded for NRR, but not byes/legbyes
-                    const runsAdded = ball.is_bye ? 0 : (ball.runs_scored + (ball.extra_runs || 0));
+                    const runsAdded = ball.is_bye
+                        ? 0
+                        : (Number(ball.runs_scored || 0) + Number(ball.extra_runs || 0) + Number(ball.super_over_runs || 0));
 
                     if (ball.inning_number === 1) {
                         inn1Runs += runsAdded;

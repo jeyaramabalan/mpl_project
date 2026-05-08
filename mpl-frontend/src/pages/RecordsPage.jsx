@@ -14,6 +14,7 @@ import './RecordsPage.css';
 
 function RecordsPage() {
     const [seasons, setSeasons] = useState([]);
+    const [matchYears, setMatchYears] = useState([]);
     const [seasonId, setSeasonId] = useState('all');
     const [scope, setScope] = useState('individual');
     const [data, setData] = useState(null);
@@ -25,9 +26,14 @@ function RecordsPage() {
         let isMounted = true;
         const fetchSeasons = async () => {
             try {
-                const { data: list } = await api.get('/seasons/public');
-                const sorted = [...toList(list)].sort((a, b) => (b.season_id || b.id) - (a.season_id || a.id));
+                const [pub, yearsRes] = await Promise.all([
+                    api.get('/seasons/public'),
+                    api.get('/seasons/match-years').catch(() => ({ data: [] })),
+                ]);
+                const sorted = [...toList(pub.data)].sort((a, b) => (b.season_id || b.id) - (a.season_id || a.id));
                 if (isMounted) setSeasons(sorted);
+                const yList = Array.isArray(yearsRes.data) ? yearsRes.data : [];
+                if (isMounted) setMatchYears(yList.filter((y) => y != null).map((y) => Number(y)).filter((y) => Number.isInteger(y)));
             } catch (e) {
                 if (isMounted) setSeasons([]);
             }
@@ -42,12 +48,14 @@ function RecordsPage() {
         setError('');
         const fetchRecords = async () => {
             try {
-                const params = { scope };
+                const params = { scope, season_id: 'all' };
                 if (seasonId !== 'all') {
-                    const num = parseInt(seasonId, 10);
-                    if (Number.isInteger(num)) params.season_id = num;
-                } else {
-                    params.season_id = 'all';
+                    if (seasonId.startsWith('year:')) {
+                        params.year = seasonId.slice(5);
+                    } else {
+                        const num = parseInt(seasonId, 10);
+                        if (Number.isInteger(num)) params.season_id = num;
+                    }
                 }
                 const { data: res } = await api.get('/records', { params });
                 if (isMounted) setData(res && typeof res === 'object' ? res : null);
@@ -65,7 +73,7 @@ function RecordsPage() {
     }, [seasonId, scope]);
 
     useEffect(() => {
-        if (scope !== 'team' || seasonId === 'all') {
+        if (scope !== 'team' || seasonId === 'all' || seasonId.startsWith('year:')) {
             setStandings(null);
             return;
         }
@@ -164,12 +172,16 @@ function RecordsPage() {
     const teamBlocks = data && scope === 'team' && [
         hasAny(data.team?.highestScore),
         hasAny(data.team?.mostTitles),
-        seasonId !== 'all' && standings && standings.length > 0,
+        seasonId !== 'all' && !seasonId.startsWith('year:') && standings && standings.length > 0,
     ].filter(Boolean).length;
 
     if (loading && !data) return <LoadingFallback message="Loading records..." />;
 
-    const seasonLabel = seasonId === 'all' ? 'All-Time' : (seasons.find(s => (s.season_id ?? s.id) == seasonId)?.name || `Season ${seasonId}`);
+    const seasonLabel = seasonId === 'all'
+        ? 'All-Time'
+        : seasonId.startsWith('year:')
+            ? `Calendar year ${seasonId.slice(5)}`
+            : (seasons.find(s => (s.season_id ?? s.id) == seasonId)?.name || `Season ${seasonId}`);
     const scopeLabel = scope === 'individual' ? 'Individual' : 'Team';
 
     return (
@@ -194,6 +206,11 @@ function RecordsPage() {
                                     </option>
                                 );
                             })}
+                            {matchYears.map((y) => (
+                                <option key={`year-${y}`} value={`year:${y}`}>
+                                    Calendar year {y}
+                                </option>
+                            ))}
                         </select>
                     </div>
                     <div className="records-filter-group">
@@ -204,7 +221,7 @@ function RecordsPage() {
                         </select>
                     </div>
                 </div>
-                <p className="records-filter-hint">All-Time includes every season. Switch to Team to see team records.</p>
+                <p className="records-filter-hint">All-Time includes every season. Calendar year uses completed matches with match date in that year. Switch to Team to see team records.</p>
                 {data && <p className="records-filter-summary" aria-live="polite">Showing: {seasonLabel} · {scopeLabel}</p>}
             </div>
 
@@ -357,7 +374,7 @@ function RecordsPage() {
                                     { key: 'team_name', label: 'Team', render: (r) => <span title={r.team_name || ''}>{truncateName(r.team_name)}</span> },
                                     { key: 'value', label: 'Titles' },
                                 ])}
-                                {scope === 'team' && seasonId !== 'all' && standings && standings.length > 0 && renderRecordTable('Best NRR (Season)', standings.slice(0, 15).map((s) => ({ team_name: s.name, value: s.nrrDisplay ?? s.nrr, position: s.position })), [
+                                {scope === 'team' && seasonId !== 'all' && !seasonId.startsWith('year:') && standings && standings.length > 0 && renderRecordTable('Best NRR (Season)', standings.slice(0, 15).map((s) => ({ team_name: s.name, value: s.nrrDisplay ?? s.nrr, position: s.position })), [
                                     { key: 'team_name', label: 'Team', render: (r) => <span title={r.team_name || ''}>{truncateName(r.team_name)}</span> },
                                     { key: 'value', label: 'NRR' },
                                     { key: 'position', label: 'Pos' },

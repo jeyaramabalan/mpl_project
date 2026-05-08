@@ -113,11 +113,13 @@
 
 /* Extras and Total rows: summary styling */
 .scorecard-table tr.extras-row,
+.scorecard-table tr.super-over-row,
 .scorecard-table tr.total-row {
     background-color: #353535;
     border-top: 2px solid #555;
 }
 .scorecard-table tr.extras-row td,
+.scorecard-table tr.super-over-row td,
 .scorecard-table tr.total-row td {
     padding: 0.55rem 0.85rem;
 }
@@ -177,11 +179,13 @@
   color: #999;
 }
 [data-theme="light"] .scorecard-table tr.extras-row,
+[data-theme="light"] .scorecard-table tr.super-over-row,
 [data-theme="light"] .scorecard-table tr.total-row {
   background-color: #e0e0e0;
   border-top-color: #ccc;
 }
 [data-theme="light"] .scorecard-table tr.extras-row .summary-value,
+[data-theme="light"] .scorecard-table tr.super-over-row .summary-value,
 [data-theme="light"] .scorecard-table tr.total-row .summary-value {
   color: #222;
 }
@@ -200,6 +204,7 @@
   background-color: #3d3d3d;
 }
 [data-theme="dark"] .scorecard-table tr.extras-row,
+[data-theme="dark"] .scorecard-table tr.super-over-row,
 [data-theme="dark"] .scorecard-table tr.total-row {
   background-color: #2d2d2d;
   border-top-color: #444;
@@ -216,6 +221,7 @@
         padding: 0.4rem 0.6rem;
     }
     .scorecard-table tr.extras-row td,
+    .scorecard-table tr.super-over-row td,
     .scorecard-table tr.total-row td {
         padding: 0.45rem 0.6rem;
     }

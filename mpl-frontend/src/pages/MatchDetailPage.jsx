@@ -16,6 +16,7 @@ import { useSocket } from "../context/SocketContext";
 import api from "../services/api";
 import LoadingFallback from "../components/LoadingFallback";
 import InningsScorecard from "../components/InningsScorecard";
+import { aggregateBattingFromInningsBalls } from "../utils/battingFromBalls";
 import BowlingScorecard from "../components/BowlingScorecard";
 import FallOfWickets from "../components/FallOfWickets";
 import "./MatchDetailPage.css";
@@ -102,7 +103,14 @@ const ScoreDisplay = ({ state, matchDetails, innings1Data, innings2Data }) => {
       return n > max ? n : max;
     }, 1);
     const inningBalls = allBalls.filter(b => Number(b.inning_number) === currentInningNumber);
-    const score = inningBalls.reduce((sum, b) => sum + Number(b.runs_scored || 0) + Number(b.extra_runs || 0), 0);
+    const score = inningBalls.reduce(
+      (sum, b) =>
+        sum +
+        Number(b.runs_scored || 0) +
+        Number(b.extra_runs || 0) +
+        Number(b.super_over_runs || 0),
+      0
+    );
     const wickets = inningBalls.filter(b => b.is_wicket).length;
     const legalBalls = inningBalls.filter(b => !b.is_extra).length;
     const overs = Math.floor(legalBalls / 6);
@@ -111,7 +119,14 @@ const ScoreDisplay = ({ state, matchDetails, innings1Data, innings2Data }) => {
     if (currentInningNumber === 2) {
       const inn1Score = allBalls
         .filter(b => Number(b.inning_number) === 1)
-        .reduce((sum, b) => sum + Number(b.runs_scored || 0) + Number(b.extra_runs || 0), 0);
+        .reduce(
+          (sum, b) =>
+            sum +
+            Number(b.runs_scored || 0) +
+            Number(b.extra_runs || 0) +
+            Number(b.super_over_runs || 0),
+          0
+        );
       target = inn1Score + 1;
     }
     displayData = {
@@ -347,15 +362,29 @@ const MatchDetailPage = () => {
         if (segments === 1) stat.scorecardDismissal = 'retired';
       });
 
+      batStats.forEach((stat) => {
+        if (stat.did_not_bat) return;
+        const agg = aggregateBattingFromInningsBalls(stat.player_id, inningsBalls);
+        stat.runs_scored = agg.runs;
+        stat.balls_faced = agg.ballsFaced;
+        stat.fours = agg.fours;
+        stat.twos = agg.twos;
+      });
+
       const wides = inningsBalls.filter(b => b.extra_type === 'Wide').reduce((sum, b) => sum + Number(b.extra_runs), 0);
       const noBalls = inningsBalls.filter(b => b.extra_type === 'NoBall').reduce((sum, b) => sum + Number(b.extra_runs), 0);
-      const byes = inningsBalls.filter(b => b.is_bye).reduce((sum, b) => sum + Number(b.runs_scored) + Number(b.extra_runs), 0);
+      const byes = inningsBalls
+        .filter(b => b.is_bye)
+        .reduce((sum, b) => sum + Number(b.runs_scored || 0) + Number(b.extra_runs || 0), 0);
       const totalExtras = wides + noBalls + byes;
-      const totalScore = inningsBalls.reduce((sum, b) => sum + Number(b.runs_scored) + Number(b.extra_runs), 0);
+      const superOverRunsInnings = inningsBalls.reduce((sum, b) => sum + Number(b.super_over_runs || 0), 0);
+      const ballTotal = (b) =>
+        Number(b.runs_scored || 0) + Number(b.extra_runs || 0) + Number(b.super_over_runs || 0);
+      const totalScore = inningsBalls.reduce((sum, b) => sum + ballTotal(b), 0);
       let wicketCount = 0; let currentScore = 0; const fallOfWickets = [];
       
       inningsBalls.forEach(ball => {
-          currentScore += Number(ball.runs_scored) + Number(ball.extra_runs);
+          currentScore += ballTotal(ball);
           if (ball.is_wicket) {
               wicketCount++;
               const legalBallsInOver = inningsBalls.filter(b => b.over_number === ball.over_number && !b.is_extra && b.ball_id <= ball.ball_id).length;
@@ -368,7 +397,14 @@ const MatchDetailPage = () => {
         batStats, bowlStats,
         batTeamName: battingTeamId === team1_id ? team1_name : team2_name,
         bowlTeamName: bowlingTeamId === team1_id ? team1_name : team2_name,
-        summary: { extras: totalExtras, extras_detail: `(b ${byes}, wd ${wides}, nb ${noBalls})`, total: totalScore, wickets: wicketCount, overs: formatOversDisplay(Math.min(5.0, baseBowlStats.reduce((sum, p) => sum + Number(p.overs_bowled || 0), 0))) },
+        summary: {
+          extras: totalExtras,
+          extras_detail: `(b ${byes}, wd ${wides}, nb ${noBalls})`,
+          super_over_runs: superOverRunsInnings,
+          total: totalScore,
+          wickets: wicketCount,
+          overs: formatOversDisplay(Math.min(5.0, baseBowlStats.reduce((sum, p) => sum + Number(p.overs_bowled || 0), 0))),
+        },
         fallOfWickets
       };
     };
@@ -388,7 +424,7 @@ const MatchDetailPage = () => {
         const prev = result[o - 1] ?? 0;
         const runsThisOver = balls
           .filter((b) => Number(b.inning_number) === inningNumber && Number(b.over_number) === o)
-          .reduce((s, b) => s + Number(b.runs_scored || 0) + Number(b.extra_runs || 0), 0);
+          .reduce((s, b) => s + Number(b.runs_scored || 0) + Number(b.extra_runs || 0) + Number(b.super_over_runs || 0), 0);
         result[o] = prev + runsThisOver;
       }
       return result;

@@ -1,5 +1,14 @@
 // mpl-project/mpl-backend/controllers/admin/scoringController.js
 const pool = require('../../config/db');
+const { calculateImpactPoints } = require('../../utils/impactPoints');
+const { promisify } = require('util');
+const { execFile } = require('child_process');
+const {
+    getImpactSettings: loadImpactSettings,
+    upsertImpactSettings,
+    applySuperOverImpactMultiplier,
+} = require('../../utils/impactSettings');
+const execFileAsync = promisify(execFile);
 
 // --- Helper functions (PLACEHOLDERS - Ensure you have actual implementations) ---
 async function validateTeamsForSeason(teamIds, seasonId, connection) {
@@ -35,6 +44,9 @@ const SQL_BALLS_FACED = `CASE
     WHEN LOWER(TRIM(COALESCE(extra_type, ''))) IN ('noball', 'no ball') OR extra_type = 'NoBall' THEN 1
     ELSE 0
 END`;
+
+/** Team runs per ball (face runs + extras + MPL super-over bonus bucket). */
+const SQL_INNINGS_RUNS_PER_BALL = 'runs_scored + extra_runs + COALESCE(super_over_runs, 0)';
 
 /** MySQL may return player_id as number, string, or BigInt — Map keys must match batsmanStats lookups. */
 function normalizePlayerId(id) {
@@ -142,85 +154,7 @@ async function resolveLegalBallsForBatsman(queryable, matchId, inningNumber, bat
     return pickLegalBallsForUi(inn, all);
 }
 
-// --- NEW HELPER: Calculate Impact Points (Updated Logic) ---
-/**
- * Calculates impact points based on the outcome of a single ball using the revised rules.
- * @param {object} ballData - Details of the ball event.
- * @returns {object} - Object containing points for batsman, bowler, fielder.
- */
-function calculateImpactPoints(ballData) {
-    const points = { batsman: 0, bowler: 0, fielder: 0 };
-    // Destructure with default values for safety
-    const { runs_scored = 0, is_extra = false, extra_type = null, extra_runs = 0, is_wicket = false, wicket_type = null, is_bye = false } = ballData;
-
-    // Runs scored off the bat (excluding byes/leg-byes and non-NoBall extras)
-    const runsOffBat = (!is_bye && !is_extra) ? runs_scored : ((!is_bye && is_extra && extra_type === 'NoBall') ? runs_scored : 0);
-    // Runs conceded by the bowler (includes runs off bat on NB, and extra runs for NB/Wide, excludes byes)
-    const runsConcededByBowler = (!is_bye ? runsOffBat : 0) + (is_extra ? (extra_runs || 0) : 0);
-
-    // --- Batting Points (Applied only for legal deliveries where runs are scored off the bat) ---
-    if (!is_extra && !is_bye) {
-        if (runsOffBat === 0) {
-            points.batsman = -0.25;
-        } else if (runsOffBat === 1) {
-            points.batsman = 1;
-        } else if (runsOffBat === 2) {
-            points.batsman = 3;
-        } else if (runsOffBat === 4) {
-            points.batsman = 6; // Changed from 7
-        } else if (runsOffBat === 8) {
-            points.batsman = 10; // Changed from 15 (Represents 4 runs in Super Over resulting in 8 actual runs)
-        }
-        // Add more conditions here if other run values (e.g., 6) have specific points
-    }
-
-    // --- Bowling Points (Byes are ignored) ---
-    if (!is_bye) {
-        if (runsConcededByBowler === 0) {
-            if (!is_extra) { // Legal Dot Ball
-                points.bowler = 1; // Changed from 2
-            } else { // Extra (Wide/NoBall) that conceded 0 runs (e.g., wide not run)
-                points.bowler = -0.5; // New Rule
-            }
-        } else if (runsConcededByBowler === 1) {
-            if (!is_extra) { // 1 run conceded (legal)
-                points.bowler = 0; // No change
-            } else { // 1 run conceded (extra - e.g. Wide run, NB run)
-                points.bowler = -1; // New Rule
-            }
-        } else if (runsConcededByBowler === 2) {
-            points.bowler = -1; // Changed from -3
-        } else if (runsConcededByBowler === 4) {
-            points.bowler = -2; // Changed from -6
-        } else if (runsConcededByBowler === 8) {
-            points.bowler = -4; // Changed from -12
-        } else if (runsConcededByBowler > 0 && is_extra) {
-            // Catch-all for other run amounts conceded on extras, if any
-            points.bowler = -1; // Apply the general -1 for extras with runs > 0 if specific value not matched
-        }
-        // Add other specific run values if needed (e.g., 6 runs conceded)
-    }
-
-    // Wicket points for bowler (excluding run outs)
-    if (is_wicket && !['Run Out'].includes(wicket_type)) {
-        points.bowler += 10; // Changed from 15
-    }
-
-    // --- Fielding Points ---
-    if (is_wicket && (wicket_type === 'Caught' || wicket_type === 'Stumped')) {
-        points.fielder = 5; // Changed from 4
-    }
-    // Add points for Run Outs for fielder if applicable
-
-    return points;
-}
-
-// --- NEW HELPER: Calculate Impact Points ---
-/**
- * Calculates impact points based on the outcome of a single ball.
- * @param {object} ballData - Details of the ball event.
- * @returns {object} - Object containing points for batsman, bowler, fielder.
- */
+// --- Impact points: shared helper in utils/impactPoints.js (face runs only; not affected by super_over_runs) ---
 
 // --- End Helper Functions ---
 
@@ -267,6 +201,149 @@ exports.getMatchesForSetup = async (req, res, next) => {
         console.error("Get Matches for Setup Error:", error); // Log Error Details
         console.log('--- Error in getMatchesForSetup, calling next() ---'); // Log Error Handling
         next(error);
+    }
+};
+
+/**
+ * @desc    Get matches that can be resumed for scoring.
+ * @route   GET /api/admin/scoring/resume-list
+ * @access  Admin (Protected)
+ */
+exports.getMatchesForResume = async (req, res, next) => {
+    console.log('--- ENTERING getMatchesForResume ---');
+    try {
+        const query = `
+            SELECT m.match_id, m.season_id, m.match_datetime, m.status, m.super_over_number,
+                   t1.name as team1_name, t2.name as team2_name, t1.team_id as team1_id, t2.team_id as team2_id,
+                   (SELECT COUNT(*) FROM matches m2
+                    WHERE m2.season_id = m.season_id
+                      AND (m2.match_datetime < m.match_datetime OR (m2.match_datetime = m.match_datetime AND m2.match_id <= m.match_id))
+                   ) AS match_number
+            FROM matches m
+            JOIN teams t1 ON m.team1_id = t1.team_id
+            JOIN teams t2 ON m.team2_id = t2.team_id
+            WHERE m.status IN ('Setup', 'Live', 'InningsBreak')
+            ORDER BY
+                CASE m.status
+                    WHEN 'Live' THEN 1
+                    WHEN 'InningsBreak' THEN 2
+                    WHEN 'Setup' THEN 3
+                    ELSE 4
+                END,
+                m.match_datetime ASC
+        `;
+        const [rows] = await pool.query(query);
+        const matches = rows.map((row) => ({
+            match_id: row.match_id,
+            season_id: row.season_id,
+            match_datetime: row.match_datetime,
+            status: row.status,
+            super_over_number: row.super_over_number,
+            team1_name: row.team1_name,
+            team2_name: row.team2_name,
+            team1_id: row.team1_id,
+            team2_id: row.team2_id,
+            match_number: row.match_number != null ? Number(row.match_number) : null,
+        }));
+        console.log(`--- Resume list query finished, found ${matches.length} matches ---`);
+        res.json(matches);
+    } catch (error) {
+        console.error("Get Matches for Resume Error:", error);
+        next(error);
+    }
+};
+
+exports.getImpactSettings = async (req, res, next) => {
+    try {
+        const settings = await loadImpactSettings(pool);
+        res.json(settings);
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.updateImpactSettings = async (req, res, next) => {
+    try {
+        const payload = {
+            batting_dot_ball: Number(req.body?.batting_dot_ball),
+            batting_one_run: Number(req.body?.batting_one_run),
+            batting_two_runs: Number(req.body?.batting_two_runs),
+            batting_four_runs: Number(req.body?.batting_four_runs),
+            bowling_legal_dot: Number(req.body?.bowling_legal_dot),
+            bowling_extra_dot: Number(req.body?.bowling_extra_dot),
+            bowling_legal_one: Number(req.body?.bowling_legal_one),
+            bowling_extra_one: Number(req.body?.bowling_extra_one),
+            bowling_two_conceded: Number(req.body?.bowling_two_conceded),
+            bowling_four_conceded: Number(req.body?.bowling_four_conceded),
+            bowling_extra_other: Number(req.body?.bowling_extra_other),
+            bowling_wicket_bonus: Number(req.body?.bowling_wicket_bonus),
+            fielding_catch_stumping: Number(req.body?.fielding_catch_stumping),
+            super_over_batting_multiplier: Number(req.body?.super_over_batting_multiplier),
+            super_over_bowling_multiplier: Number(req.body?.super_over_bowling_multiplier),
+        };
+        const invalid = Object.entries(payload).find(([, v]) => !Number.isFinite(v));
+        if (invalid) {
+            return res.status(400).json({ message: `Invalid value for ${invalid[0]}.` });
+        }
+        if (payload.super_over_batting_multiplier <= 0 || payload.super_over_bowling_multiplier <= 0) {
+            return res.status(400).json({ message: 'Super over multipliers must be positive numbers.' });
+        }
+        await upsertImpactSettings(pool, payload);
+        const latest = await loadImpactSettings(pool);
+        res.json({ message: 'Impact settings updated.', settings: latest });
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.recalculateMatchStats = async (req, res) => {
+    const matchId = parseInt(req.params.matchId, 10);
+    if (!Number.isFinite(matchId)) return res.status(400).json({ message: 'Invalid Match ID.' });
+    try {
+        const scriptsDir = require('path').join(__dirname, '../../scripts');
+        await execFileAsync(process.execPath, ['resync-pms-from-ballbyball.js', `--match-id=${matchId}`], { cwd: scriptsDir });
+        await execFileAsync(process.execPath, ['recompute-impact-from-ballbyball.js', `--match-id=${matchId}`], { cwd: scriptsDir });
+        res.json({ message: `Recalculation complete for match ${matchId}.` });
+    } catch (error) {
+        const message = error?.stderr?.trim() || error?.stdout?.trim() || error.message || 'Recalculation failed.';
+        res.status(500).json({ message });
+    }
+};
+
+async function runRecalcForMatchIds(matchIds) {
+    const scriptsDir = require('path').join(__dirname, '../../scripts');
+    for (const mid of matchIds) {
+        await execFileAsync(process.execPath, ['resync-pms-from-ballbyball.js', `--match-id=${mid}`], { cwd: scriptsDir });
+        await execFileAsync(process.execPath, ['recompute-impact-from-ballbyball.js', `--match-id=${mid}`], { cwd: scriptsDir });
+    }
+}
+
+exports.recalculateSeasonStats = async (req, res) => {
+    const seasonId = parseInt(req.params.seasonId, 10);
+    if (!Number.isFinite(seasonId)) return res.status(400).json({ message: 'Invalid Season ID.' });
+    try {
+        const [rows] = await pool.query('SELECT match_id FROM matches WHERE season_id = ? ORDER BY match_id', [seasonId]);
+        const matchIds = rows.map((r) => Number(r.match_id)).filter(Number.isFinite);
+        if (matchIds.length === 0) {
+            return res.status(404).json({ message: `No matches found for season ${seasonId}.` });
+        }
+        await runRecalcForMatchIds(matchIds);
+        res.json({ message: `Recalculation complete for season ${seasonId}.`, matches_processed: matchIds.length });
+    } catch (error) {
+        const message = error?.stderr?.trim() || error?.stdout?.trim() || error.message || 'Season recalculation failed.';
+        res.status(500).json({ message });
+    }
+};
+
+exports.recalculateAllStats = async (_req, res) => {
+    try {
+        const scriptsDir = require('path').join(__dirname, '../../scripts');
+        await execFileAsync(process.execPath, ['resync-pms-from-ballbyball.js'], { cwd: scriptsDir });
+        await execFileAsync(process.execPath, ['recompute-impact-from-ballbyball.js'], { cwd: scriptsDir });
+        res.json({ message: 'Recalculation complete for all seasons.' });
+    } catch (error) {
+        const message = error?.stderr?.trim() || error?.stdout?.trim() || error.message || 'Global recalculation failed.';
+        res.status(500).json({ message });
     }
 };
 
@@ -430,7 +507,7 @@ exports.getLiveMatchState = async (req, res, next) => {
         console.log(`--- getLiveMatchState: Determined Inning=${inningNumber}, Batting=${battingTeamId}, Bowling=${bowlingTeamId} ---`);
 
         // --- 3. Calculate Current Score, Wickets, Overs, Target ---
-        const [summaryScoreData] = await pool.query(`SELECT SUM(runs_scored + extra_runs) as totalScore FROM ballbyball WHERE match_id = ? AND inning_number = ?`, [matchId, inningNumber]);
+        const [summaryScoreData] = await pool.query(`SELECT SUM(${SQL_INNINGS_RUNS_PER_BALL}) as totalScore FROM ballbyball WHERE match_id = ? AND inning_number = ?`, [matchId, inningNumber]);
         const [summaryWicketData] = await pool.query(`SELECT COUNT(*) as totalWickets FROM playermatchstats WHERE match_id = ? AND team_id = ? AND is_out = TRUE`, [matchId, battingTeamId]);
         const score = summaryScoreData[0]?.totalScore || 0;
         let wickets = summaryWicketData[0]?.totalWickets || 0;
@@ -483,7 +560,7 @@ exports.getLiveMatchState = async (req, res, next) => {
 
         let targetScore = 0;
         if (inningNumber === 2 || status === 'InningsBreak' || status === 'Completed') {
-            const [scoreDataInning1] = await pool.query(`SELECT SUM(runs_scored + extra_runs) as score FROM ballbyball WHERE match_id = ? AND inning_number = 1`, [matchId]);
+            const [scoreDataInning1] = await pool.query(`SELECT SUM(${SQL_INNINGS_RUNS_PER_BALL}) as score FROM ballbyball WHERE match_id = ? AND inning_number = 1`, [matchId]);
             targetScore = Number((scoreDataInning1[0]?.score || 0)) + 1;
             console.log(`--- getLiveMatchState: Target Score = ${targetScore} ---`);
         }
@@ -605,8 +682,11 @@ exports.getLiveMatchState = async (req, res, next) => {
                 if (ball.is_wicket) {
                     summary = 'WKT';
                 } else {
-                    // Base runs
-                    summary = `${ball.runs_scored}`;
+                    const totalOnBall =
+                        Number(ball.runs_scored || 0) +
+                        Number(ball.extra_runs || 0) +
+                        Number(ball.super_over_runs || 0);
+                    summary = `${totalOnBall}`;
 
                     // Add bye if applicable
                     if (ball.is_bye) {
@@ -679,7 +759,7 @@ exports.getLiveMatchState = async (req, res, next) => {
                 // MERGE FIX: If the match is completed, calculate and add the authoritative 
         // first innings score to the state object for the summary page display.
         if (status === 'Completed') {
-            const [scoreDataInning1] = await pool.query(`SELECT SUM(runs_scored + extra_runs) as score FROM ballbyball WHERE match_id = ? AND inning_number = 1`, [matchId]);
+            const [scoreDataInning1] = await pool.query(`SELECT SUM(${SQL_INNINGS_RUNS_PER_BALL}) as score FROM ballbyball WHERE match_id = ? AND inning_number = 1`, [matchId]);
             fullLiveState.innings1_score = Number(scoreDataInning1[0]?.score) || 0;
         }
 
@@ -1197,7 +1277,7 @@ exports.scoreSingleBall = async (req, res, next) => {
         let battingTeamId, bowlingTeamId;
         const { team1_id, team2_id, toss_winner_team_id, decision, season_id } = match;
         if (inningNumber == 1) { battingTeamId = (decision === 'Bat') ? toss_winner_team_id : (toss_winner_team_id == team1_id ? team2_id : team1_id); bowlingTeamId = (battingTeamId == team1_id) ? team2_id : team1_id; }
-        else { bowlingTeamId = (decision === 'Bat') ? toss_winner_team_id : (toss_winner_team_id == team1_id ? team2_id : team1_id); battingTeamId = (bowlingTeamId == team1_id) ? team2_id : team1_id; const [scoreData] = await connection.query(`SELECT SUM(runs_scored + extra_runs) as score FROM ballbyball WHERE match_id = ? AND inning_number = 1`, [matchId]); targetScore = Number((scoreData[0]?.score || 0)) + 1; }
+        else { bowlingTeamId = (decision === 'Bat') ? toss_winner_team_id : (toss_winner_team_id == team1_id ? team2_id : team1_id); battingTeamId = (bowlingTeamId == team1_id) ? team2_id : team1_id; const [scoreData] = await connection.query(`SELECT SUM(${SQL_INNINGS_RUNS_PER_BALL}) as score FROM ballbyball WHERE match_id = ? AND inning_number = 1`, [matchId]); targetScore = Number((scoreData[0]?.score || 0)) + 1; }
         console.log(`--- Scoring Ball: Match ${matchId}, Inning ${inningNumber}, Status ${currentStatus}, Batting ${battingTeamId}, Bowling ${bowlingTeamId} ---`);
 
         // --- 2. Handle Status Transition & Validation ---
@@ -1316,19 +1396,32 @@ exports.scoreSingleBall = async (req, res, next) => {
         }
 
         // --- 3. Calculate Runs & Legality ---
-        let actualRunsOffBat = (!isBye && !isExtra) ? runsScored : ((!isBye && isExtra && extraType === 'NoBall') ? runsScored : 0);
+        // Face values (same as non–super-over for batter/bowler); super-over "double" goes to super_over_runs.
+        const faceOffBat = (!isBye && !isExtra) ? runsScored : ((!isBye && isExtra && extraType === 'NoBall') ? runsScored : 0);
 
-        // For bowler/over: only legal deliveries (no Wide, no NoBall) count toward overs_bowled.
         let isLegalDelivery = !(isExtra);
-        // For batsman: no-ball counts (ball faced, fours/twos); wide does not.
         let countsForBatsmanBall = !isExtra || extraType === 'NoBall';
-        let isSuperOverBall = dbOverNumber === match.super_over_number;
-        if (isSuperOverBall && (!isExtra || extraType === 'NoBall') && !isBye && actualRunsOffBat > 0) actualRunsOffBat *= 2;
-        const runsForBowler = actualRunsOffBat + (parseInt(extraRuns) || 0);
-        if (isSuperOverBall && (isExtra) > 0) extraRuns *= 2;
-        if (isSuperOverBall && isBye) extraRuns = extraRuns + 2
-        if (!isSuperOverBall && isBye ) extraRuns = extraRuns + 1
+        const isSuperOverBall = dbOverNumber === match.super_over_number;
 
+        const reqExtraBase = parseInt(extraRuns, 10) || 0;
+        let faceExtraRuns = reqExtraBase;
+        if (isBye) faceExtraRuns += 1;
+
+        let legacyOff = faceOffBat;
+        if (isSuperOverBall && (!isExtra || extraType === 'NoBall') && !isBye && legacyOff > 0) legacyOff *= 2;
+        let legacyExtra = reqExtraBase;
+        if (isSuperOverBall && isExtra) legacyExtra *= 2;
+        if (isSuperOverBall && isBye) legacyExtra += 2;
+        else if (!isSuperOverBall && isBye) legacyExtra += 1;
+
+        const legacyTeamTotal = legacyOff + legacyExtra;
+        const faceTeamTotal = faceOffBat + faceExtraRuns;
+        const superOverRunsToStore = isSuperOverBall ? Math.max(0, legacyTeamTotal - faceTeamTotal) : 0;
+
+        const runsForBowler = (!isBye ? faceOffBat : 0) + (isExtra ? faceExtraRuns : 0);
+
+        const storedRunsOffBat = faceOffBat;
+        const storedExtraRuns = faceExtraRuns;
 
         // --- 4. Generate Commentary ---
         let [playerNamesResult] = []
@@ -1347,21 +1440,47 @@ exports.scoreSingleBall = async (req, res, next) => {
         let commentary = `${logicalOver}.${logicalBallDisplay}: Ball. `;
         commentary += `${playerNames.bowler_name} to ${playerNames.batsman_name} `
         if (isWicket) commentary += `WICKET! (${wicketType}).${fielderPlayerId ? ` Fielder: ${playerNames.fielder_name}.` : ''} `;
-        if (isExtra) commentary += `${extraType}! +${extraRuns || 0}. `;
-        if (!isExtra && !isBye && runsScored > 0) commentary += `${runsScored} run${runsScored !== 1 ? 's' : ''}${isSuperOverBall ? ' (Super Over!) - ' + actualRunsOffBat + ' runs' : ''}. `;
-        if (!isExtra && !isBye && runsScored == 0) commentary += `no run ${isSuperOverBall ? ' (Super Over!) - ' + actualRunsOffBat + ' runs' : ''}. `;
+        if (isExtra) commentary += `${extraType}! +${storedExtraRuns || 0}. `;
+        if (!isExtra && !isBye && runsScored > 0) {
+            commentary += `${runsScored} run${runsScored !== 1 ? 's' : ''}`;
+            if (isSuperOverBall && superOverRunsToStore > 0) commentary += ` (Super Over bonus +${superOverRunsToStore} team)`;
+            commentary += '. ';
+        }
+        if (!isExtra && !isBye && runsScored == 0) {
+            commentary += `no run`;
+            if (isSuperOverBall && superOverRunsToStore > 0) commentary += ` (Super Over bonus +${superOverRunsToStore} team)`;
+            commentary += '. ';
+        }
         if (isBye) commentary += `${runsScored} bye${runsScored !== 1 ? 's' : ''}. `;
-        if (extraType === 'NoBall' && runsScored > 0 && !isBye) commentary += `(+${runsScored} off bat${isSuperOverBall ? ' Super Over! - ' + actualRunsOffBat + ' runs' : ''}). `;
+        if (extraType === 'NoBall' && runsScored > 0 && !isBye) {
+            commentary += `(+${runsScored} off bat`;
+            if (isSuperOverBall && superOverRunsToStore > 0) commentary += `; Super Over bonus +${superOverRunsToStore} team`;
+            commentary += '). ';
+        }
         if (extraType === 'NoBall' && runsScored > 0 && isBye) commentary += `(+${runsScored} bye). `;
         commentary = commentary.trim();
 
         // --- 5. Insert into ballbyball table ---
         const finalFielderId = (isWicket && ['Caught', 'Stumped'].includes(wicketType)) ? fielderPlayerId : null;
         console.log(`--- Inserting Ball: ${commentary} ---`);
-        const [ballResult] = await connection.query(`INSERT INTO ballbyball (match_id, inning_number, over_number, ball_number_in_over, bowler_player_id, batsman_on_strike_player_id, runs_scored, is_bye, is_extra, extra_type, extra_runs, is_wicket, wicket_type, fielder_player_id, commentary_text) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [matchId, inningNumber, dbOverNumber, dbBallNumberInOver, bowlerPlayerId, batsmanOnStrikePlayerId, actualRunsOffBat, isBye || false, isExtra || false, extraType || null, parseInt(extraRuns || 0), isWicket || false, wicketType || null, finalFielderId, commentary]); const newBallId = ballResult.insertId;
+        const [ballResult] = await connection.query(
+            `INSERT INTO ballbyball (match_id, inning_number, over_number, ball_number_in_over, bowler_player_id, batsman_on_strike_player_id, runs_scored, is_bye, is_extra, extra_type, extra_runs, super_over_runs, is_wicket, wicket_type, fielder_player_id, commentary_text) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [matchId, inningNumber, dbOverNumber, dbBallNumberInOver, bowlerPlayerId, batsmanOnStrikePlayerId, storedRunsOffBat, isBye || false, isExtra || false, extraType || null, parseInt(storedExtraRuns || 0), superOverRunsToStore, isWicket || false, wicketType || null, finalFielderId, commentary]
+        );
+        const newBallId = ballResult.insertId;
 
-        // --- 6. Calculate Impact Points --- 
-        const impactPoints = calculateImpactPoints({ runs_scored: runsScored, is_extra: isExtra, extra_type: extraType, extra_runs: extraRuns, is_wicket: isWicket, wicket_type: wicketType, is_bye: isBye });
+        // --- 6. Calculate Impact Points --- (face runs only; super_over_runs excluded from impact)
+        const impactSettings = await loadImpactSettings(connection);
+        const baseImpactPoints = calculateImpactPoints({
+            runs_scored: runsScored,
+            is_extra: isExtra,
+            extra_type: extraType,
+            extra_runs: isExtra ? faceExtraRuns : 0,
+            is_wicket: isWicket,
+            wicket_type: wicketType,
+            is_bye: isBye,
+        }, impactSettings);
+        const impactPoints = applySuperOverImpactMultiplier(baseImpactPoints, isSuperOverBall, impactSettings);
         console.log(`--- Impact Points for ball ${newBallId}: Bat=${impactPoints.batsman}, Bowl=${impactPoints.bowler}, Field=${impactPoints.fielder} ---`);
 
         // --- 7. Update PlayerMatchStats (MODIFIED for Impact Points) ---
@@ -1372,7 +1491,7 @@ exports.scoreSingleBall = async (req, res, next) => {
         try {
             const [batUpd] = await connection.query(
                 `UPDATE playermatchstats SET runs_scored = runs_scored + ?, balls_faced = balls_faced + ?, legal_balls_faced = legal_balls_faced + ?, fours = fours + ?, twos = twos + ?, is_out = IF(? = 1, 1, is_out), how_out = IF(? = 1, ?, how_out), batting_impact_points = batting_impact_points + ? WHERE match_id = ? AND player_id = ? AND team_id = ?`,
-                [actualRunsOffBat, countsForBatsmanBall ? 1 : 0, legalBallIncrement, (runsScored == 4 && !isBye && (!isExtra || extraType === 'NoBall')) ? 1 : 0, (runsScored == 2 && !isBye && (!isExtra || extraType === 'NoBall')) ? 1 : 0, wkFlag, wkFlag, wicketType || null, impactPoints.batsman, matchId, batsmanOnStrikePlayerId, battingTeamId]
+                [faceOffBat, countsForBatsmanBall ? 1 : 0, legalBallIncrement, (runsScored == 4 && !isBye && (!isExtra || extraType === 'NoBall')) ? 1 : 0, (runsScored == 2 && !isBye && (!isExtra || extraType === 'NoBall')) ? 1 : 0, wkFlag, wkFlag, wicketType || null, impactPoints.batsman, matchId, batsmanOnStrikePlayerId, battingTeamId]
             );
             if (!batUpd || batUpd.affectedRows === 0) {
                 console.error(`--- scoreSingleBall: Batsman stats UPDATE affected 0 rows (match ${matchId}, player ${batsmanOnStrikePlayerId}, team ${battingTeamId}) ---`);
@@ -1381,7 +1500,7 @@ exports.scoreSingleBall = async (req, res, next) => {
             if (e.code !== 'ER_BAD_FIELD_ERROR') throw e;
             const [batUpd] = await connection.query(
                 `UPDATE playermatchstats SET runs_scored = runs_scored + ?, balls_faced = balls_faced + ?, fours = fours + ?, twos = twos + ?, is_out = IF(? = 1, 1, is_out), how_out = IF(? = 1, ?, how_out), batting_impact_points = batting_impact_points + ? WHERE match_id = ? AND player_id = ? AND team_id = ?`,
-                [actualRunsOffBat, countsForBatsmanBall ? 1 : 0, (runsScored == 4 && !isBye && (!isExtra || extraType === 'NoBall')) ? 1 : 0, (runsScored == 2 && !isBye && (!isExtra || extraType === 'NoBall')) ? 1 : 0, wkFlag, wkFlag, wicketType || null, impactPoints.batsman, matchId, batsmanOnStrikePlayerId, battingTeamId]
+                [faceOffBat, countsForBatsmanBall ? 1 : 0, (runsScored == 4 && !isBye && (!isExtra || extraType === 'NoBall')) ? 1 : 0, (runsScored == 2 && !isBye && (!isExtra || extraType === 'NoBall')) ? 1 : 0, wkFlag, wkFlag, wicketType || null, impactPoints.batsman, matchId, batsmanOnStrikePlayerId, battingTeamId]
             );
             if (!batUpd || batUpd.affectedRows === 0) {
                 console.error(`--- scoreSingleBall: Batsman stats UPDATE (no legal_balls_faced col) affected 0 rows ---`);
@@ -1434,7 +1553,7 @@ exports.scoreSingleBall = async (req, res, next) => {
             else { // Innings 2 ended
                 matchCompleted = true; updatedStatus = 'Completed';
                 // Calculate winner/result
-                const [finalScores] = await connection.query(`SELECT inning_number, SUM(runs_scored + extra_runs) as total_score FROM ballbyball WHERE match_id = ? GROUP BY inning_number ORDER BY inning_number`, [matchId]); 
+                const [finalScores] = await connection.query(`SELECT inning_number, SUM(${SQL_INNINGS_RUNS_PER_BALL}) as total_score FROM ballbyball WHERE match_id = ? GROUP BY inning_number ORDER BY inning_number`, [matchId]); 
                 //const inn1Score = finalScores.find(s => s.inning_number === 1)?.total_score || 0;
                 //const inn2Score = finalScores.find(s => s.inning_number === 2)?.total_score || 0;
                 const inn1Score = parseInt(finalScores.find(s => s.inning_number === 1)?.total_score, 10) || 0;
@@ -1478,7 +1597,7 @@ exports.scoreSingleBall = async (req, res, next) => {
                 
             }
         } else if (inningNumber === 2 && targetScore !== null) {
-            const [currentInningScoreData] = await connection.query(`SELECT SUM(runs_scored + extra_runs) as score FROM ballbyball WHERE match_id = ? AND inning_number = 2`, [matchId]); const currentInningScore = currentInningScoreData[0]?.score || 0;
+            const [currentInningScoreData] = await connection.query(`SELECT SUM(${SQL_INNINGS_RUNS_PER_BALL}) as score FROM ballbyball WHERE match_id = ? AND inning_number = 2`, [matchId]); const currentInningScore = currentInningScoreData[0]?.score || 0;
             if (currentInningScore >= targetScore) {
                 inningsEnded = true;
                 matchCompleted = true;
@@ -1636,15 +1755,14 @@ exports.undoLastBall = async (req, res, next) => {
         let countsForBatsmanBall = !(isExtra && extraType === 'Wide');
         // Bowler: only legal deliveries (no Wide, no NoBall) added to overs — subtract only for those.
         let countsForBowlerOver = !(isExtra);
-        let actualRunsOffBat = (!isBye && !isExtra) ? runs_scored : ((!isBye && isExtra && extraType === 'NoBall') ? runs_scored : 0);
-        let isSuperOverBall = over_number === match.super_over_number;
-        if (isSuperOverBall && !isExtra && !isBye && actualRunsOffBat > 0) actualRunsOffBat /= 2; // Revert double runs
-        const runsForBowler = actualRunsOffBat + (parseInt(extraRuns) || 0);
+        const faceOffBat = (!isBye && !isExtra) ? runs_scored : ((!isBye && isExtra && extraType === 'NoBall') ? runs_scored : 0);
+        const extraRunsFace = parseInt(extra_runs, 10) || 0;
+        const runsForBowler = (!isBye ? faceOffBat : 0) + (isExtra ? extraRunsFace : 0);
         // Revert Batsman (team_id scopes batting squad row; IF uses 1/0 for reliable MySQL binding)
         const wkUndo = isWicket ? 1 : 0;
         await connection.query(
             `UPDATE playermatchstats SET runs_scored = GREATEST(0, runs_scored - ?), balls_faced = GREATEST(0, balls_faced - ?), fours = GREATEST(0, fours - ?), twos = GREATEST(0, twos - ?), is_out = IF(? = 1 AND how_out = ?, FALSE, is_out), how_out = IF(? = 1 AND how_out = ?, NULL, how_out) WHERE match_id = ? AND player_id = ? AND team_id = ?`,
-            [actualRunsOffBat, countsForBatsmanBall ? 1 : 0, (runs_scored == 4 && !isBye && (!isExtra || extraType === 'NoBall')) ? 1 : 0, (runs_scored == 2 && !isBye && (!isExtra || extraType === 'NoBall')) ? 1 : 0, wkUndo, wicketType, wkUndo, wicketType, matchId, batsman_on_strike_player_id, battingTeamId]
+            [faceOffBat, countsForBatsmanBall ? 1 : 0, (runs_scored == 4 && !isBye && (!isExtra || extraType === 'NoBall')) ? 1 : 0, (runs_scored == 2 && !isBye && (!isExtra || extraType === 'NoBall')) ? 1 : 0, wkUndo, wicketType, wkUndo, wicketType, matchId, batsman_on_strike_player_id, battingTeamId]
         );
         if (!isExtra) {
             try {
@@ -1661,7 +1779,19 @@ exports.undoLastBall = async (req, res, next) => {
         console.log(`--- Player Stats Reverted ---`);
 
         // Calculate Impact Points to Reverse
-        const impactPointsToReverse = calculateImpactPoints({ runs_scored: lastBall.runs_scored, is_extra: lastBall.is_extra, extra_type: lastBall.extra_type, extra_runs: lastBall.extra_runs, is_wicket: lastBall.is_wicket, wicket_type: lastBall.wicket_type, is_bye: lastBall.is_bye });
+        const impactSettings = await loadImpactSettings(connection);
+        const baseImpactPointsToReverse = calculateImpactPoints({
+            runs_scored,
+            is_extra: lastBall.is_extra,
+            extra_type: lastBall.extra_type,
+            extra_runs: lastBall.is_extra ? extraRunsFace : 0,
+            is_wicket: lastBall.is_wicket,
+            wicket_type: lastBall.wicket_type,
+            is_bye: lastBall.is_bye,
+        }, impactSettings);
+        const [matchOverRow] = await connection.query('SELECT super_over_number FROM matches WHERE match_id = ? LIMIT 1', [matchId]);
+        const isSuperOverUndoBall = Number(lastBall.over_number) === Number(matchOverRow[0]?.super_over_number || -1);
+        const impactPointsToReverse = applySuperOverImpactMultiplier(baseImpactPointsToReverse, isSuperOverUndoBall, impactSettings);
         console.log(`--- Reversing Impact: Bat=${impactPointsToReverse.batsman}, Bowl=${impactPointsToReverse.bowler}, Field=${impactPointsToReverse.fielder} ---`);
         // Revert Batsman: only subtract batting_impact_points (runs/balls_faced/fours/twos/is_out already reverted above — do not double-decrement)
         await connection.query(`UPDATE playermatchstats SET batting_impact_points = GREATEST(0, batting_impact_points - ?) WHERE match_id = ? AND player_id = ?`,
@@ -1703,9 +1833,9 @@ exports.undoLastBall = async (req, res, next) => {
         else if (currentStatus === 'Completed' && inningNum === 2) {
             let wasTargetAchievedBefore = false;
             if (!prevInningsEndReason) { // Check target achievement only if innings didn't end for other reasons
-                const [prevInn2ScoreData] = await connection.query(`SELECT SUM(runs_scored + extra_runs) as score FROM ballbyball WHERE match_id = ? AND inning_number = 2`, [matchId]); // Score AFTER deleting ball
+                const [prevInn2ScoreData] = await connection.query(`SELECT SUM(${SQL_INNINGS_RUNS_PER_BALL}) as score FROM ballbyball WHERE match_id = ? AND inning_number = 2`, [matchId]); // Score AFTER deleting ball
                 const prevInn2Score = prevInn2ScoreData[0]?.score || 0;
-                const [inn1ScoreData] = await connection.query(`SELECT SUM(runs_scored + extra_runs) as score FROM ballbyball WHERE match_id = ? AND inning_number = 1`, [matchId]);
+                const [inn1ScoreData] = await connection.query(`SELECT SUM(${SQL_INNINGS_RUNS_PER_BALL}) as score FROM ballbyball WHERE match_id = ? AND inning_number = 1`, [matchId]);
                 const targetScore = Number((inn1ScoreData[0]?.score || 0)) + 1;
                 wasTargetAchievedBefore = prevInn2Score >= targetScore;
             }

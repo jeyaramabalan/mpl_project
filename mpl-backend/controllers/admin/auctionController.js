@@ -19,6 +19,25 @@ function nextBid(current) {
   return c + BID_INCREMENT_OVER_50;
 }
 
+function parseAuctionPools(poolOrderRaw) {
+  const parsed = poolOrderRaw && (typeof poolOrderRaw === 'string' ? JSON.parse(poolOrderRaw) : poolOrderRaw);
+  // Backward compatibility: old format was a simple array.
+  if (Array.isArray(parsed)) return { main: parsed, unsold: [] };
+  return {
+    main: Array.isArray(parsed?.main) ? parsed.main : [],
+    unsold: Array.isArray(parsed?.unsold) ? parsed.unsold : [],
+  };
+}
+
+function serializeAuctionPools(pools) {
+  return JSON.stringify({ main: pools.main || [], unsold: pools.unsold || [] });
+}
+
+function getActiveQueue(pools) {
+  if ((pools.main || []).length > 0) return { queue: pools.main, phase: 'main' };
+  return { queue: pools.unsold || [], phase: 'unsold' };
+}
+
 // GET /api/admin/auction/registrations?season_id=X
 exports.getRegistrations = async (req, res, next) => {
   const { season_id } = req.query;
@@ -246,8 +265,9 @@ exports.getAuctionState = async (req, res, next) => {
         team_rosters,
       });
     }
-    const poolOrder = state.pool_order && (typeof state.pool_order === 'string' ? JSON.parse(state.pool_order) : state.pool_order) || [];
-    const currentPlayerId = poolOrder[state.current_pool_index] || null;
+    const pools = parseAuctionPools(state.pool_order);
+    const active = getActiveQueue(pools);
+    const currentPlayerId = active.queue[state.current_pool_index] || null;
     let currentPlayer = null;
     if (currentPlayerId) {
       const [p] = await pool.query('SELECT player_id, name FROM players WHERE player_id = ?', [currentPlayerId]);
@@ -265,7 +285,10 @@ exports.getAuctionState = async (req, res, next) => {
         current_bid: state.current_bid,
         current_team_id: state.current_team_id,
         status: state.status,
-        pool_length: poolOrder.length,
+        current_phase: active.phase,
+        pool_length: active.queue.length,
+        main_pool_length: pools.main.length,
+        unsold_pool_length: pools.unsold.length,
       },
       currentPlayer,
       currentTeamName,
@@ -294,12 +317,13 @@ exports.startAuction = async (req, res, next) => {
       [season_id, season_id]
     );
     const poolOrder = poolPlayers.map(r => r.player_id);
-    const diceIndex = poolOrder.length > 0 ? Math.floor(Math.random() * poolOrder.length) : 0;
+    const pools = { main: poolOrder, unsold: [] };
+    const startIndex = 0;
     await connection.query(
       `INSERT INTO auction_state (season_id, pool_order, current_pool_index, current_bid, current_team_id, status)
        VALUES (?, ?, ?, ?, NULL, 'active')
        ON DUPLICATE KEY UPDATE pool_order = VALUES(pool_order), current_pool_index = VALUES(current_pool_index), current_bid = ?, current_team_id = NULL, status = 'active'`,
-      [season_id, JSON.stringify(poolOrder), diceIndex, MIN_BID, MIN_BID]
+      [season_id, serializeAuctionPools(pools), startIndex, MIN_BID, MIN_BID]
     );
     await connection.commit();
     res.json({ message: 'Auction started.', pool_size: poolOrder.length });
@@ -334,8 +358,9 @@ exports.placeBid = async (req, res, next) => {
       await connection.rollback();
       return res.status(400).json({ message: 'Auction is not active.' });
     }
-    const poolOrder = state.pool_order && (typeof state.pool_order === 'string' ? JSON.parse(state.pool_order) : state.pool_order) || [];
-    if (state.current_pool_index >= poolOrder.length) {
+    const pools = parseAuctionPools(state.pool_order);
+    const active = getActiveQueue(pools);
+    if (state.current_pool_index >= active.queue.length) {
       await connection.rollback();
       return res.status(400).json({ message: 'No current player in pool.' });
     }
@@ -405,13 +430,14 @@ exports.sellPlayer = async (req, res, next) => {
       return res.status(400).json({ message: 'Auction not active.' });
     }
     const state = stateRows[0];
-    const poolOrder = state.pool_order && (typeof state.pool_order === 'string' ? JSON.parse(state.pool_order) : state.pool_order) || [];
+    const pools = parseAuctionPools(state.pool_order);
+    const active = getActiveQueue(pools);
     const idx = state.current_pool_index;
-    if (idx >= poolOrder.length || !state.current_team_id) {
+    if (idx >= active.queue.length || !state.current_team_id) {
       await connection.rollback();
       return res.status(400).json({ message: 'No current player or no leading team.' });
     }
-    const playerId = poolOrder[idx];
+    const playerId = active.queue[idx];
     const teamId = state.current_team_id;
     const bid = state.current_bid;
     await connection.query(
@@ -419,14 +445,17 @@ exports.sellPlayer = async (req, res, next) => {
       [teamId, playerId, season_id, bid]
     );
     await connection.query('UPDATE players SET current_team_id = ? WHERE player_id = ?', [teamId, playerId]);
-    const remainingPool = [...poolOrder.slice(0, idx), ...poolOrder.slice(idx + 1)];
+    const remainingActive = [...active.queue.slice(0, idx), ...active.queue.slice(idx + 1)];
+    if (active.phase === 'main') pools.main = remainingActive;
+    else pools.unsold = remainingActive;
+    const nextActive = getActiveQueue(pools);
     const nextBidVal = MIN_BID;
     const nextTeamId = null;
-    const newStatus = remainingPool.length === 0 ? 'completed' : 'active';
-    const nextIndex = remainingPool.length > 0 ? Math.floor(Math.random() * remainingPool.length) : 0;
+    const newStatus = nextActive.queue.length === 0 ? 'completed' : 'active';
+    const nextIndex = 0;
     await connection.query(
       'UPDATE auction_state SET pool_order = ?, current_pool_index = ?, current_bid = ?, current_team_id = ?, status = ? WHERE season_id = ?',
-      [JSON.stringify(remainingPool), nextIndex, nextBidVal, nextTeamId, newStatus, season_id]
+      [serializeAuctionPools(pools), nextIndex, nextBidVal, nextTeamId, newStatus, season_id]
     );
     await connection.commit();
     res.json({
@@ -435,7 +464,7 @@ exports.sellPlayer = async (req, res, next) => {
       sold_to_team_id: teamId,
       sold_at_bid: bid,
       next_pool_index: nextIndex,
-      pool_remaining: remainingPool.length,
+      pool_remaining: nextActive.queue.length,
       auction_status: newStatus,
     });
   } catch (err) {
@@ -447,21 +476,21 @@ exports.sellPlayer = async (req, res, next) => {
   }
 };
 
-/** Move current player to end of pool (unsold); continue with next player. */
-function computePoolAfterPark(poolOrder, idx) {
-  if (!poolOrder.length || idx < 0 || idx >= poolOrder.length) return null;
-  const playerId = poolOrder[idx];
-  const rest = [...poolOrder.slice(0, idx), ...poolOrder.slice(idx + 1)];
-  const newPool = [...rest, playerId];
-  let nextIndex;
-  if (rest.length === 0) {
-    nextIndex = 0;
-  } else if (idx < poolOrder.length - 1) {
-    nextIndex = idx;
-  } else {
-    nextIndex = 0;
-  }
-  return { newPool, nextIndex, parked_player_id: playerId };
+/** Move current player to unsold pool; continue main queue first. */
+function computePoolAfterPark(pools, idx) {
+  const active = getActiveQueue(pools);
+  if (!active.queue.length || idx < 0 || idx >= active.queue.length) return null;
+  const playerId = active.queue[idx];
+  const rest = [...active.queue.slice(0, idx), ...active.queue.slice(idx + 1)];
+  const updatedPools = {
+    main: [...(pools.main || [])],
+    unsold: [...(pools.unsold || [])],
+  };
+  if (active.phase === 'main') updatedPools.main = rest;
+  else updatedPools.unsold = rest;
+  updatedPools.unsold.push(playerId);
+  const nextActive = getActiveQueue(updatedPools);
+  return { pools: updatedPools, nextIndex: 0, parked_player_id: playerId, pool_remaining: nextActive.queue.length };
 }
 
 // POST /api/admin/auction/park — Body: { season_id }. Unsold: move current player to end of pool, reset bid.
@@ -482,32 +511,34 @@ exports.parkUnsoldPlayer = async (req, res, next) => {
       return res.status(400).json({ message: 'Auction not active.' });
     }
     const state = stateRows[0];
-    const poolOrder = state.pool_order && (typeof state.pool_order === 'string' ? JSON.parse(state.pool_order) : state.pool_order) || [];
+    const pools = parseAuctionPools(state.pool_order);
+    const active = getActiveQueue(pools);
     const idx = state.current_pool_index;
-    if (idx >= poolOrder.length || poolOrder.length === 0) {
+    if (idx >= active.queue.length || active.queue.length === 0) {
       await connection.rollback();
       return res.status(400).json({ message: 'No current player in pool.' });
     }
-    if (poolOrder.length === 1) {
+    if (active.queue.length === 1 && (active.phase === 'unsold' || pools.main.length === 0)) {
       await connection.rollback();
       return res.status(400).json({ message: 'Cannot park: only one player left in the pool. Use Sell or add more players.' });
     }
-    const result = computePoolAfterPark(poolOrder, idx);
+    const result = computePoolAfterPark(pools, idx);
     if (!result) {
       await connection.rollback();
       return res.status(400).json({ message: 'Could not park player.' });
     }
-    const { newPool, nextIndex, parked_player_id } = result;
+    const { pools: updatedPools, nextIndex, parked_player_id, pool_remaining } = result;
+    const nextActive = getActiveQueue(updatedPools);
     await connection.query(
       'UPDATE auction_state SET pool_order = ?, current_pool_index = ?, current_bid = ?, current_team_id = NULL, status = ? WHERE season_id = ?',
-      [JSON.stringify(newPool), nextIndex, MIN_BID, newPool.length === 0 ? 'completed' : 'active', season_id]
+      [serializeAuctionPools(updatedPools), nextIndex, MIN_BID, nextActive.queue.length === 0 ? 'completed' : 'active', season_id]
     );
     await connection.commit();
     res.json({
       message: 'Player parked to end of queue.',
       parked_player_id,
       next_pool_index: nextIndex,
-      pool_remaining: newPool.length,
+      pool_remaining,
     });
   } catch (err) {
     await connection.rollback();

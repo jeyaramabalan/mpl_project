@@ -1,6 +1,7 @@
 // mpl-project/mpl-backend/controllers/leaderboardController.js
 const pool = require('../config/db');
 const { ballsToOversDecimal } = require('../utils/statsCalculations');
+const { leaderboardMatchScope, parseYearParam } = require('../utils/matchScopeFilter');
 
 const calculateSR = (runs, balls) => (balls > 0 ? (runs / balls * 100) : 0);
 const calculateAvg = (runs, outs) => (outs > 0 ? (runs / outs) : (runs > 0 ? Infinity : 0)); // Handle infinity for not out
@@ -23,34 +24,28 @@ const formatOversDisplay = (oversDecimal) => {
 };
 
 /**
- * @desc    Get leaderboards (Batting, Bowling, Impact) for a season OR for all-time
- * @route   GET /api/leaderboard?season_id=X or /api/leaderboard?season_id=all
+ * @desc    Get leaderboards (Batting, Bowling, Impact) for a season, calendar year, or all-time
+ * @route   GET /api/leaderboard?season_id=X|all&year=YYYY (optional; year scopes all seasons to that calendar year of match_datetime)
  * @access  Public
  */
 exports.getLeaderboard = async (req, res, next) => { // Renamed for consistency with frontend
-    const { season_id } = req.query;
+    const { season_id, year: yearRaw } = req.query;
 
     if (!season_id) {
         return res.status(400).json({ message: 'season_id query parameter is required.' });
     }
-    
-    // --- START OF MERGED CHANGES ---
 
-    // Allow 'all' as a valid season_id, otherwise it must be a number
     if (season_id !== 'all' && isNaN(parseInt(season_id))) {
         return res.status(400).json({ message: 'Valid season_id query parameter is required.' });
     }
+    if (yearRaw !== undefined && yearRaw !== null && String(yearRaw).trim() !== '' && parseYearParam(yearRaw) === null) {
+        return res.status(400).json({ message: 'Invalid year. Use a calendar year (e.g. 2025).' });
+    }
 
     try {
-        let seasonFilterQuery = '';
-        let queryParams = [];
-
-        if (season_id !== 'all') {
-            const seasonIdNum = parseInt(season_id);
-            seasonFilterQuery = `WHERE m.season_id = ?`;
-            queryParams.push(seasonIdNum);
-        }
-        // If season_id is 'all', the filter remains empty, and queryParams is empty.
+        const scope = leaderboardMatchScope(season_id, yearRaw);
+        const seasonFilterQuery = scope.clause ? `${scope.clause}` : '';
+        const queryParams = [...scope.params];
 
         const baseQuery = `
             SELECT
@@ -141,11 +136,12 @@ exports.getLeaderboard = async (req, res, next) => { // Renamed for consistency 
              })
              .sort((a, b) => b.total_impact - a.total_impact);
 
-        // Highest Bid Players
-        // season_id !== 'all'  -> top absolute bid for that season (one row per player, MAX purchase_price)
-        // season_id === 'all'  -> average bid across all seasons (AVG purchase_price), plus seasons count
+        // Highest Bid Players (auction is per season; year filter uses seasons.year)
+        // scope.mode === 'all'  -> average bid across all seasons
+        // scope.mode === 'year' -> average bid for seasons whose MPL year column matches
+        // scope.mode === 'season' -> top absolute bid for that season
         let highestBidLeaders = [];
-        if (season_id === 'all') {
+        if (scope.mode === 'all') {
             const [rows] = await pool.query(
                 `
                 SELECT
@@ -160,6 +156,32 @@ exports.getLeaderboard = async (req, res, next) => { // Renamed for consistency 
                 GROUP BY tp.player_id, p.name
                 ORDER BY bid_value DESC
                 `
+            );
+            highestBidLeaders = rows.map(r => ({
+                player_id: r.player_id,
+                player_name: r.player_name,
+                bid_value: r.bid_value,
+                seasons: r.seasons,
+                avg_impact_per_match: null,
+            }));
+        } else if (scope.mode === 'year') {
+            const [rows] = await pool.query(
+                `
+                SELECT
+                    tp.player_id,
+                    p.name AS player_name,
+                    AVG(tp.purchase_price) AS bid_value,
+                    COUNT(DISTINCT tp.season_id) AS seasons
+                FROM teamplayers tp
+                JOIN players p ON tp.player_id = p.player_id
+                JOIN seasons s ON tp.season_id = s.season_id
+                WHERE tp.purchase_price IS NOT NULL
+                  AND tp.purchase_price > 0
+                  AND s.year = ?
+                GROUP BY tp.player_id, p.name
+                ORDER BY bid_value DESC
+                `,
+                [scope.year]
             );
             highestBidLeaders = rows.map(r => ({
                 player_id: r.player_id,
@@ -207,7 +229,7 @@ exports.getLeaderboard = async (req, res, next) => { // Renamed for consistency 
                 GROUP BY player_id
             `;
             const impactParams = [...playerIds];
-            if (season_id !== 'all') {
+            if (scope.mode === 'season') {
                 const seasonIdNum = parseInt(season_id);
                 impactQuery = `
                     SELECT pms.player_id,
@@ -219,6 +241,18 @@ exports.getLeaderboard = async (req, res, next) => { // Renamed for consistency 
                     GROUP BY pms.player_id
                 `;
                 impactParams.unshift(seasonIdNum);
+            } else if (scope.mode === 'year') {
+                impactQuery = `
+                    SELECT pms.player_id,
+                        SUM(COALESCE(pms.batting_impact_points,0) + COALESCE(pms.bowling_impact_points,0) + COALESCE(pms.fielding_impact_points,0)) AS total_impact,
+                        COUNT(DISTINCT pms.match_id) AS match_count
+                    FROM playermatchstats pms
+                    JOIN matches m ON pms.match_id = m.match_id
+                      AND m.match_datetime >= ? AND m.match_datetime < ?
+                    WHERE pms.player_id IN (${placeholders})
+                    GROUP BY pms.player_id
+                `;
+                impactParams.unshift(scope.start, scope.end);
             }
             const [impactRows] = await pool.query(impactQuery, impactParams);
             const impactByPlayer = {};
@@ -232,10 +266,15 @@ exports.getLeaderboard = async (req, res, next) => { // Renamed for consistency 
         }
 
         res.json({
+            filter: {
+                mode: scope.mode,
+                year: scope.mode === 'year' ? scope.year : null,
+                season_id: scope.mode === 'season' ? parseInt(season_id, 10) : null,
+            },
             batting: battingLeaders,
             bowling: bowlingLeaders,
             impact: impactLeaders,
-            highest_bid: highestBidLeaders
+            highest_bid: highestBidLeaders,
         });
 
     } catch (error) {

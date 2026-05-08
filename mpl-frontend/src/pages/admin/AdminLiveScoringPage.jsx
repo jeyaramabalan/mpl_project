@@ -6,6 +6,22 @@ import api from '../../services/api';
 import LoadingFallback from '../../components/LoadingFallback';
 import ConfirmDialog from '../../components/ConfirmDialog';
 
+const layoutStyles = {
+    pageGrid: {
+        display: 'grid',
+        gridTemplateColumns: 'minmax(0, 1fr)',
+        gap: '1rem',
+        alignItems: 'start',
+    },
+    sideSticky: {
+        position: 'static',
+        top: '86px',
+        alignSelf: 'start',
+    },
+};
+
+const mediaQueryDesktop = '@media (min-width: 1100px)';
+
 // --- ScoreDisplay Component (Assume correct from previous versions) ---
 const ScoreDisplay = ({ state }) => {
     if (!state) return <div style={{ border: '1px solid #eee', padding: '1rem', marginBottom: '1rem', backgroundColor: '#f9f9f9', borderRadius: '5px', color: '#1a1a1a' }}>Waiting for match state...</div>;
@@ -42,12 +58,14 @@ const RecentBalls = ({ summary }) => {
     );
 };
 
+/* --- Fielding impact (manual): disabled — uncomment this block + handlers + UI below to re-enable ---
 const FIELDING_ACTION_LABELS = {
     good_catch: 'Good catch (+2)',
     good_stop: 'Good field (+1)',
     misfield: 'Misfield (−1)',
     catch_drop: 'Drop catch (−2)',
 };
+--- */
 
 // --- Main Component ---
 function AdminLiveScoringPage() {
@@ -69,10 +87,11 @@ function AdminLiveScoringPage() {
     const [isWicketEvent, setIsWicketEvent] = useState(false);
     const [selectedWicketType, setSelectedWicketType] = useState('');
     const [selectedFielderId, setSelectedFielderId] = useState('');
-    /** Fielding impact: pick action first, then fielder in modal */
+    /* Fielding impact (manual) — disabled; re-enable with handlers + UI below
     const [showFieldingImpactModal, setShowFieldingImpactModal] = useState(false);
     const [fieldingModalBonusType, setFieldingModalBonusType] = useState(null);
     const [fieldingModalFielderId, setFieldingModalFielderId] = useState('');
+    */
 
     // --- State for Change Toss / Revert to Scheduled ---
     const [showTossModal, setShowTossModal] = useState(false);
@@ -106,11 +125,13 @@ function AdminLiveScoringPage() {
             if (isMounted) setIsWicketEvent(false);
             if (isMounted) setSelectedWicketType('');
             if (isMounted) setSelectedFielderId('');
+            /* Fielding impact (manual) — disabled
             if (isMounted) {
                 setShowFieldingImpactModal(false);
                 setFieldingModalBonusType(null);
                 setFieldingModalFielderId('');
             }
+            */
 
             try {
                 console.log(`AdminLiveScoring: Fetching state for match ${matchId} via API`);
@@ -621,6 +642,7 @@ function AdminLiveScoringPage() {
         }
     };
 
+    /* Fielding impact (manual) — disabled; re-enable with state + UI below
     const openFieldingImpactModal = (bonusType) => {
         setFieldingModalBonusType(bonusType);
         let initialFielder = '';
@@ -664,6 +686,7 @@ function AdminLiveScoringPage() {
             setIsSubmitting(false);
         }
     };
+    */
 
 
     // --- Render Logic ---
@@ -680,7 +703,7 @@ function AdminLiveScoringPage() {
     const legalRunsBlocked = canRetireBatter;
     const showStatusMessageArea = ['InningsBreak', 'Completed', 'Abandoned'].includes(currentStatus); // Show message for these states
 
-    // Fielding impact: one manual adjustment per last completed ball (backend + UI lock)
+    /* Fielding impact (manual) — disabled
     const hasAnyBallThisInnings = (matchState.ballsInCurrentInnings ?? 0) > 0;
     const lastBallFieldingLocked = matchState.lastBallFieldingAdjustment != null;
     const fieldingImpactDisabled =
@@ -688,6 +711,7 @@ function AdminLiveScoringPage() {
     const lastBallIsCaughtWicket = matchState?.lastBallIsCaughtWicket === true;
     const goodCatchAvailable =
         !fieldingImpactDisabled && lastBallIsCaughtWicket;
+    */
 
     // Styles
     const buttonGroupStyle = { marginBottom: '0.8rem', display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' };
@@ -696,6 +720,26 @@ function AdminLiveScoringPage() {
 
     return (
         <div>
+            <style>{`
+                .admin-live-grid {
+                    display: grid;
+                    grid-template-columns: minmax(0, 1fr);
+                    gap: 1rem;
+                    align-items: start;
+                }
+                .admin-live-side {
+                    position: static;
+                }
+                ${mediaQueryDesktop} {
+                    .admin-live-grid {
+                        grid-template-columns: minmax(0, 1fr) 340px;
+                    }
+                    .admin-live-side {
+                        position: sticky;
+                        top: 86px;
+                    }
+                }
+            `}</style>
             <h2>Live Scoring — Match {matchId}</h2>
             <p style={{ marginTop: '0.25rem', marginBottom: '1rem' }}>
                 <Link to="/admin/scoring/setup">← Back to Setup</Link>
@@ -707,21 +751,21 @@ function AdminLiveScoringPage() {
                 </div>
             )}
             {error && <p className="error-message">{error}</p>}
-            <ScoreDisplay state={matchState} />
+            <div className="admin-live-grid">
+                <div>
+                    {/* Player Selection Area */}
+                    {isScoringPossible && (
+                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', margin: '1rem 0', padding: '1rem', border: '1px solid #eee', borderRadius: '5px', backgroundColor: selectionRequiredNow ? '#fffadf' : 'transparent', color: selectionRequiredNow ? '#1a1a1a' : 'var(--mpl-text)' }}>
+                             {/* Bowler Select */}
+                             <div><label htmlFor="bowler-select">{currentStatus === 'InningsBreak' ? 'Opening Bowler (Inn 2):*' : (currentStatus === 'Setup' ? 'Select Opening Bowler:*' : 'Current Bowler:*')}</label><br/><select id="bowler-select" value={currentBowlerId ?? ''} onChange={(e) => setCurrentBowlerId(e.target.value)} disabled={isSubmitting || (currentStatus === 'Live' && matchState.balls !== 0 && currentBowlerId)} style={{borderColor: selectionRequiredNow && !currentBowlerId ? 'orange' : 'initial', minWidth: '150px'}}> <option value="">-- Select --</option> {eligibleBowlers.map(p => <option key={`bowl-${p.player_id}`} value={p.player_id}>{p.name}</option>)} </select>{selectionRequiredNow && !currentBowlerId && <span style={{color: 'orange', marginLeft: '5px', fontWeight:'bold'}}>☜ Required!</span>}{currentBowlerId && currentStatus === 'Live' && <span style={{fontSize: '0.8em', marginLeft: '5px'}}>({matchState?.bowlerStats?.find(b=>b.player_id == currentBowlerId)?.completed_overs || 0}/ {matchState?.bowlerStats?.some(b=>b.completed_overs >= 2 && b.player_id != currentBowlerId) ? '1' : '2'} ov)</span>}</div>
+                             {/* Batter select */}
+                             <div><label htmlFor="batsman-select">{currentStatus === 'InningsBreak' ? 'Opening batter (Inn 2):*' : (currentStatus === 'Setup' ? 'Select opening batter:*' : 'Batter on strike:*')}</label><br/><select id="batsman-select" value={currentBatsmanId ?? ''} onChange={(e) => setCurrentBatsmanId(e.target.value)} disabled={isSubmitting} style={{borderColor: selectionRequiredNow && !currentBatsmanId ? 'red' : 'initial', minWidth: '150px'}}> <option value="">-- Select --</option> {availableBatsmen.map(p => <option key={`bat-${p.player_id}`} value={p.player_id}>{p.name}</option>)} </select>{selectionRequiredNow && !currentBatsmanId && <span style={{color: 'red', marginLeft: '5px', fontWeight:'bold'}}>☜ Required!</span>}{currentBatsmanId && currentStatus === 'Live' && <span style={{fontSize: '0.8em', marginLeft: '5px'}}>({strikerLegalBalls} legal{strikerBallsFacedTotal !== strikerLegalBalls ? `, ${strikerBallsFacedTotal} balls faced` : ''})</span>}{canRetireBatter && <><span style={{marginLeft: '8px'}} /><button type="button" onClick={() => setShowRetireDialog(true)} disabled={isSubmitting} style={{padding: '0.35em 0.6em', fontSize: '0.85rem', backgroundColor: '#856404', color: '#fff', border: 'none', borderRadius: '4px'}}>Retire batter</button></>}</div>
+                         </div>
+                    )}
 
-            {/* Player Selection Area */}
-            {isScoringPossible && (
-                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', margin: '1rem 0', padding: '1rem', border: '1px solid #eee', borderRadius: '5px', backgroundColor: selectionRequiredNow ? '#fffadf' : 'transparent', color: selectionRequiredNow ? '#1a1a1a' : 'var(--mpl-text)' }}>
-                     {/* Bowler Select */}
-                     <div><label htmlFor="bowler-select">{currentStatus === 'InningsBreak' ? 'Opening Bowler (Inn 2):*' : (currentStatus === 'Setup' ? 'Select Opening Bowler:*' : 'Current Bowler:*')}</label><br/><select id="bowler-select" value={currentBowlerId ?? ''} onChange={(e) => setCurrentBowlerId(e.target.value)} disabled={isSubmitting || (currentStatus === 'Live' && matchState.balls !== 0 && currentBowlerId)} style={{borderColor: selectionRequiredNow && !currentBowlerId ? 'orange' : 'initial', minWidth: '150px'}}> <option value="">-- Select --</option> {eligibleBowlers.map(p => <option key={`bowl-${p.player_id}`} value={p.player_id}>{p.name}</option>)} </select>{selectionRequiredNow && !currentBowlerId && <span style={{color: 'orange', marginLeft: '5px', fontWeight:'bold'}}>☜ Required!</span>}{currentBowlerId && currentStatus === 'Live' && <span style={{fontSize: '0.8em', marginLeft: '5px'}}>({matchState?.bowlerStats?.find(b=>b.player_id == currentBowlerId)?.completed_overs || 0}/ {matchState?.bowlerStats?.some(b=>b.completed_overs >= 2 && b.player_id != currentBowlerId) ? '1' : '2'} ov)</span>}</div>
-                     {/* Batter select */}
-                     <div><label htmlFor="batsman-select">{currentStatus === 'InningsBreak' ? 'Opening batter (Inn 2):*' : (currentStatus === 'Setup' ? 'Select opening batter:*' : 'Batter on strike:*')}</label><br/><select id="batsman-select" value={currentBatsmanId ?? ''} onChange={(e) => setCurrentBatsmanId(e.target.value)} disabled={isSubmitting} style={{borderColor: selectionRequiredNow && !currentBatsmanId ? 'red' : 'initial', minWidth: '150px'}}> <option value="">-- Select --</option> {availableBatsmen.map(p => <option key={`bat-${p.player_id}`} value={p.player_id}>{p.name}</option>)} </select>{selectionRequiredNow && !currentBatsmanId && <span style={{color: 'red', marginLeft: '5px', fontWeight:'bold'}}>☜ Required!</span>}{currentBatsmanId && currentStatus === 'Live' && <span style={{fontSize: '0.8em', marginLeft: '5px'}}>({strikerLegalBalls} legal{strikerBallsFacedTotal !== strikerLegalBalls ? `, ${strikerBallsFacedTotal} balls faced` : ''})</span>}{canRetireBatter && <><span style={{marginLeft: '8px'}} /><button type="button" onClick={() => setShowRetireDialog(true)} disabled={isSubmitting} style={{padding: '0.35em 0.6em', fontSize: '0.85rem', backgroundColor: '#856404', color: '#fff', border: 'none', borderRadius: '4px'}}>Retire batter</button></>}</div>
-                 </div>
-            )}
-
-            {/* Scoring Controls Container (Rendered if scoring is possible: Setup, Live, InningsBreak) */}
-            {isScoringPossible ? (
-               <div style={{ border: '1px solid #ccc', padding: '1rem', marginTop: '1rem', borderRadius: '5px', color: 'var(--mpl-text)' }}>
+                    {/* Scoring Controls Container (Rendered if scoring is possible: Setup, Live, InningsBreak) */}
+                    {isScoringPossible ? (
+                       <div style={{ border: '1px solid #ccc', padding: '1rem', marginTop: '1rem', borderRadius: '5px', color: 'var(--mpl-text)' }}>
                     <h4>Record Ball Event</h4>
                     {/* Fieldset handles disabling based on CORRECTED controlsDisabled */}
                     <fieldset disabled={controlsDisabled}>
@@ -732,6 +776,7 @@ function AdminLiveScoringPage() {
                         {!selectionRequiredNow && ( <> {/* Legal Runs / Byes — blocked at 12 legal until retire */} <div style={buttonGroupStyle}> <span style={labelStyle}>Runs/Byes:</span> {[0, 1, 2, 4].map(r => (<button type="button" key={`run-${r}`} onClick={() => handleLegalBall(r)} disabled={legalRunsBlocked} style={buttonStyle}>{r}</button>))} <button type="button" key="bye-1" onClick={() => handleBye(1)} disabled={legalRunsBlocked} style={buttonStyle}>1b</button> </div> {/* Extras — still allowed after 12 legal */} <div style={buttonGroupStyle}> <span style={labelStyle}>Extras:</span> <button type="button" onClick={handleWideClick} style={buttonStyle}>WD</button> <button type="button" onClick={() => handleWideByeClick(1)} style={buttonStyle}>WD+1b</button> <button type="button" onClick={() => handleNoBallClick(0)} style={buttonStyle}>NB+0</button> <button type="button" onClick={() => handleNoBallByeClick(1)} style={buttonStyle}>NB+1b</button> {[1, 2, 4].map(r => (<button type="button" key={`nb-${r}`} onClick={() => handleNoBallClick(r)} style={buttonStyle}>NB+{r}</button>))} </div> {/* Wicket Toggle & Details */} <div style={{ margin: '1rem 0' }}> <button type="button" onClick={() => setIsWicketEvent(!isWicketEvent)} disabled={legalRunsBlocked} style={{backgroundColor: isWicketEvent ? '#d1ecf1' : '#ffc107', marginRight: '1rem', padding: '0.5em 1em'}}>{isWicketEvent ? 'Cancel Wicket' : 'Record Wicket'}</button> {isWicketEvent && ( <div style={{border: '1px dashed gray', padding: '1rem', marginTop: '0.5rem', display: 'inline-block', verticalAlign: 'top'}}> <label htmlFor="wicket-type">Type:* </label> <select id="wicket-type" value={selectedWicketType} onChange={e => {setSelectedWicketType(e.target.value); if(!['Caught', 'Stumped'].includes(e.target.value)) setSelectedFielderId('');}}> <option value="">--Select--</option> <option value="Bowled">Bowled</option><option value="Caught">Caught</option><option value="Stumped">Stumped</option><option value="Hit Outside">Hit Outside</option><option value="Hit Wicket">Hit Wicket</option> </select> {(selectedWicketType === 'Caught' || selectedWicketType === 'Stumped') && ( <div style={{marginTop: '0.5rem'}}> <label htmlFor="fielder-select">Fielder:* </label> <select id="fielder-select" value={selectedFielderId} onChange={e => setSelectedFielderId(e.target.value)}> <option value="">--Select Fielder--</option> {matchState?.playersBowlingTeam?.map(p => <option key={`field-${p.player_id}`} value={p.player_id}>{p.name}</option>)} </select> </div> )} <button type="button" onClick={handleWicketConfirm} disabled={!selectedWicketType || (['Caught','Stumped'].includes(selectedWicketType) && !selectedFielderId)} style={{backgroundColor: '#dc3545', marginTop: '1rem'}}>Confirm Wicket</button> </div> )} </div> </> )}
                     </fieldset>
                     {isSubmitting && <LoadingFallback message="Submitting..." />}
+                    {/* Fielding impact (manual) — disabled; re-enable with handlers + state above
                     {currentStatus === 'Live' && (
                         <div
                             style={{
@@ -795,26 +840,32 @@ function AdminLiveScoringPage() {
                             </div>
                         </div>
                     )}
+                    */}
                     {/* Undo Button */}
                     {(currentStatus === 'Live' || currentStatus === 'InningsBreak' || currentStatus === 'Completed') && (
                         <div style={{ marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid #ccc' }}>
                             <button type="button" onClick={handleUndo} disabled={isSubmitting} style={{backgroundColor: '#6c757d'}}>Undo Last Ball</button>
                         </div>
                     )}
-                    <RecentBalls summary={matchState?.recentBallsSummary} />
-               </div>
-            ) : ( // Handle ONLY non-scoreable states like Completed, Abandoned, Scheduled
-                <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#e9ecef', borderRadius: '5px' }}>
-                    <p><strong>
-                        {currentStatus === 'Completed' ? `Match Completed. ${matchState.resultSummary || ''}` :
-                         currentStatus === 'Abandoned' ? 'Match Abandoned.' :
-                         currentStatus === 'Scheduled' ? 'Match is Scheduled. Go to Setup page.' :
-                         `Scoring inactive (Status: ${currentStatus}).`}
-                    </strong></p>
-                     {currentStatus === 'Completed' && <button onClick={() => navigate(`/matches/${matchId}`)}>View Final Scorecard</button>}
-                     {currentStatus !== 'Completed' && <button onClick={() => navigate('/admin/scoring/setup')}>Back to Setup List</button>}
+                       </div>
+                    ) : ( // Handle ONLY non-scoreable states like Completed, Abandoned, Scheduled
+                        <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#e9ecef', borderRadius: '5px' }}>
+                            <p><strong>
+                                {currentStatus === 'Completed' ? `Match Completed. ${matchState.resultSummary || ''}` :
+                                 currentStatus === 'Abandoned' ? 'Match Abandoned.' :
+                                 currentStatus === 'Scheduled' ? 'Match is Scheduled. Go to Setup page.' :
+                                 `Scoring inactive (Status: ${currentStatus}).`}
+                            </strong></p>
+                             {currentStatus === 'Completed' && <button onClick={() => navigate(`/matches/${matchId}`)}>View Final Scorecard</button>}
+                             {currentStatus !== 'Completed' && <button onClick={() => navigate('/admin/scoring/setup')}>Back to Setup List</button>}
+                        </div>
+                    )}
                 </div>
-            )}
+                <aside className="admin-live-side">
+                    <ScoreDisplay state={matchState} />
+                    <RecentBalls summary={matchState?.recentBallsSummary} />
+                </aside>
+            </div>
 
             {showTossModal && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={() => !isSubmitting && setShowTossModal(false)}>
@@ -846,6 +897,7 @@ function AdminLiveScoringPage() {
                 </div>
             )}
 
+            {/* Fielding impact modal — disabled with section above
             {showFieldingImpactModal && fieldingModalBonusType && (
                 <div
                     style={{
@@ -941,6 +993,7 @@ function AdminLiveScoringPage() {
                     </div>
                 </div>
             )}
+            */}
 
             <ConfirmDialog
                 open={showRevertDialog}

@@ -32,6 +32,7 @@ const AdminMatchSetupPage = lazy(() => import('./pages/admin/AdminMatchSetupPage
 const AdminLiveScoringPage = lazy(() => import('./pages/admin/AdminLiveScoringPage'));
 const AdminPlayersPage = lazy(() => import('./pages/admin/AdminPlayersPage'));
 const AdminResolveMatchPage = lazy(() => import('./pages/admin/AdminResolveMatchPage'));
+const AdminImpactSettingsPage = lazy(() => import('./pages/admin/AdminImpactSettingsPage'));
 const AdminAuctionPage = lazy(() => import('./pages/admin/AdminAuctionPage'));
 const AuctionPage = lazy(() => import('./pages/AuctionPage'));
 
@@ -103,6 +104,7 @@ function App() {
                                 <Route path="scoring/setup" element={<AdminMatchSetupPage />} />
                                 <Route path="scoring/live/:matchId" element={<AdminLiveScoringPage />} />
                                 <Route path="resolve" element={<AdminResolveMatchPage />} />
+                                <Route path="impact-settings" element={<AdminImpactSettingsPage />} />
                                 <Route path="auction" element={<AdminAuctionPage />} />
                             </Route>
                         </Route>

@@ -2,6 +2,7 @@
 const express = require('express');
 const {
     getMatchesForSetup,
+    getMatchesForResume,
     submitMatchSetup,
     scoreSingleBall,
     submitFinalMatchScore,
@@ -10,7 +11,12 @@ const {
     updateToss,
     revertToScheduled,
     retireBatter,
-    addFieldingBonus
+    addFieldingBonus,
+    getImpactSettings,
+    updateImpactSettings,
+    recalculateMatchStats,
+    recalculateSeasonStats,
+    recalculateAllStats
 } = require('../../controllers/admin/scoringController');
 
 const router = express.Router();
@@ -20,6 +26,25 @@ const router = express.Router();
 // GET /api/admin/scoring/setup-list
 // Get matches in 'Scheduled' state, ready for toss/setup
 router.get('/setup-list', getMatchesForSetup);
+
+// GET /api/admin/scoring/resume-list
+// Get matches in Setup/Live/InningsBreak, ready to resume
+router.get('/resume-list', getMatchesForResume);
+
+// GET /api/admin/scoring/impact-settings
+router.get('/impact-settings', getImpactSettings);
+
+// PUT /api/admin/scoring/impact-settings
+router.put('/impact-settings', updateImpactSettings);
+
+// POST /api/admin/scoring/recalculate/season/:seasonId
+router.post('/recalculate/season/:seasonId', recalculateSeasonStats);
+
+// POST /api/admin/scoring/recalculate/all
+router.post('/recalculate/all', recalculateAllStats);
+
+// POST /api/admin/scoring/recalculate/:matchId
+router.post('/recalculate/:matchId', recalculateMatchStats);
 
 // POST /api/admin/scoring/matches/:matchId/setup
 // Submit toss winner, decision (Bat/Bowl), and Super Over number.

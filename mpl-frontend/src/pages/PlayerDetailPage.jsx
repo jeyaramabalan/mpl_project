@@ -172,7 +172,7 @@ function PlayerDetailPage() {
                                     </div>
                                     <div className="stats-card-content">
                                         <table className="stats-sub-table">
-                                            <thead>
+                                    <thead>
                                                 <tr>
                                                     <th>Mat</th>
                                                     <th>Runs</th>
@@ -181,17 +181,17 @@ function PlayerDetailPage() {
                                                     <th>SR</th>
                                                     <th>4s</th>
                                                 </tr>
-                                            </thead>
-                                            <tbody>
-                                                <tr>
-                                                    <td>{stats.matches_played ?? '-'}</td>
-                                                    <td>{stats.total_runs ?? '-'}</td>
-                                                    <td>{stats.highest_score ?? '-'}</td>
-                                                    <td>{stats.batting_average_display ?? '-'}</td>
-                                                    <td>{stats.batting_strike_rate ?? '-'}</td>
-                                                    <td>{stats.total_fours ?? '-'}</td>
-                                                </tr>
-                                            </tbody>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>{stats.matches_played ?? '-'}</td>
+                                            <td>{stats.total_runs ?? '-'}</td>
+                                            <td>{stats.highest_score ?? '-'}</td>
+                                            <td>{stats.batting_average_display ?? '-'}</td>
+                                            <td>{stats.batting_strike_rate ?? '-'}</td>
+                                            <td>{stats.total_fours ?? '-'}</td>
+                                        </tr>
+                                    </tbody>
                                         </table>
                                     </div>
                                 </div>
@@ -205,7 +205,7 @@ function PlayerDetailPage() {
                                         </div>
                                         <div className="stats-card-content">
                                             <table className="stats-sub-table">
-                                                <thead>
+                                            <thead>
                                                     <tr>
                                                         <th>Overs Type</th>
                                                         <th>Overs Count</th>
@@ -214,8 +214,8 @@ function PlayerDetailPage() {
                                                         <th>Runs</th>
                                                         <th>Economy</th>
                                                     </tr>
-                                                </thead>
-                                                <tbody>
+                                            </thead>
+                                            <tbody>
                                                     {['normal', 'super', 'total'].map((key) => {
                                                         const row = stats.bowling_breakdown[key];
                                                         const label = key === 'normal' ? 'Normal Overs' : key === 'super' ? 'Super Overs' : 'Total Overs';
@@ -228,12 +228,12 @@ function PlayerDetailPage() {
                                                                 <td>{row.wickets ?? '-'}</td>
                                                                 <td>{row.runs ?? '-'}</td>
                                                                 <td>{row.economy != null ? parseFloat(row.economy).toFixed(2) : '-'}</td>
-                                                            </tr>
+                                                </tr>
                                                         );
                                                     })}
-                                                </tbody>
-                                            </table>
-                                        </div>
+                                            </tbody>
+                                </table>
+                            </div>
                                     </div>
                                 )}
                             </>
@@ -245,7 +245,7 @@ function PlayerDetailPage() {
                     {/* Impact Points Section */}
                      <section className="player-impact-section">
                          <h2 className="section-title">Impact Points (Career)</h2>
-                         
+
                          {stats ? (
                              <div className="impact-visual">
                                  <div className="impact-item batting-impact">
@@ -466,7 +466,7 @@ function PlayerDetailPage() {
                                 <p className="no-stats">No chart data available yet.</p>
                             )}
                         </div>
-                    </section>
+                     </section>
                  </div>
             </div>
 

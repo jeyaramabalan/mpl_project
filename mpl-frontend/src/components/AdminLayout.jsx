@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { path: '/admin/auction', label: 'Auction' },
   { path: '/admin/schedule', label: 'Schedule' },
   { path: '/admin/scoring/setup', label: 'Setup Scoring' },
+  { path: '/admin/impact-settings', label: 'Impact Settings' },
   { path: '/admin/resolve', label: 'Resolve Match' },
 ];
 
@@ -37,6 +38,7 @@ function getBreadcrumbs(pathname, params) {
         break;
       }
     } else if (seg === 'resolve') crumbs.push({ path: acc, label: 'Resolve Match' });
+    else if (seg === 'impact-settings') crumbs.push({ path: acc, label: 'Impact Settings' });
     else if (seg === 'auction') crumbs.push({ path: acc, label: 'Auction' });
     else crumbs.push({ path: acc, label: seg });
   }

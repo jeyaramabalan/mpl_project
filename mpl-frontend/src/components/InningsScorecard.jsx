@@ -58,6 +58,12 @@ const InningsScorecard = ({ stats, teamName, inningsNumber, summary }) => {
                                     <td className="summary-label">Extras</td>
                                     <td colSpan="6" className="summary-value extras-breakdown">{summary.extras} {summary.extras_detail}</td>
                                 </tr>
+                                {Number(summary.super_over_runs) > 0 && (
+                                <tr className="super-over-row">
+                                    <td className="summary-label">Super Over Bonus</td>
+                                    <td colSpan="6" className="summary-value">{summary.super_over_runs}</td>
+                                </tr>
+                                )}
                                 <tr className="total-row">
                                     <td className="summary-label">Total</td>
                                     <td colSpan="6" className="summary-value">{summary.total} ({summary.wickets} wkts, {summary.overs} Ov)</td>

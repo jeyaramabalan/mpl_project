@@ -179,7 +179,7 @@ exports.getMatchDetails = async (req, res, next) => {
             const [inningsSummaries] = await pool.query(`
                 SELECT
                     inning_number,
-                    SUM(runs_scored + extra_runs) as total_score,
+                    SUM(runs_scored + extra_runs + COALESCE(super_over_runs, 0)) as total_score,
                     SUM(is_wicket) as total_wickets,
                     COUNT(CASE WHEN is_extra = false OR extra_type = 'NoBall' THEN 1 END) as total_legal_balls
                 FROM ballbyball

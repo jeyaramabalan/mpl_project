@@ -7,6 +7,7 @@ import LoadingFallback from '../../components/LoadingFallback';
 
 function AdminMatchSetupPage() {
     const [matches, setMatches] = useState([]); // Matches in 'Scheduled' state
+    const [resumeMatches, setResumeMatches] = useState([]); // Matches in Setup/Live/InningsBreak
     const [selectedMatchId, setSelectedMatchId] = useState('');
     const [selectedMatchDetails, setSelectedMatchDetails] = useState(null); // Holds { team1_id, team1_name, team2_id, team2_name }
 
@@ -21,25 +22,26 @@ function AdminMatchSetupPage() {
 
     const navigate = useNavigate();
 
-    // Fetch scheduled matches on component mount
+    // Fetch scheduled + resumable matches on component mount
     useEffect(() => {
-        const fetchScheduledMatches = async () => {
+        const fetchMatchLists = async () => {
             setLoading(true);
             setError('');
             try {
-                const { data } = await api.get('/admin/scoring/setup-list');
-                setMatches(toList(data));
-                // Reset selection if list reloads? Optional.
-                // setSelectedMatchId('');
-                // setSelectedMatchDetails(null);
+                const [scheduledRes, resumeRes] = await Promise.all([
+                    api.get('/admin/scoring/setup-list'),
+                    api.get('/admin/scoring/resume-list')
+                ]);
+                setMatches(toList(scheduledRes.data));
+                setResumeMatches(toList(resumeRes.data));
             } catch (err) {
-                console.error("Failed to fetch scheduled matches:", err);
-                setError(typeof err === 'string' ? err : 'Failed to load matches ready for setup.');
+                console.error("Failed to fetch scoring lists:", err);
+                setError(typeof err === 'string' ? err : 'Failed to load scoring match lists.');
             } finally {
                 setLoading(false);
             }
         };
-        fetchScheduledMatches();
+        fetchMatchLists();
     }, []); // Run only once on mount
 
     // Update selected match details when dropdown changes
@@ -107,14 +109,56 @@ function AdminMatchSetupPage() {
     // --- Render Logic ---
     if (loading) return <LoadingFallback message="Loading available matches..." />;
 
+    const formatMatchLabel = (match) => {
+        const dt = new Date(match.match_datetime);
+        const timeStr = dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const matchNum = match.match_number ?? match.matchNumber ?? match.match_id;
+        return `Match ${matchNum} · ${timeStr} - ${match.team1_name} vs ${match.team2_name}`;
+    };
 
     return (
         <div>
             <h2>Setup Match Scoring</h2>
             {error && <p className="error-message">{error}</p>}
 
-            {/* Match Selection Dropdown */}
+            <div style={{ marginBottom: '2rem' }}>
+                <h3>Resume In-Progress Match</h3>
+                {resumeMatches.length === 0 ? (
+                    <p style={{ marginTop: '0.5rem' }}>No in-progress matches to resume.</p>
+                ) : (
+                    <div style={{ display: 'grid', gap: '0.5rem', marginTop: '0.5rem' }}>
+                        {resumeMatches.map((match) => (
+                            <div
+                                key={`resume-${match.match_id}`}
+                                style={{
+                                    border: '1px solid #ddd',
+                                    borderRadius: '6px',
+                                    padding: '0.6rem 0.8rem',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    gap: '1rem',
+                                }}
+                            >
+                                <div>
+                                    <div>{formatMatchLabel(match)}</div>
+                                    <small style={{ color: '#666' }}>Status: {match.status}</small>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => navigate(`/admin/scoring/live/${match.match_id}`)}
+                                    disabled={submitting}
+                                >
+                                    Resume
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
             <div style={{ marginBottom: '1.5rem' }}>
+                <h3>Setup New Match</h3>
                 <label htmlFor="match-select">Select Match to Setup:</label>
                 <select
                     id="match-select"
@@ -123,25 +167,19 @@ function AdminMatchSetupPage() {
                     required
                     disabled={submitting}
                 >
-                    <option value="">-- Select a Match --</option>
+                    <option value="">-- Select a Scheduled Match --</option>
                     {matches.length > 0 ? (
-                        matches.map(match => {
-                            const dt = new Date(match.match_datetime);
-                            const timeStr = dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                            const matchNum = match.match_number ?? match.matchNumber ?? match.match_id;
-                            return (
-                                <option key={match.match_id} value={match.match_id}>
-                                    Match {matchNum} · {timeStr} - {match.team1_name} vs {match.team2_name}
-                                </option>
-                            );
-                        })
+                        matches.map(match => (
+                            <option key={match.match_id} value={match.match_id}>
+                                {formatMatchLabel(match)}
+                            </option>
+                        ))
                     ) : (
                         <option value="" disabled>No scheduled matches found</option>
                     )}
                 </select>
             </div>
 
-            {/* Setup Form (shown only when a match is selected) */}
             {selectedMatchDetails && (
                 <form onSubmit={handleSubmit}>
                     <h3>Setup for Match {selectedMatchDetails.match_number ?? selectedMatchDetails.matchNumber ?? '—'}: {selectedMatchDetails.team1_name} vs {selectedMatchDetails.team2_name}</h3>

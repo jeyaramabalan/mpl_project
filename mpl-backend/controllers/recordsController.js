@@ -1,36 +1,65 @@
 // mpl-backend/controllers/recordsController.js
 // Records page: batting, bowling, fielding, team, and awards (MoM, MVP, Impact, Best Debut).
-// GET /api/records?season_id=X|all&scope=individual|team
+// GET /api/records?season_id=X|all&year=YYYY&scope=individual|team
 
 const pool = require('../config/db');
 const { ballsToOversDecimal, formatOversDisplay } = require('../utils/statsCalculations');
+const { parseYearParam, yearRangeForMatchDatetime } = require('../utils/matchScopeFilter');
 
 const MIN_BALLS_SR = 30;
 const MIN_OVERS_ECON = 5;
 const TOP_LIMIT = 15;
 
-function seasonFilter(seasonId) {
-    if (seasonId === 'all' || seasonId === null) return { clause: '', params: [] };
-    return { clause: 'AND m.season_id = ?', params: [parseInt(seasonId)] };
+function buildRecordsScope(season_id, yearRaw) {
+    const y = parseYearParam(yearRaw);
+    if (y != null) {
+        const { start, end } = yearRangeForMatchDatetime(y);
+        return {
+            mode: 'year',
+            year: y,
+            start,
+            end,
+            pmsClause: 'AND m.match_datetime >= ? AND m.match_datetime < ?',
+            pmsParams: [start, end],
+        };
+    }
+    const sid = season_id === 'all' || !season_id ? 'all' : season_id;
+    if (sid === 'all') {
+        return { mode: 'all', year: null, start: null, end: null, pmsClause: '', pmsParams: [] };
+    }
+    return {
+        mode: 'season',
+        year: null,
+        start: null,
+        end: null,
+        pmsClause: 'AND m.season_id = ?',
+        pmsParams: [parseInt(sid, 10)],
+    };
 }
 
 /**
- * @route   GET /api/records?season_id=X|all&scope=individual|team
+ * @route   GET /api/records?season_id=X|all&year=YYYY&scope=individual|team
  */
 exports.getRecords = async (req, res, next) => {
-    const { season_id, scope } = req.query;
+    const { season_id, scope, year: yearRaw } = req.query;
     const seasonId = season_id === 'all' || !season_id ? 'all' : season_id;
     const isTeam = scope === 'team';
 
     if (season_id && season_id !== 'all' && isNaN(parseInt(season_id))) {
         return res.status(400).json({ message: 'Invalid season_id.' });
     }
+    if (yearRaw !== undefined && yearRaw !== null && String(yearRaw).trim() !== '' && parseYearParam(yearRaw) === null) {
+        return res.status(400).json({ message: 'Invalid year parameter.' });
+    }
 
-    const { clause: seasonClause, params: seasonParams } = seasonFilter(seasonId);
+    const recScope = buildRecordsScope(season_id, yearRaw);
+    const seasonClause = recScope.pmsClause;
+    const seasonParams = recScope.pmsParams;
 
     try {
         const result = {
-            season_id: seasonId === 'all' ? null : parseInt(seasonId),
+            season_id: recScope.mode === 'year' ? null : (seasonId === 'all' ? null : parseInt(seasonId, 10)),
+            year: recScope.mode === 'year' ? recScope.year : null,
             scope: isTeam ? 'team' : 'individual',
             batting: {},
             bowling: {},
@@ -223,8 +252,18 @@ exports.getRecords = async (req, res, next) => {
             result.fielding.bestFieldingImpact = bestFieldingImpact.map(r => ({ ...r, value: parseFloat(Number(r.value).toFixed(2)) }));
 
             // Awards: Most MoM
-            const momWhere = seasonId === 'all' ? 'WHERE m.status = ?' : 'WHERE m.status = ? AND m.season_id = ?';
-            const momParams = seasonId === 'all' ? ['Completed'] : ['Completed', parseInt(seasonId)];
+            let momWhere;
+            let momParams;
+            if (recScope.mode === 'year') {
+                momWhere = 'WHERE m.status = ? AND m.match_datetime >= ? AND m.match_datetime < ?';
+                momParams = ['Completed', recScope.start, recScope.end];
+            } else if (recScope.mode === 'all') {
+                momWhere = 'WHERE m.status = ?';
+                momParams = ['Completed'];
+            } else {
+                momWhere = 'WHERE m.status = ? AND m.season_id = ?';
+                momParams = ['Completed', parseInt(seasonId, 10)];
+            }
             const [mostMoM] = await pool.query(
                 `SELECT m.man_of_the_match_player_id as player_id, p.name as player_name, COUNT(*) as value
                 FROM matches m
@@ -236,9 +275,19 @@ exports.getRecords = async (req, res, next) => {
             );
             result.awards.mostMoM = mostMoM.map(r => ({ ...r, value: Number(r.value) }));
 
-            // Highest Impact (All-Time or season) - reuse leaderboard-style aggregation
-            const impactWhere = seasonId === 'all' ? 'WHERE m.status = ?' : 'WHERE m.status = ? AND m.season_id = ?';
-            const impactParams = seasonId === 'all' ? ['Completed'] : ['Completed', parseInt(seasonId)];
+            // Highest Impact (All-Time, calendar year, or season)
+            let impactWhere;
+            let impactParams;
+            if (recScope.mode === 'year') {
+                impactWhere = 'WHERE m.status = ? AND m.match_datetime >= ? AND m.match_datetime < ?';
+                impactParams = ['Completed', recScope.start, recScope.end];
+            } else if (recScope.mode === 'all') {
+                impactWhere = 'WHERE m.status = ?';
+                impactParams = ['Completed'];
+            } else {
+                impactWhere = 'WHERE m.status = ? AND m.season_id = ?';
+                impactParams = ['Completed', parseInt(seasonId, 10)];
+            }
             const [highestImpact] = await pool.query(
                 `SELECT p.player_id, p.name as player_name,
                  SUM(COALESCE(pms.batting_impact_points, 0) + COALESCE(pms.bowling_impact_points, 0) + COALESCE(pms.fielding_impact_points, 0)) as value,
@@ -253,9 +302,9 @@ exports.getRecords = async (req, res, next) => {
             );
             result.awards.highestImpact = highestImpact.map(r => ({ ...r, value: parseFloat(Number(r.value).toFixed(2)), matches: r.matches }));
 
-            // MVP Season: rank by MoM count then total impact for selected season
-            if (seasonId !== 'all') {
-                const sid = parseInt(seasonId);
+            // MVP Season: rank by MoM count then total impact for selected season only (not calendar year)
+            if (recScope.mode === 'season') {
+                const sid = parseInt(seasonId, 10);
                 const [mvpSeason] = await pool.query(
                     `SELECT p.player_id, p.name as player_name,
                      (SELECT COUNT(*) FROM matches m2 WHERE m2.man_of_the_match_player_id = p.player_id AND m2.season_id = ? AND m2.status = 'Completed') as mom_count,
@@ -276,69 +325,91 @@ exports.getRecords = async (req, res, next) => {
                 result.awards.mvpSeason = [];
             }
 
-            // Best Debut Season: first-time players in latest completed season only
-            const [latestSeasonRow] = await pool.query(
-                `SELECT MAX(m.season_id) as season_id FROM matches m WHERE m.status = 'Completed'`
-            );
-            const latestCompletedSeasonId = latestSeasonRow[0]?.season_id;
-            if (latestCompletedSeasonId) {
-                const [debutants] = await pool.query(
-                    `SELECT p.player_id, p.name as player_name,
-                     SUM(COALESCE(pms.runs_scored, 0)) as runs,
-                     SUM(COALESCE(pms.wickets_taken, 0)) as wickets,
-                     SUM(COALESCE(pms.batting_impact_points, 0) + COALESCE(pms.bowling_impact_points, 0) + COALESCE(pms.fielding_impact_points, 0)) as total_impact
-                    FROM playermatchstats pms
-                    JOIN players p ON pms.player_id = p.player_id
-                    JOIN matches m ON pms.match_id = m.match_id AND m.season_id = ?
-                    WHERE p.player_id NOT IN (
-                      SELECT DISTINCT pms2.player_id FROM playermatchstats pms2
-                      JOIN matches m2 ON pms2.match_id = m2.match_id
-                      WHERE m2.season_id < ?
-                    )
-                    GROUP BY p.player_id, p.name
-                    ORDER BY total_impact DESC, runs DESC LIMIT ?`,
-                    [latestCompletedSeasonId, latestCompletedSeasonId, TOP_LIMIT]
-                );
-                result.awards.bestDebut = debutants.map(r => ({
-                    ...r,
-                    season_id: latestCompletedSeasonId,
-                    runs: Number(r.runs),
-                    wickets: Number(r.wickets),
-                    total_impact: parseFloat(Number(r.total_impact).toFixed(2)),
-                }));
-            } else {
+            // Best Debut Season: first-time players in latest completed season only (not defined for calendar-year filter)
+            if (recScope.mode === 'year') {
                 result.awards.bestDebut = [];
+            } else {
+                const [latestSeasonRow] = await pool.query(
+                    `SELECT MAX(m.season_id) as season_id FROM matches m WHERE m.status = 'Completed'`
+                );
+                const latestCompletedSeasonId = latestSeasonRow[0]?.season_id;
+                if (latestCompletedSeasonId) {
+                    const [debutants] = await pool.query(
+                        `SELECT p.player_id, p.name as player_name,
+                         SUM(COALESCE(pms.runs_scored, 0)) as runs,
+                         SUM(COALESCE(pms.wickets_taken, 0)) as wickets,
+                         SUM(COALESCE(pms.batting_impact_points, 0) + COALESCE(pms.bowling_impact_points, 0) + COALESCE(pms.fielding_impact_points, 0)) as total_impact
+                        FROM playermatchstats pms
+                        JOIN players p ON pms.player_id = p.player_id
+                        JOIN matches m ON pms.match_id = m.match_id AND m.season_id = ?
+                        WHERE p.player_id NOT IN (
+                          SELECT DISTINCT pms2.player_id FROM playermatchstats pms2
+                          JOIN matches m2 ON pms2.match_id = m2.match_id
+                          WHERE m2.season_id < ?
+                        )
+                        GROUP BY p.player_id, p.name
+                        ORDER BY total_impact DESC, runs DESC LIMIT ?`,
+                        [latestCompletedSeasonId, latestCompletedSeasonId, TOP_LIMIT]
+                    );
+                    result.awards.bestDebut = debutants.map(r => ({
+                        ...r,
+                        season_id: latestCompletedSeasonId,
+                        runs: Number(r.runs),
+                        wickets: Number(r.wickets),
+                        total_impact: parseFloat(Number(r.total_impact).toFixed(2)),
+                    }));
+                } else {
+                    result.awards.bestDebut = [];
+                }
             }
 
             // Part of Champion Side: count how many times a player was in the winning team (squad) for the season final
-            const partOfChampionWhere = seasonId === 'all' ? '' : 'AND finals.season_id = ?';
-            const partOfChampionParams = seasonId === 'all' ? [TOP_LIMIT] : [parseInt(seasonId), TOP_LIMIT];
-            const [partOfChampion] = await pool.query(
-                `SELECT p.player_id, p.name as player_name, COUNT(*) as value
+            let partOfChampionSql = `SELECT p.player_id, p.name as player_name, COUNT(*) as value
                  FROM teamplayers tp
                  JOIN players p ON p.player_id = tp.player_id
                  JOIN (
                    SELECT m.season_id, m.winner_team_id
                    FROM matches m
                    WHERE m.status = 'Completed' AND m.winner_team_id IS NOT NULL
-                   AND m.match_id = (SELECT m2.match_id FROM matches m2 WHERE m2.season_id = m.season_id ORDER BY m2.match_datetime DESC, m2.match_id DESC LIMIT 1)
+                   AND m.match_id = (SELECT m2.match_id FROM matches m2 WHERE m2.season_id = m.season_id ORDER BY m2.match_datetime DESC, m2.match_id DESC LIMIT 1)`;
+            let partOfChampionParams;
+            if (recScope.mode === 'year') {
+                partOfChampionSql += `
+                   AND m.match_datetime >= ? AND m.match_datetime < ?`;
+                partOfChampionParams = [recScope.start, recScope.end, TOP_LIMIT];
+            } else {
+                partOfChampionParams = [];
+                if (recScope.mode === 'season') {
+                    partOfChampionSql += `
+                   AND m.season_id = ?`;
+                    partOfChampionParams.push(parseInt(seasonId, 10));
+                }
+                partOfChampionParams.push(TOP_LIMIT);
+            }
+            partOfChampionSql += `
                  ) finals ON tp.team_id = finals.winner_team_id AND tp.season_id = finals.season_id
-                 WHERE 1=1 ${partOfChampionWhere}
+                 WHERE 1=1
                  GROUP BY p.player_id, p.name
                  ORDER BY value DESC
-                 LIMIT ?`,
-                partOfChampionParams
-            );
+                 LIMIT ?`;
+            const [partOfChampion] = await pool.query(partOfChampionSql, partOfChampionParams);
             result.awards.partOfChampionSide = partOfChampion.map(r => ({ ...r, value: Number(r.value) }));
         }
 
         // ---------- TEAM RECORDS ----------
-        const teamSeasonClause = seasonId === 'all' ? '' : 'AND m.season_id = ?';
-        const teamSeasonParams = seasonId === 'all' ? [] : [parseInt(seasonId)];
+        let teamSeasonClause = '';
+        let teamSeasonParams = [];
+        if (recScope.mode === 'year') {
+            teamSeasonClause = 'AND m.match_datetime >= ? AND m.match_datetime < ?';
+            teamSeasonParams = [recScope.start, recScope.end];
+        } else if (recScope.mode === 'season') {
+            teamSeasonClause = 'AND m.season_id = ?';
+            teamSeasonParams = [parseInt(seasonId, 10)];
+        }
 
         // Highest Team Score: each innings total with batting team
         const [inningsTotals] = await pool.query(
-            `SELECT b.match_id, b.inning_number, SUM(b.runs_scored + COALESCE(b.extra_runs, 0)) AS total
+            `SELECT b.match_id, b.inning_number, SUM(b.runs_scored + COALESCE(b.extra_runs, 0) + COALESCE(b.super_over_runs, 0)) AS total
              FROM ballbyball b JOIN matches m ON b.match_id = m.match_id
              WHERE m.status = 'Completed' ${teamSeasonClause}
              GROUP BY b.match_id, b.inning_number`,
@@ -368,16 +439,25 @@ exports.getRecords = async (req, res, next) => {
         result.team.highestScore = allTeamScores.filter(r => r.value > 0).sort((a, b) => b.value - a.value).slice(0, TOP_LIMIT);
 
         // Most Titles: group by team name (not ID) so same name across seasons counts as one
+        let titlesExtra = '';
+        let titlesParams = [TOP_LIMIT];
+        if (recScope.mode === 'year') {
+            titlesExtra = 'AND m.match_datetime >= ? AND m.match_datetime < ?';
+            titlesParams = [recScope.start, recScope.end, TOP_LIMIT];
+        } else if (recScope.mode === 'season') {
+            titlesExtra = 'AND m.season_id = ?';
+            titlesParams = [parseInt(seasonId, 10), TOP_LIMIT];
+        }
         const [titles] = await pool.query(
             `SELECT wt.name as team_name, COUNT(*) as value
              FROM matches m
              JOIN teams wt ON m.winner_team_id = wt.team_id
              WHERE m.status = 'Completed' AND m.winner_team_id IS NOT NULL
              AND m.match_id IN (SELECT MAX(m2.match_id) FROM matches m2 GROUP BY m2.season_id)
-             ${seasonId === 'all' ? '' : 'AND m.season_id = ?'}
+             ${titlesExtra}
              GROUP BY wt.name
              ORDER BY value DESC LIMIT ?`,
-            seasonId === 'all' ? [TOP_LIMIT] : [...teamSeasonParams, TOP_LIMIT]
+            titlesParams
         );
         result.team.mostTitles = titles.map(r => ({ team_name: r.team_name, value: Number(r.value) }));
 

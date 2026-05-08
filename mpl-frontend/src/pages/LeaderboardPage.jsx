@@ -128,8 +128,15 @@ const LeaderboardTable = ({ title, data, columns }) => {
     );
 };
 
+function buildLeaderboardQueryParams(selectedSeason) {
+    if (selectedSeason === 'all') return { season_id: 'all' };
+    if (selectedSeason.startsWith('year:')) return { season_id: 'all', year: selectedSeason.slice(5) };
+    return { season_id: selectedSeason };
+}
+
 function LeaderboardPage() {
     const [seasons, setSeasons] = useState([]);
+    const [matchYears, setMatchYears] = useState([]);
     const [selectedSeason, setSelectedSeason] = useState('');
     const [leaderboardData, setLeaderboardData] = useState({ batting: null, bowling: null, impact: null, highest_bid: null });
     const [loadingSeasons, setLoadingSeasons] = useState(true);
@@ -141,9 +148,14 @@ function LeaderboardPage() {
         const fetchSeasons = async () => {
             setLoadingSeasons(true);
             try {
-                const { data } = await api.get('/seasons/public');
-                const sortedSeasons = [...toList(data)].sort((a, b) => (b.season_id || 0) - (a.season_id || 0));
+                const [pub, yearsRes] = await Promise.all([
+                    api.get('/seasons/public'),
+                    api.get('/seasons/match-years').catch(() => ({ data: [] })),
+                ]);
+                const sortedSeasons = [...toList(pub.data)].sort((a, b) => (b.season_id || 0) - (a.season_id || 0));
                 setSeasons(sortedSeasons);
+                const yList = Array.isArray(yearsRes.data) ? yearsRes.data : [];
+                setMatchYears(yList.filter((y) => y != null).map((y) => Number(y)).filter((y) => Number.isInteger(y)));
                 if (sortedSeasons.length > 0) {
                     const firstId = sortedSeasons[0].season_id;
                     const num = Number(firstId);
@@ -152,8 +164,8 @@ function LeaderboardPage() {
                 } else {
                     setSelectedSeason('all');
                 }
-            } catch (err) { 
-                setError('Failed to load seasons. Displaying all-time stats.'); 
+            } catch (err) {
+                setError('Failed to load seasons. Displaying all-time stats.');
                 setSelectedSeason('all');
             }
             finally { setLoadingSeasons(false); }
@@ -169,7 +181,7 @@ function LeaderboardPage() {
             // setError(''); 
             setLeaderboardData({ batting: null, bowling: null, impact: null, highest_bid: null });
             try {
-                const params = selectedSeason === 'all' ? { season_id: 'all' } : { season_id: selectedSeason };
+                const params = buildLeaderboardQueryParams(selectedSeason);
                 const { data } = await api.get('/leaderboard', { params });
                 const d = data && typeof data === 'object' ? (data.data && typeof data.data === 'object' ? data.data : data) : {};
                 setLeaderboardData({
@@ -191,7 +203,8 @@ function LeaderboardPage() {
     const battingColumns = [ { key: 'player_name', header: 'Player' }, { key: 'matches', header: 'Mat' }, { key: 'innings', header: 'Inn' }, { key: 'runs', header: 'Runs' }, { key: 'hs', header: 'HS' }, { key: 'avg', header: 'Avg' }, { key: 'sr', header: 'SR' }, { key: 'twos', header: '2s' }, { key: 'fours', header: '4s' } ];
     const bowlingColumns = [ { key: 'player_name', header: 'Player' }, { key: 'matches', header: 'Mat' }, { key: 'overs', header: 'Overs' }, { key: 'wickets', header: 'Wkts' }, { key: 'runs', header: 'Runs' }, { key: 'econ', header: 'Econ' } ];
     const impactColumns = [ { key: 'player_name', header: 'Player' }, { key: 'matches', header: 'Mat' }, { key: 'total_impact', header: 'Total Impact' }, { key: 'avg_impact_per_match', header: 'Avg Impact (per match)' }, { key: 'bat_impact', header: 'Batting' }, { key: 'bowl_impact', header: 'Bowling' }, { key: 'field_impact', header: 'Fielding' } ];
-    const highestBidColumns = selectedSeason === 'all'
+    const useAvgBidColumns = selectedSeason === 'all' || selectedSeason.startsWith('year:');
+    const highestBidColumns = useAvgBidColumns
         ? [
             { key: 'player_name', header: 'Player' },
             { key: 'bid_value', header: 'Avg Bid ($)' },
@@ -226,6 +239,11 @@ function LeaderboardPage() {
                                 </option>
                             );
                         })}
+                        {matchYears.map((y) => (
+                            <option key={`year-${y}`} value={`year:${y}`}>
+                                Calendar year {y}
+                            </option>
+                        ))}
                         <option value="all">
                             All-Time Stats
                         </option>
@@ -250,7 +268,7 @@ function LeaderboardPage() {
                                 {activeTab === 'impact' && <LeaderboardTable title="Top Impact Players" data={leaderboardData.impact} columns={impactColumns} />}
                                 {activeTab === 'highest_bid' && (
                                     <LeaderboardTable
-                                        title={selectedSeason === 'all' ? 'Highest Average Bid Players' : 'Highest Bid Players'}
+                                        title={useAvgBidColumns ? 'Highest Average Bid Players' : 'Highest Bid Players'}
                                         data={leaderboardData.highest_bid}
                                         columns={highestBidColumns}
                                     />
